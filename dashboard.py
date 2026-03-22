@@ -6,6 +6,38 @@ import os
 
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
 
+# ── CSS Custom untuk Menyesuaikan Tampilan ───────────────────────────────────
+# Perubahan ini dilakukan untuk:
+# 1. Menghilangkan margin dan padding default di bagian atas sidebar dan main.
+# 2. Mengatur elemen agar rapat ke sisi kiri.
+# 3. Memberikan kontrol penuh atas penempatan logo dan teks agar sesuai dengan mockup.
+st.markdown(
+    """
+    <style>
+    /* Mengurangi padding di bagian atas sidebar agar elemen lebih rapat ke atas */
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 2rem !important; 
+    }
+    /* Mengurangi margin di bagian atas konten utama agar header rapat ke atas */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+        margin-top: 0rem !important;
+    }
+    /* Memastikan teks "Apotek Veteran Blitar" di sidebar sejajar kiri */
+    [data-testid="stMarkdownContainer"] {
+        text-align: left !important;
+    }
+    /* Memastikan teks title "Dashboard..." di konten utama sejajar kiri */
+    h1 {
+        text-align: left !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+# ─────────────────────────────────────────────────────────────────────────────
+
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 
 KOLOM_WAJIB = [
@@ -37,7 +69,7 @@ st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
     "Pilih Fitur",
-    ["🏠 Beranda", "📋 Tampilkan Stok Obat Hari Ini", "✏️ Ubah Stok Obat Hari Ini", "🖨️ Cetak & Print Stok Obat"],
+    ["🏠 Beranda", "📋 Tampilkan Obat Hari Ini", "✏️ Ubah Stok Obat Hari Ini", "🖨️ Cetak & Print Stok Obat"],
     index=0
 )
 
@@ -61,7 +93,7 @@ if menu == "🏠 Beranda":
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 1 — TAMPILKAN OBAT HARI INI
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "📋 Tampilkan Stok Obat Hari Ini":
+elif menu == "📋 Tampilkan Obat Hari Ini":
     st.title("📋 Tampilkan Stok Obat")
 
     df = load_data()
