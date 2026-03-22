@@ -467,7 +467,7 @@ elif menu == "🛒 Update Stok & Kasir":
             for item in st.session_state.cart:
                 items_html += f"""
                 <div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>
-                    <span style='flex: 2;'>{item['qty']}{item['nama']}</span>
+                    <span style='flex: 2;'>{item['qty']}<span>{item['nama']}</span>
                     <span style='flex: 1; text-align: center;'>{(item['harga'])}</span>
                     <span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span>
                 </div>
