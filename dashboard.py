@@ -438,6 +438,7 @@ elif menu == "🛒 Update Stok & Kasir":
     with col_nota:
         st.subheader("📄 Preview Nota")
 
+        # ── Jam real-time via JavaScript (terupdate setiap detik) ─────────────
         st.markdown(
             """
             <div style="font-family: monospace; font-size: 14px; margin-bottom: 8px;">
@@ -554,7 +555,7 @@ elif menu == "🛒 Update Stok & Kasir":
               <b>081331808585</b>
             </div>
             <div class="dashed"></div>
-            <div>{tgl_nota}</div>
+            <div id="tgl-nota"></div>
             <div class="dashed"></div>
             {items_html}
             <div class="dashed"></div>
@@ -569,6 +570,15 @@ elif menu == "🛒 Update Stok & Kasir":
             <br>
             <button onclick='window.print()' style='padding:6px 16px;background:#2c7be5;color:white;
               border:none;border-radius:4px;cursor:pointer;font-size:12px;'>🖨️ Print Nota</button>
+            <script>
+              (function() {{
+                var now = new Date();
+                var pad = function(n) {{ return String(n).padStart(2, '0'); }};
+                var str = pad(now.getDate()) + '/' + pad(now.getMonth()+1) + '/' + now.getFullYear()
+                        + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+                document.getElementById('tgl-nota').textContent = str;
+              }})();
+            </script>
             </body></html>
             """
             st.download_button(
