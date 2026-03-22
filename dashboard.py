@@ -510,7 +510,9 @@ elif menu == "🛒 Update Stok & Kasir":
                         padding: 16px; border-radius: 8px; max-width: 360px;">
                 <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px;">
                     <b style="font-size: 15px;">APOTEK VETERAN SEHAT BLITAR</b><br>
-                    Jl. Veteran no 64B Blitar Kota (Sebelah Gang Srigading), Blitar 66111<br>
+                    Jl. Veteran no 64B Blitar Kota<br> 
+                    (Sebelah Gang Srigading)<br> 
+                    Blitar 66111<br>
                     <b>081331808585</b>
                 </div>
                 <div style="margin: 10px 0; font-size: 12px;">
@@ -593,7 +595,9 @@ elif menu == "🛒 Update Stok & Kasir":
             </head><body>
             <div class="center">
               <b>APOTEK VETERAN SEHAT BLITAR</b><br>
-              Jl. Veteran no 64B Blitar Kota (Sebelah Gang Srigading), Blitar 66111<br>
+              Jl. Veteran no 64B Blitar Kota<br> 
+              (Sebelah Gang Srigading)<br> 
+              Blitar 66111<br>
               <b>081331808585</b>
             </div>
             <div class="dashed"></div>
