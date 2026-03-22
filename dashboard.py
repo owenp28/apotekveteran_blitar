@@ -69,7 +69,7 @@ st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
     "Pilih Fitur",
-    ["🏠 Beranda", "📋 Tampilkan Stok Obat Hari Ini", "✏️ Ubah Stok Obat Hari Ini", "🖨️ Cetak & Print Stok Obat"],
+    ["🏠 Beranda", "📋 Tampilkan Obat Hari Ini", "✏️ Ubah Stok Obat Hari Ini", "🖨️ Cetak & Print Stok Obat", "🛒 Update Stok & Kasir"],
     index=0
 )
 
@@ -392,6 +392,174 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
         mime="text/html"
     )
     col_d3.caption("Buka file HTML → klik tombol Print → pilih 'Save as PDF'")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FITUR 4 — UPDATE STOK & KASIR
+# ══════════════════════════════════════════════════════════════════════════════
+elif menu == "🛒 Update Stok & Kasir":
+    st.title("✏️ Kasir & Update Stok Obat")
+
+    df = load_data()
+    if df is None:
+        st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **Tampilkan Obat Hari Ini**.")
+        st.stop()
+
+    # State untuk menyimpan keranjang belanja sementara
+    if "cart" not in st.session_state:
+        st.session_state.cart = []
+
+    col_input, col_nota = st.columns([1, 1])
+
+    with col_input:
+        st.subheader("🛒 Input Penjualan")
+        with st.form("form_kasir"):
+            list_obat = df["Nama Obat"].unique().tolist()
+            nama_obat = st.selectbox("Pilih Obat", list_obat)
+            jumlah = st.number_input("Jumlah Beli", min_value=1, value=1)
+            bayar_tunai = st.number_input("Nominal Bayar (Rp)", min_value=0, step=500)
+
+            add_to_cart = st.form_submit_button("➕ Tambah ke Nota")
+
+            if add_to_cart:
+                data_obat = df[df["Nama Obat"] == nama_obat].iloc[-1]
+                subtotal = data_obat["Harga Satuan (Rp)"] * jumlah
+                st.session_state.cart.append({
+                    "nama": nama_obat,
+                    "qty": jumlah,
+                    "harga": data_obat["Harga Satuan (Rp)"],
+                    "subtotal": subtotal,
+                    "kategori": data_obat["Kategori"],
+                    "satuan": data_obat["Satuan"],
+                    "supplier": data_obat["Supplier"],
+                    "tgl_exp": data_obat["Tanggal Kadaluarsa"]
+                })
+                st.success(f"{nama_obat} ditambah ke nota!")
+
+    with col_nota:
+        st.subheader("📄 Preview Nota")
+        if st.session_state.cart:
+            total_belanja = sum(item["subtotal"] for item in st.session_state.cart)
+            kembali = bayar_tunai - total_belanja
+            tgl_nota = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+            items_html = ""
+            for item in st.session_state.cart:
+                items_html += f"""
+                <div style='display: flex; justify-content: space-between;'>
+                    <span>{item['qty']} {item['nama']}</span>
+                    <span>{format_rupiah(item['subtotal'])}</span>
+                </div>
+                <div style='font-size: 10px; margin-bottom: 5px;'>&nbsp;&nbsp;@{format_rupiah(item['harga'])}</div>
+                """
+
+            nota_html = f"""
+            <div style="font-family: monospace; font-size: 13px; border: 1px solid #ccc;
+                        padding: 16px; border-radius: 8px; max-width: 360px;">
+                <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px;">
+                    <b style="font-size: 15px;">PT. SUMBER SEHAT MEDICA FARMA</b><br>
+                    Jl. Cepaka 16A RT 01/10 Sukorejo BLT<br>
+                    Npwp : 061.096.980.0-653.000<br>
+                    <b>VETERAN SEHAT</b>
+                </div>
+                <div style="margin: 10px 0; font-size: 12px;">
+                    {tgl_nota}<br>
+                    -------------------------------------
+                </div>
+                {items_html}
+                <div style="border-top: 1px dashed #000; margin-top: 10px; padding-top: 5px;">
+                    <div style='display: flex; justify-content: space-between;'><b>Total</b> <b>{format_rupiah(total_belanja)}</b></div>
+                    <div style='display: flex; justify-content: space-between;'>Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
+                    <div style='display: flex; justify-content: space-between;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
+                </div>
+                <div style="text-align: center; margin-top: 20px; font-size: 10px;">
+                    - Belanja tanpa struk/nota gratis -<br>
+                    - Harga sudah termasuk PPN -
+                </div>
+            </div>
+            """
+            st.markdown(nota_html, unsafe_allow_html=True)
+
+            st.markdown("")
+            col_simpan, col_reset = st.columns(2)
+
+            with col_simpan:
+                if st.button("💾 Simpan Transaksi & Update Stok", type="primary"):
+                    new_rows = []
+                    for item in st.session_state.cart:
+                        prev_stock = df[df["Nama Obat"] == item["nama"]]["Stok Akhir"].iloc[-1]
+                        stok_baru = max(int(prev_stock) - item["qty"], 0)
+                        new_rows.append({
+                            "Tanggal": pd.Timestamp(date.today()),
+                            "Nama Obat": item["nama"],
+                            "Kategori": item["kategori"],
+                            "Satuan": item["satuan"],
+                            "Stok Masuk": 0,
+                            "Stok Keluar": item["qty"],
+                            "Stok Akhir": stok_baru,
+                            "Harga Satuan (Rp)": item["harga"],
+                            "Total Nilai (Rp)": stok_baru * item["harga"],
+                            "Tanggal Kadaluarsa": item["tgl_exp"],
+                            "Supplier": item["supplier"],
+                            "Keterangan": "Penjualan Kasir"
+                        })
+                    df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
+                    save_data(df)
+                    st.session_state.cart = []
+                    st.success("✅ Stok berhasil diupdate! Transaksi tersimpan.")
+                    st.rerun()
+
+            with col_reset:
+                if st.button("🗑️ Kosongkan Keranjang", type="secondary"):
+                    st.session_state.cart = []
+                    st.rerun()
+
+            # ── Unduh Nota HTML untuk Print ───────────────────────────────────
+            st.markdown("---")
+            nota_print_html = f"""
+            <html><head>
+            <meta charset='utf-8'>
+            <title>Nota Apotek Veteran Blitar</title>
+            <style>
+              body {{ font-family: monospace; font-size: 12px; margin: 20px; width: 300px; }}
+              .center {{ text-align: center; }}
+              .row {{ display: flex; justify-content: space-between; }}
+              .dashed {{ border-top: 1px dashed #000; margin: 8px 0; }}
+              @media print {{ button {{ display: none; }} }}
+            </style>
+            </head><body>
+            <div class="center">
+              <b>APOTEK VETERAN SEHAT BLITAR</b><br>
+              Jl. Veteran no 64B Blitar Kota (Sebelah Gang Srigading), Blitar 66111<br>
+              Npwp : 061.096.980.0-653.000<br>
+              <b>VETERAN SEHAT</b>
+            </div>
+            <div class="dashed"></div>
+            <div>{tgl_nota}</div>
+            <div class="dashed"></div>
+            {items_html}
+            <div class="dashed"></div>
+            <div class="row"><b>Total</b><b>{format_rupiah(total_belanja)}</b></div>
+            <div class="row"><span>Bayar</span><span>{format_rupiah(bayar_tunai)}</span></div>
+            <div class="row"><span>Kembali</span><span>{format_rupiah(max(0, kembali))}</span></div>
+            <div class="dashed"></div>
+            <div class="center" style="font-size:10px;">
+              - Belanja tanpa struk/nota gratis -<br>
+              - Harga sudah termasuk PPN -
+            </div>
+            <br>
+            <button onclick='window.print()' style='padding:6px 16px;background:#2c7be5;color:white;
+              border:none;border-radius:4px;cursor:pointer;font-size:12px;'>🖨️ Print Nota</button>
+            </body></html>
+            """
+            st.download_button(
+                label="🖨️ Unduh & Print Nota",
+                data=nota_print_html.encode("utf-8"),
+                file_name=f"nota_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html",
+                mime="text/html"
+            )
+            st.caption("Buka file HTML di browser → klik tombol Print → cetak atau simpan sebagai PDF")
+        else:
+            st.info("Keranjang kosong. Tambahkan obat dari form di sebelah kiri.")
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
