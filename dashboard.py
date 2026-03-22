@@ -69,7 +69,7 @@ st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
     "Pilih Fitur",
-    ["🏠 Beranda", "📋 Tampilkan Obat Hari Ini", "✏️ Ubah Stok Obat Hari Ini", "🖨️ Cetak & Print Stok Obat"],
+    ["🏠 Beranda", "📋 Tampilkan Stok Obat Hari Ini", "✏️ Ubah Stok Obat Hari Ini", "🖨️ Cetak & Print Stok Obat"],
     index=0
 )
 
@@ -77,7 +77,7 @@ menu = st.sidebar.radio(
 # BERANDA
 # ══════════════════════════════════════════════════════════════════════════════
 if menu == "🏠 Beranda":
-    st.title("💊 Dashboard Stok Obat — Apotek Veteran Blitar")
+    st.title("💊 Dashboard Apotek Veteran Blitar")
     st.markdown("Selamat datang! Pilih fitur di sidebar untuk mulai mengelola stok obat.")
     st.markdown("---")
     col1, col2, col3 = st.columns(3)
@@ -93,7 +93,7 @@ if menu == "🏠 Beranda":
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 1 — TAMPILKAN OBAT HARI INI
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "📋 Tampilkan Obat Hari Ini":
+elif menu == "📋 Tampilkan Stok Obat Hari Ini":
     st.title("📋 Tampilkan Stok Obat")
 
     df = load_data()
