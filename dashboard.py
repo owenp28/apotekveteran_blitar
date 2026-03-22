@@ -256,25 +256,25 @@ elif menu == "✏️ Ubah Stok Obat Hari Ini":
         df_show["Tanggal Kadaluarsa"] = df_show["Tanggal Kadaluarsa"].dt.strftime("%d-%m-%Y")
         st.dataframe(df_show, use_container_width=True, height=300)
 
-        if "idx_hapus_input" not in st.session_state:
-            st.session_state.idx_hapus_input = 0
+        if "idx_hapus_val" not in st.session_state:
+            st.session_state.idx_hapus_val = 0
 
         idx_hapus = st.number_input(
             "Masukkan ID Baris yang akan dihapus",
             min_value=0,
             max_value=max(len(df)-1, 0),
-            value=st.session_state.idx_hapus_input,
-            key="idx_hapus_input"
+            key="idx_hapus_widget"
         )
         if st.button("🗑️ Hapus Baris", type="secondary"):
-            if idx_hapus in df.index:
-                df = df.drop(index=idx_hapus).reset_index(drop=True)
+            target = st.session_state["idx_hapus_widget"]
+            if target in df.index:
+                df = df.drop(index=target).reset_index(drop=True)
                 save_data(df)
-                st.session_state.idx_hapus_input = 0
-                st.success(f"Baris ID {idx_hapus} berhasil dihapus.")
+                st.success(f"Baris ID {target} berhasil dihapus.")
                 st.rerun()
             else:
-                st.error(f"ID Baris {idx_hapus} tidak ditemukan.")
+                st.error(f"ID Baris {target} tidak ditemukan.")
+
                 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 3 — CETAK & PRINT STOK OBAT
