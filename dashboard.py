@@ -411,6 +411,8 @@ elif menu == "🛒 Update Stok & Kasir":
         st.session_state.checkout_mode = False
     if "bayar_tunai" not in st.session_state:
         st.session_state.bayar_tunai = 0
+    if "nota_confirmed" not in st.session_state:
+        st.session_state.nota_confirmed = False
 
     col_input, col_nota = st.columns([1, 1])
 
@@ -447,16 +449,93 @@ elif menu == "🛒 Update Stok & Kasir":
             st.info(f"🛒 {len(st.session_state.cart)} item dalam keranjang. Masukkan nominal bayar.")
             bayar_input = st.number_input("Nominal Bayar (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
             st.session_state.bayar_tunai = bayar_input
+
             col_teliti, col_submit = st.columns(2)
             with col_teliti:
                 if st.button("🔍 Teliti Kembali", type="secondary", use_container_width=True):
                     st.session_state.checkout_mode = False
+                    st.session_state.nota_confirmed = False
                     st.rerun()
             with col_submit:
-                if st.button("✅ Submit Transaksi", type="primary", use_container_width=True):
+                if st.button("✅ Submit Pembayaran", type="primary", use_container_width=True):
                     if st.session_state.bayar_tunai <= 0:
                         st.error("Nominal bayar harus diisi!")
                     else:
+                        st.session_state.nota_confirmed = True
+                        st.rerun()
+
+    with col_nota:
+        st.subheader("📄 Preview Nota")
+
+        # ── Jam real-time via JavaScript (terupdate setiap detik) ─────────────
+        st.markdown(
+            """
+            <div style="font-family: monospace; font-size: 14px; margin-bottom: 8px;">
+                🕐 Waktu Sekarang: <span id="realtime-clock" style="font-weight: bold;"></span>
+            </div>
+            <script>
+                function updateClock() {
+                    const now = new Date();
+                    const pad = n => String(n).padStart(2, '0');
+                    const str = pad(now.getDate()) + '/' + pad(now.getMonth()+1) + '/' + now.getFullYear()
+                              + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+                    const el = document.getElementById('realtime-clock');
+                    if (el) el.textContent = str;
+                }
+                updateClock();
+                setInterval(updateClock, 1000);
+            </script>
+            """,
+            unsafe_allow_html=True
+        )
+
+        if st.session_state.cart:
+            total_belanja = sum(item["subtotal"] for item in st.session_state.cart)
+            bayar_tunai = st.session_state.bayar_tunai if st.session_state.nota_confirmed else 0
+            kembali = bayar_tunai - total_belanja
+            tgl_nota = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+            items_html = ""
+            for item in st.session_state.cart:
+                items_html += f"""
+                <div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>
+                    <span style='flex: 2;'>{item['nama']}</span>
+                    <span style='flex: 1; text-align: center;'>{item['qty']} x {format_rupiah(item['harga'])}</span>
+                    <span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span>
+                </div>
+                """
+
+            nota_html = f"""
+            <div style="font-family: monospace; font-size: 13px; border: 1px solid #ccc;
+                        padding: 16px; border-radius: 8px; max-width: 360px;">
+                <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px;">
+                    <b style="font-size: 15px;">APOTEK VETERAN SEHAT BLITAR</b><br>
+                    Jl. Veteran no 64B Blitar Kota (Sebelah Gang Srigading), Blitar 66111<br>
+                    <b>081331808585</b>
+                </div>
+                <div style="margin: 10px 0; font-size: 12px;">
+                    {tgl_nota}<br>
+                    -------------------------------------
+                </div>
+                {items_html}
+                <div style="border-top: 1px dashed #000; margin-top: 10px; padding-top: 5px;">
+                    <div style='display: flex; justify-content: space-between;'><b>Total</b> <b>{format_rupiah(total_belanja)}</b></div>
+                    <div style='display: flex; justify-content: space-between;'>Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
+                    <div style='display: flex; justify-content: space-between;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
+                </div>
+                <div style="text-align: center; margin-top: 20px; font-size: 10px;">
+                    - Belanja tanpa struk/nota gratis -<br>
+                    - Harga sudah termasuk PPN -
+                </div>
+            </div>
+            """
+            st.markdown(nota_html, unsafe_allow_html=True)
+
+            st.markdown("")
+            if st.session_state.nota_confirmed:
+                col_simpan, col_reset = st.columns(2)
+                with col_simpan:
+                    if st.button("💾 Simpan & Update Stok", type="primary", use_container_width=True):
                         new_rows = []
                         for item in st.session_state.cart:
                             prev_stock = df[df["Nama Obat"] == item["nama"]]["Stok Akhir"].iloc[-1]
@@ -480,113 +559,22 @@ elif menu == "🛒 Update Stok & Kasir":
                         st.session_state.cart = []
                         st.session_state.checkout_mode = False
                         st.session_state.bayar_tunai = 0
+                        st.session_state.nota_confirmed = False
                         st.success("✅ Transaksi berhasil disimpan!")
                         st.rerun()
-                        
-    with col_nota:
-        st.subheader("📄 Preview Nota")
-
-        # ── Jam real-time via JavaScript (terupdate setiap detik) ─────────────
-        st.markdown(
-            """
-            <div style="font-family: monospace; font-size: 14px; margin-bottom: 8px;">
-            </div>
-            <script>
-                function updateClock() {
-                    const now = new Date();
-                    const pad = n => String(n).padStart(2, '0');
-                    const str = pad(now.getDate()) + '/' + pad(now.getMonth()+1) + '/' + now.getFullYear()
-                              + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
-                    const el = document.getElementById('realtime-clock');
-                    if (el) el.textContent = str;
-                }
-                updateClock();
-                setInterval(updateClock, 1000);
-            </script>
-            """,
-            unsafe_allow_html=True
-        )
-
-        if st.session_state.cart:
-            total_belanja = sum(item["subtotal"] for item in st.session_state.cart)
-            bayar_tunai = st.session_state.bayar_tunai
-            kembali = bayar_tunai - total_belanja
-            tgl_nota = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-
-            items_html = ""
-            for item in st.session_state.cart:
-                items_html += f"""
-                <div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>
-                    <span style='flex: 2;'>{item['qty']} {item['nama']}</span>
-                    <span style='flex: 1; text-align: center;'>{(item['harga'])}</span>
-                    <span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span>
-                </div>
-                """
-
-            nota_html = f"""
-            <div style="font-family: monospace; font-size: 13px; border: 1px solid #ccc;
-                        padding: 16px; border-radius: 8px; max-width: 360px;">
-                <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px;">
-                    <b style="font-size: 15px;">APOTEK VETERAN SEHAT BLITAR</b><br>
-                    Jl. Veteran no 64B, Kota Blitar (Sebelah Gang Srigading),<br> 
-                    Blitar 66111<br>
-                    <b>081331808585</b>
-                </div>
-                <div style="margin: 10px 0; font-size: 12px;">
-                    {tgl_nota}<br>
-                    -------------------------------------
-                </div>
-                {items_html}
-                <div style="border-top: 1px dashed #000; margin-top: 10px; padding-top: 5px;">
-                    <div style='display: flex; justify-content: space-between;'><b>Total</b> <b>{format_rupiah(total_belanja)}</b></div>
-                    <div style='display: flex; justify-content: space-between;'>Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
-                    <div style='display: flex; justify-content: space-between;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
-                </div>
-                <div style="text-align: center; margin-top: 20px; font-size: 10px;">
-                    - Belanja tanpa struk/nota gratis -<br>
-                    - Harga sudah termasuk PPN -
-                </div>
-            </div>
-            """
-            st.markdown(nota_html, unsafe_allow_html=True)
-
-            st.markdown("")
-            col_simpan, col_reset = st.columns(2)
-
-            with col_simpan:
-                simpan_disabled = not st.session_state.checkout_mode
-                if st.button("💾 Simpan Transaksi & Update Stok", type="primary", disabled=simpan_disabled):
-                    new_rows = []
-                    for item in st.session_state.cart:
-                        prev_stock = df[df["Nama Obat"] == item["nama"]]["Stok Akhir"].iloc[-1]
-                        stok_baru = max(int(prev_stock) - item["qty"], 0)
-                        new_rows.append({
-                            "Tanggal": pd.Timestamp(date.today()),
-                            "Nama Obat": item["nama"],
-                            "Kategori": item["kategori"],
-                            "Satuan": item["satuan"],
-                            "Stok Masuk": 0,
-                            "Stok Keluar": item["qty"],
-                            "Stok Akhir": stok_baru,
-                            "Harga Satuan (Rp)": item["harga"],
-                            "Total Nilai (Rp)": stok_baru * item["harga"],
-                            "Tanggal Kadaluarsa": item["tgl_exp"],
-                            "Supplier": item["supplier"],
-                            "Keterangan": "Penjualan Kasir"
-                        })
-                    df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
-                    save_data(df)
-                    st.session_state.cart = []
-                    st.session_state.checkout_mode = False
-                    st.session_state.bayar_tunai = 0
-                    st.success("✅ Stok berhasil diupdate! Transaksi tersimpan.")
-                    st.rerun()
-
-            with col_reset:
+                with col_reset:
+                    if st.button("🗑️ Kosongkan Keranjang", type="secondary", use_container_width=True):
+                        st.session_state.cart = []
+                        st.session_state.checkout_mode = False
+                        st.session_state.bayar_tunai = 0
+                        st.session_state.nota_confirmed = False
+                        st.rerun()
+            else:
                 if st.button("🗑️ Kosongkan Keranjang", type="secondary"):
                     st.session_state.cart = []
                     st.session_state.checkout_mode = False
                     st.session_state.bayar_tunai = 0
+                    st.session_state.nota_confirmed = False
                     st.rerun()
 
             # ── Unduh Nota HTML untuk Print ───────────────────────────────────
@@ -605,8 +593,7 @@ elif menu == "🛒 Update Stok & Kasir":
             </head><body>
             <div class="center">
               <b>APOTEK VETERAN SEHAT BLITAR</b><br>
-              Jl. Veteran no 64B, Kota Blitar (Sebelah Gang Srigading),<br> 
-              Blitar 66111<br>
+              Jl. Veteran no 64B Blitar Kota (Sebelah Gang Srigading), Blitar 66111<br>
               <b>081331808585</b>
             </div>
             <div class="dashed"></div>
