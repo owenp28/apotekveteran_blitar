@@ -447,10 +447,42 @@ elif menu == "🛒 Update Stok & Kasir":
             st.info(f"🛒 {len(st.session_state.cart)} item dalam keranjang. Masukkan nominal bayar.")
             bayar_input = st.number_input("Nominal Bayar (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
             st.session_state.bayar_tunai = bayar_input
-            if st.button("↩️ Tambah Item Lagi", type="secondary"):
-                st.session_state.checkout_mode = False
-                st.rerun()
-
+            col_teliti, col_submit = st.columns(2)
+            with col_teliti:
+                if st.button("🔍 Teliti Kembali", type="secondary", use_container_width=True):
+                    st.session_state.checkout_mode = False
+                    st.rerun()
+            with col_submit:
+                if st.button("✅ Submit Transaksi", type="primary", use_container_width=True):
+                    if st.session_state.bayar_tunai <= 0:
+                        st.error("Nominal bayar harus diisi!")
+                    else:
+                        new_rows = []
+                        for item in st.session_state.cart:
+                            prev_stock = df[df["Nama Obat"] == item["nama"]]["Stok Akhir"].iloc[-1]
+                            stok_baru = max(int(prev_stock) - item["qty"], 0)
+                            new_rows.append({
+                                "Tanggal": pd.Timestamp(date.today()),
+                                "Nama Obat": item["nama"],
+                                "Kategori": item["kategori"],
+                                "Satuan": item["satuan"],
+                                "Stok Masuk": 0,
+                                "Stok Keluar": item["qty"],
+                                "Stok Akhir": stok_baru,
+                                "Harga Satuan (Rp)": item["harga"],
+                                "Total Nilai (Rp)": stok_baru * item["harga"],
+                                "Tanggal Kadaluarsa": item["tgl_exp"],
+                                "Supplier": item["supplier"],
+                                "Keterangan": "Penjualan Kasir"
+                            })
+                        df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
+                        save_data(df)
+                        st.session_state.cart = []
+                        st.session_state.checkout_mode = False
+                        st.session_state.bayar_tunai = 0
+                        st.success("✅ Transaksi berhasil disimpan!")
+                        st.rerun()
+                        
     with col_nota:
         st.subheader("📄 Preview Nota")
 
@@ -458,7 +490,6 @@ elif menu == "🛒 Update Stok & Kasir":
         st.markdown(
             """
             <div style="font-family: monospace; font-size: 14px; margin-bottom: 8px;">
-                🕐 Waktu Sekarang: <span id="realtime-clock" style="font-weight: bold;"></span>
             </div>
             <script>
                 function updateClock() {
@@ -486,8 +517,8 @@ elif menu == "🛒 Update Stok & Kasir":
             for item in st.session_state.cart:
                 items_html += f"""
                 <div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>
-                    <span style='flex: 2;'>{item['nama']}</span>
-                    <span style='flex: 1; text-align: center;'>{item['qty']} x {format_rupiah(item['harga'])}</span>
+                    <span style='flex: 2;'>{item['qty']} {item['nama']}</span>
+                    <span style='flex: 1; text-align: center;'>{(item['harga'])}</span>
                     <span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span>
                 </div>
                 """
@@ -497,7 +528,8 @@ elif menu == "🛒 Update Stok & Kasir":
                         padding: 16px; border-radius: 8px; max-width: 360px;">
                 <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px;">
                     <b style="font-size: 15px;">APOTEK VETERAN SEHAT BLITAR</b><br>
-                    Jl. Veteran no 64B Blitar Kota (Sebelah Gang Srigading), Blitar 66111<br>
+                    Jl. Veteran no 64B, Kota Blitar (Sebelah Gang Srigading),<br> 
+                    Blitar 66111<br>
                     <b>081331808585</b>
                 </div>
                 <div style="margin: 10px 0; font-size: 12px;">
@@ -573,7 +605,8 @@ elif menu == "🛒 Update Stok & Kasir":
             </head><body>
             <div class="center">
               <b>APOTEK VETERAN SEHAT BLITAR</b><br>
-              Jl. Veteran no 64B Blitar Kota (Sebelah Gang Srigading), Blitar 66111<br>
+              Jl. Veteran no 64B, Kota Blitar (Sebelah Gang Srigading),<br> 
+              Blitar 66111<br>
               <b>081331808585</b>
             </div>
             <div class="dashed"></div>
