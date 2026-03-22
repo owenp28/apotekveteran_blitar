@@ -437,6 +437,28 @@ elif menu == "🛒 Update Stok & Kasir":
 
     with col_nota:
         st.subheader("📄 Preview Nota")
+
+        st.markdown(
+            """
+            <div style="font-family: monospace; font-size: 14px; margin-bottom: 8px;">
+                🕐 Waktu Sekarang: <span id="realtime-clock" style="font-weight: bold;"></span>
+            </div>
+            <script>
+                function updateClock() {
+                    const now = new Date();
+                    const pad = n => String(n).padStart(2, '0');
+                    const str = pad(now.getDate()) + '/' + pad(now.getMonth()+1) + '/' + now.getFullYear()
+                              + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+                    const el = document.getElementById('realtime-clock');
+                    if (el) el.textContent = str;
+                }
+                updateClock();
+                setInterval(updateClock, 1000);
+            </script>
+            """,
+            unsafe_allow_html=True
+        )
+
         if st.session_state.cart:
             total_belanja = sum(item["subtotal"] for item in st.session_state.cart)
             kembali = bayar_tunai - total_belanja
