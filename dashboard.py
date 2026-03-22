@@ -563,6 +563,7 @@ elif menu == "🛒 Update Stok & Kasir":
                 <div style="text-align: center; margin-top: 20px; font-size: 10px;">
                     - Belanja tanpa struk/nota gratis -<br>
                     - Harga sudah termasuk PPN -
+                    - Barang yang sudah dibeli tidak dapat dikembalikan -
                 </div>
             </div>
             """
@@ -647,6 +648,7 @@ elif menu == "🛒 Update Stok & Kasir":
             <div class="center" style="font-size:10px;">
               - Belanja tanpa struk/nota gratis -<br>
               - Harga sudah termasuk PPN -
+              - Barang yang sudah dibeli tidak dapat dikembalikan -
             </div>
             <br>
             <button onclick='window.print()' style='padding:6px 16px;background:#2c7be5;color:white;
