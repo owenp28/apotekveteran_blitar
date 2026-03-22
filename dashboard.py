@@ -69,7 +69,7 @@ st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
     "Pilih Fitur",
-    ["🏠 Beranda", "📋 Tampilkan Obat Hari Ini", "✏️ Ubah Stok Obat Hari Ini", "🖨️ Cetak & Print Stok Obat", "🛒 Update Stok & Kasir"],
+    ["🏠 Beranda", "✏️ Ubah Stok Obat Hari Ini", "🖨️ Cetak & Print Stok Obat", "🛒 Update Stok & Kasir"],
     index=0
 )
 
