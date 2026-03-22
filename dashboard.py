@@ -407,34 +407,50 @@ elif menu == "🛒 Update Stok & Kasir":
     # State untuk menyimpan keranjang belanja sementara
     if "cart" not in st.session_state:
         st.session_state.cart = []
+    if "checkout_mode" not in st.session_state:
+        st.session_state.checkout_mode = False
+    if "bayar_tunai" not in st.session_state:
+        st.session_state.bayar_tunai = 0
 
     col_input, col_nota = st.columns([1, 1])
 
     with col_input:
         st.subheader("🛒 Input Penjualan")
-        with st.form("form_kasir"):
-            list_obat = df["Nama Obat"].unique().tolist()
-            nama_obat = st.selectbox("Pilih Obat", list_obat)
-            jumlah = st.number_input("Jumlah Beli", min_value=1, value=1)
-            bayar_tunai = st.number_input("Nominal Bayar (Rp)", min_value=0, step=500)
 
-            add_to_cart = st.form_submit_button("➕ Tambah ke Nota")
+        if not st.session_state.checkout_mode:
+            with st.form("form_kasir"):
+                list_obat = df["Nama Obat"].unique().tolist()
+                nama_obat = st.selectbox("Pilih Obat", list_obat)
+                jumlah = st.number_input("Jumlah Beli", min_value=1, value=1)
+                add_to_cart = st.form_submit_button("➕ Tambah ke Nota")
 
-            if add_to_cart:
-                data_obat = df[df["Nama Obat"] == nama_obat].iloc[-1]
-                subtotal = data_obat["Harga Satuan (Rp)"] * jumlah
-                st.session_state.cart.append({
-                    "nama": nama_obat,
-                    "qty": jumlah,
-                    "harga": data_obat["Harga Satuan (Rp)"],
-                    "subtotal": subtotal,
-                    "kategori": data_obat["Kategori"],
-                    "satuan": data_obat["Satuan"],
-                    "supplier": data_obat["Supplier"],
-                    "tgl_exp": data_obat["Tanggal Kadaluarsa"]
-                })
-                st.success(f"{nama_obat} ditambah ke nota!")
+                if add_to_cart:
+                    data_obat = df[df["Nama Obat"] == nama_obat].iloc[-1]
+                    subtotal = data_obat["Harga Satuan (Rp)"] * jumlah
+                    st.session_state.cart.append({
+                        "nama": nama_obat,
+                        "qty": jumlah,
+                        "harga": data_obat["Harga Satuan (Rp)"],
+                        "subtotal": subtotal,
+                        "kategori": data_obat["Kategori"],
+                        "satuan": data_obat["Satuan"],
+                        "supplier": data_obat["Supplier"],
+                        "tgl_exp": data_obat["Tanggal Kadaluarsa"]
+                    })
+                    st.success(f"{nama_obat} ditambah ke nota!")
 
+            if st.session_state.cart:
+                if st.button("✅ Selesai Menambah Item", type="primary"):
+                    st.session_state.checkout_mode = True
+                    st.rerun()
+        else:
+            st.info(f"🛒 {len(st.session_state.cart)} item dalam keranjang. Masukkan nominal bayar.")
+            bayar_input = st.number_input("Nominal Bayar (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
+            st.session_state.bayar_tunai = bayar_input
+            if st.button("↩️ Tambah Item Lagi", type="secondary"):
+                st.session_state.checkout_mode = False
+                st.rerun()
+                
     with col_nota:
         st.subheader("📄 Preview Nota")
 
