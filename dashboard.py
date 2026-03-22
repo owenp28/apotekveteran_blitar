@@ -450,7 +450,7 @@ elif menu == "🛒 Update Stok & Kasir":
             if st.button("↩️ Tambah Item Lagi", type="secondary"):
                 st.session_state.checkout_mode = False
                 st.rerun()
-                
+
     with col_nota:
         st.subheader("📄 Preview Nota")
 
@@ -458,6 +458,8 @@ elif menu == "🛒 Update Stok & Kasir":
         st.markdown(
             """
             <div style="font-family: monospace; font-size: 14px; margin-bottom: 8px;">
+                🕐 Waktu Sekarang: <span id="realtime-clock" style="font-weight: bold;"></span>
+            </div>
             <script>
                 function updateClock() {
                     const now = new Date();
@@ -476,15 +478,16 @@ elif menu == "🛒 Update Stok & Kasir":
 
         if st.session_state.cart:
             total_belanja = sum(item["subtotal"] for item in st.session_state.cart)
-            kembali = bayar - total
+            bayar_tunai = st.session_state.bayar_tunai
+            kembali = bayar_tunai - total_belanja
             tgl_nota = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
             items_html = ""
             for item in st.session_state.cart:
                 items_html += f"""
                 <div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>
-                    <span style='flex: 2;'>{item['qty']} {item['nama']}</span>
-                    <span style='flex: 1; text-align: center;'>{(item['harga'])}</span>
+                    <span style='flex: 2;'>{item['nama']}</span>
+                    <span style='flex: 1; text-align: center;'>{item['qty']} x {format_rupiah(item['harga'])}</span>
                     <span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span>
                 </div>
                 """
@@ -494,9 +497,7 @@ elif menu == "🛒 Update Stok & Kasir":
                         padding: 16px; border-radius: 8px; max-width: 360px;">
                 <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px;">
                     <b style="font-size: 15px;">APOTEK VETERAN SEHAT BLITAR</b><br>
-                    Jl. Veteran no 64B Blitar Kota<br> 
-                    (Sebelah Gang Srigading)<br>
-                    Blitar 66111<br>
+                    Jl. Veteran no 64B Blitar Kota (Sebelah Gang Srigading), Blitar 66111<br>
                     <b>081331808585</b>
                 </div>
                 <div style="margin: 10px 0; font-size: 12px;">
@@ -521,7 +522,8 @@ elif menu == "🛒 Update Stok & Kasir":
             col_simpan, col_reset = st.columns(2)
 
             with col_simpan:
-                if st.button("💾 Simpan Transaksi & Update Stok", type="primary"):
+                simpan_disabled = not st.session_state.checkout_mode
+                if st.button("💾 Simpan Transaksi & Update Stok", type="primary", disabled=simpan_disabled):
                     new_rows = []
                     for item in st.session_state.cart:
                         prev_stock = df[df["Nama Obat"] == item["nama"]]["Stok Akhir"].iloc[-1]
@@ -543,12 +545,16 @@ elif menu == "🛒 Update Stok & Kasir":
                     df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
                     save_data(df)
                     st.session_state.cart = []
+                    st.session_state.checkout_mode = False
+                    st.session_state.bayar_tunai = 0
                     st.success("✅ Stok berhasil diupdate! Transaksi tersimpan.")
                     st.rerun()
 
             with col_reset:
                 if st.button("🗑️ Kosongkan Keranjang", type="secondary"):
                     st.session_state.cart = []
+                    st.session_state.checkout_mode = False
+                    st.session_state.bayar_tunai = 0
                     st.rerun()
 
             # ── Unduh Nota HTML untuk Print ───────────────────────────────────
@@ -567,9 +573,7 @@ elif menu == "🛒 Update Stok & Kasir":
             </head><body>
             <div class="center">
               <b>APOTEK VETERAN SEHAT BLITAR</b><br>
-              Jl. Veteran no 64B Blitar Kota<br> 
-              (Sebelah Gang Srigading)<br>
-              Blitar 66111<br>
+              Jl. Veteran no 64B Blitar Kota (Sebelah Gang Srigading), Blitar 66111<br>
               <b>081331808585</b>
             </div>
             <div class="dashed"></div>
