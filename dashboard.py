@@ -471,7 +471,6 @@ elif menu == "🛒 Update Stok & Kasir":
         st.markdown(
             """
             <div style="font-family: monospace; font-size: 14px; margin-bottom: 8px;">
-                🕐 Waktu Sekarang: <span id="realtime-clock" style="font-weight: bold;"></span>
             </div>
             <script>
                 function updateClock() {
