@@ -442,6 +442,29 @@ elif menu == "🛒 Update Stok & Kasir":
                     st.success(f"{nama_obat} ditambah ke nota!")
 
             if st.session_state.cart:
+                st.markdown("**🧾 Item dalam keranjang:**")
+                for i, item in enumerate(st.session_state.cart):
+                    c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
+                    c1.write(f"{item['nama']}")
+                    c2.write(f"x{item['qty']}")
+                    c3.write(format_rupiah(item['subtotal']))
+                    with c4:
+                        col_min, col_del = st.columns(2)
+                        with col_min:
+                            if st.button("➖", key=f"min_{i}", help="Kurangi 1"):
+                                if st.session_state.cart[i]["qty"] > 1:
+                                    st.session_state.cart[i]["qty"] -= 1
+                                    st.session_state.cart[i]["subtotal"] = (
+                                        st.session_state.cart[i]["qty"] * st.session_state.cart[i]["harga"]
+                                    )
+                                else:
+                                    st.session_state.cart.pop(i)
+                                st.rerun()
+                        with col_del:
+                            if st.button("🗑️", key=f"del_{i}", help="Hapus item"):
+                                st.session_state.cart.pop(i)
+                                st.rerun()
+                st.markdown("")
                 if st.button("✅ Selesai Menambah Item", type="primary"):
                     st.session_state.checkout_mode = True
                     st.rerun()
