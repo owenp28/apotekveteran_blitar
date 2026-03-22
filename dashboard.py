@@ -476,7 +476,7 @@ elif menu == "🛒 Update Stok & Kasir":
 
         if st.session_state.cart:
             total_belanja = sum(item["subtotal"] for item in st.session_state.cart)
-            kembali = bayar_tunai - total_belanja
+            kembali = bayar - total
             tgl_nota = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
             items_html = ""
