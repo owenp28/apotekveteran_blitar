@@ -37,7 +37,7 @@ st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
     "Pilih Fitur",
-    ["🏠 Beranda", "📋 Tampilkan Obat Hari Ini", "✏️ Ubah Stok Obat Hari Ini", "🖨️ Cetak & Print Stok Obat"],
+    ["🏠 Beranda", "📋 Tampilkan Stok Obat Hari Ini", "✏️ Ubah Stok Obat Hari Ini", "🖨️ Cetak & Print Stok Obat"],
     index=0
 )
 
@@ -61,7 +61,7 @@ if menu == "🏠 Beranda":
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 1 — TAMPILKAN OBAT HARI INI
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "📋 Tampilkan Obat Hari Ini":
+elif menu == "📋 Tampilkan Stok Obat Hari Ini":
     st.title("📋 Tampilkan Stok Obat")
 
     df = load_data()
