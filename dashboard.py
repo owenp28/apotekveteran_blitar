@@ -456,9 +456,8 @@ elif menu == "🛒 Update Stok & Kasir":
             <div style="font-family: monospace; font-size: 13px; border: 1px solid #ccc;
                         padding: 16px; border-radius: 8px; max-width: 360px;">
                 <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px;">
-                    <b style="font-size: 15px;">PT. SUMBER SEHAT MEDICA FARMA</b><br>
-                    Jl. Cepaka 16A RT 01/10 Sukorejo BLT<br>
-                    Npwp : 061.096.980.0-653.000<br>
+                    <b style="font-size: 15px;">APOTEK VETERAN SEHAT BLITAR</b><br>
+                    Jl. Veteran no 64B Blitar Kota (Sebelah Gang Srigading), Blitar 66111<br>
                     <b>VETERAN SEHAT</b>
                 </div>
                 <div style="margin: 10px 0; font-size: 12px;">
@@ -530,7 +529,6 @@ elif menu == "🛒 Update Stok & Kasir":
             <div class="center">
               <b>APOTEK VETERAN SEHAT BLITAR</b><br>
               Jl. Veteran no 64B Blitar Kota (Sebelah Gang Srigading), Blitar 66111<br>
-              Npwp : 061.096.980.0-653.000<br>
               <b>VETERAN SEHAT</b>
             </div>
             <div class="dashed"></div>
