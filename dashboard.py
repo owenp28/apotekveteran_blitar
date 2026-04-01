@@ -62,16 +62,86 @@ def format_rupiah(val):
     except:
         return val
 
+# ══════════════════════════════════════════════════════════════════════════════
+# AUTENTIKASI — LOGIN
+# ══════════════════════════════════════════════════════════════════════════════
+USERS = {
+    "admin":  {"password": "admin123",  "role": "Admin"},
+    "kasir":  {"password": "kasir123",  "role": "Kasir"},
+}
+
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "role" not in st.session_state:
+    st.session_state.role = None
+if "username" not in st.session_state:
+    st.session_state.username = ""
+
+if not st.session_state.logged_in:
+    st.markdown(
+        """
+        <div style='max-width:380px; margin:80px auto 0 auto; padding:32px 36px;
+                    border:1px solid #dde3ed; border-radius:12px;
+                    box-shadow:0 4px 18px rgba(44,123,229,0.10); background:#fff;'>
+            <div style='text-align:center; margin-bottom:18px;'>
+                <img src='https://img.icons8.com/color/96/pharmacy-shop.png' width='64'/>
+                <h2 style='margin:8px 0 2px 0; color:#2c7be5;'>Apotek Veteran Blitar</h2>
+                <p style='color:#888; font-size:13px; margin:0;'>Silakan login untuk melanjutkan</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    with st.form("form_login"):
+        st.markdown("<div style='max-width:380px; margin:0 auto;'>", unsafe_allow_html=True)
+        role_pilih = st.selectbox("Login sebagai", ["Admin", "Kasir"])
+        username   = st.text_input("Username")
+        password   = st.text_input("Password", type="password")
+        login_btn  = st.form_submit_button("🔐 Login", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        if login_btn:
+            uname = username.strip().lower()
+            if uname in USERS and USERS[uname]["password"] == password and USERS[uname]["role"] == role_pilih:
+                st.session_state.logged_in = True
+                st.session_state.role      = role_pilih
+                st.session_state.username  = uname
+                st.rerun()
+            else:
+                st.error("Username, password, atau role tidak sesuai.")
+    st.stop()
+
 # ── Sidebar navigasi ──────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
 st.sidebar.title("💊 Apotek Veteran Blitar")
 st.sidebar.markdown("---")
 
-menu = st.sidebar.radio(
-    "Pilih Fitur",
-    ["🏠 Beranda", "📋 Tampilkan Stok Obat Hari Ini", "✏️ Ubah Stok Obat Hari Ini", "🖨️ Cetak & Print Stok Obat", "🛒 Update Stok & Kasir"],
-    index=0
-)
+_role = st.session_state.role
+st.sidebar.markdown(f"👤 **{st.session_state.username.capitalize()}** — *{_role}*")
+st.sidebar.markdown("---")
+
+if _role == "Admin":
+    _menu_options = [
+        "🏠 Beranda",
+        "📋 Tampilkan Stok Obat Hari Ini",
+        "✏️ Ubah Stok Obat Hari Ini",
+        "🖨️ Cetak & Print Stok Obat",
+        "🛒 Update Stok & Kasir"
+    ]
+else:  # Kasir
+    _menu_options = [
+        "🏠 Beranda",
+        "✏️ Ubah Stok Obat Hari Ini",
+        "🛒 Update Stok & Kasir"
+    ]
+
+menu = st.sidebar.radio("Pilih Fitur", _menu_options, index=0)
+
+if st.sidebar.button("🚪 Logout", use_container_width=True):
+    st.session_state.logged_in = False
+    st.session_state.role      = None
+    st.session_state.username  = ""
+    st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # BERANDA
@@ -275,7 +345,6 @@ elif menu == "✏️ Ubah Stok Obat Hari Ini":
             else:
                 st.error(f"ID Baris {target} tidak ditemukan.")
 
-                
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 3 — CETAK & PRINT STOK OBAT
 # ══════════════════════════════════════════════════════════════════════════════
@@ -562,8 +631,7 @@ elif menu == "🛒 Update Stok & Kasir":
                 </div>
                 <div style="text-align: center; margin-top: 20px; font-size: 10px;">
                     - Belanja tanpa struk/nota gratis -<br>
-                    - Harga sudah termasuk PPN -<br>
-                    - Barang yang sudah dibeli tidak dapat dikembalikan -
+                    - Harga sudah termasuk PPN -
                 </div>
             </div>
             """
@@ -647,8 +715,7 @@ elif menu == "🛒 Update Stok & Kasir":
             <div class="dashed"></div>
             <div class="center" style="font-size:10px;">
               - Belanja tanpa struk/nota gratis -<br>
-              - Harga sudah termasuk PPN -<br>
-              - Barang yang sudah dibeli tidak dapat dikembalikan -
+              - Harga sudah termasuk PPN -
             </div>
             <br>
             <button onclick='window.print()' style='padding:6px 16px;background:#2c7be5;color:white;
