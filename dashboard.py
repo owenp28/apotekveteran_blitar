@@ -66,8 +66,8 @@ def format_rupiah(val):
 # AUTENTIKASI — LOGIN
 # ══════════════════════════════════════════════════════════════════════════════
 USERS = {
-    "admin":  {"password": "admin123",  "role": "Admin"},
-    "kasir":  {"password": "kasir123",  "role": "Kasir"},
+    "admin123@gmail.com": {"password": "admin123", "role": "Admin"},
+    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir"},
 }
 
 if "logged_in" not in st.session_state:
@@ -101,7 +101,7 @@ if not st.session_state.logged_in:
         st.markdown("</div>", unsafe_allow_html=True)
 
         if login_btn:
-            uname = username.strip().lower()
+            uname = username.strip()
             if uname in USERS and USERS[uname]["password"] == password and USERS[uname]["role"] == role_pilih:
                 st.session_state.logged_in = True
                 st.session_state.role      = role_pilih
