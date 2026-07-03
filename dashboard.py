@@ -270,35 +270,34 @@ elif menu == "✏️ Ubah Stok Obat Hari Ini":
         st.info("Isi form di bawah untuk menambah transaksi stok masuk atau stok keluar. Data akan langsung tersimpan ke dataset.")
 
         with st.form("form_update_stok"):
-            fc1, fc2 = st.columns(2)
-            with fc1:
-                tgl = st.date_input("Tanggal Transaksi", value=date.today())
-            with fc2:
-                nama_obat = st.text_input("Nama Obat *", placeholder="Contoh: Paracetamol 500mg")
+            with st.container():
+                fc1, fc2, fc3 = st.columns(3)
+                with fc1:
+                    tgl = st.date_input("Tanggal Transaksi", value=date.today())
+                with fc2:
+                    nama_obat = st.text_input("Nama Obat *", placeholder="Contoh: Paracetamol 500mg")
+                with fc3:
+                    harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=0, value=0, step=500)
 
-            fc3, fc4 = st.columns(2)
-            with fc3:
-                kategori = st.selectbox("Kategori", ["Analgesik", "Antibiotik", "Antasida", "Vitamin", "Antihistamin", "Antihipertensi", "Antidiabetes", "Lainnya"])
-            with fc4:
-                satuan = st.selectbox("Satuan", ["Tablet", "Kapsul", "Botol", "Ampul", "Sachet", "Strip", "Tube", "Lainnya"])
+            with st.container():
+                fc4, fc5, fc6 = st.columns(3)
+                with fc4:
+                    kategori = st.selectbox("Kategori", ["Analgesik", "Antibiotik", "Antasida", "Vitamin", "Antihistamin", "Antihipertensi", "Antidiabetes", "Lainnya"])
+                with fc5:
+                    satuan = st.selectbox("Satuan", ["Tablet", "Kapsul", "Botol", "Ampul", "Sachet", "Strip", "Tube", "Lainnya"])
+                with fc6:
+                    tgl_exp = st.date_input("Tanggal Kadaluarsa", value=date.today())
 
-            fc5, fc6 = st.columns(2)
-            with fc5:
-                stok_masuk = st.number_input("Stok Masuk", min_value=0, value=0)
-            with fc6:
-                stok_keluar = st.number_input("Stok Keluar (Terjual)", min_value=0, value=0)
+            with st.container():
+                fc7, fc8, fc9 = st.columns(3)
+                with fc7:
+                    stok_masuk = st.number_input("Stok Masuk", min_value=0, value=0)
+                with fc8:
+                    stok_keluar = st.number_input("Stok Keluar (Terjual)", min_value=0, value=0)
+                with fc9:
+                    supplier = st.text_input("Supplier", placeholder="Nama distributor/supplier")
 
-            fc7, fc8 = st.columns(2)
-            with fc7:
-                harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=0, value=0, step=500)
-            with fc8:
-                tgl_exp = st.date_input("Tanggal Kadaluarsa", value=date.today())
-
-            fc9, fc10 = st.columns(2)
-            with fc9:
-                supplier = st.text_input("Supplier", placeholder="Nama distributor/supplier")
-            with fc10:
-                keterangan = st.text_area("Keterangan", placeholder="Opsional", height=68)
+            keterangan = st.text_area("Keterangan", placeholder="Opsional", height=68)
 
             submitted = st.form_submit_button("💾 Simpan Transaksi", type="primary", use_container_width=True)
 
