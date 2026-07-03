@@ -270,21 +270,37 @@ elif menu == "✏️ Ubah Stok Obat Hari Ini":
         st.info("Isi form di bawah untuk menambah transaksi stok masuk atau stok keluar. Data akan langsung tersimpan ke dataset.")
 
         with st.form("form_update_stok"):
-            col1, col2 = st.columns(2)
-            with col1:
+            fc1, fc2 = st.columns(2)
+            with fc1:
                 tgl = st.date_input("Tanggal Transaksi", value=date.today())
+            with fc2:
                 nama_obat = st.text_input("Nama Obat *", placeholder="Contoh: Paracetamol 500mg")
-                kategori = st.selectbox("Kategori", ["Analgesik", "Antibiotik", "Antasida", "Vitamin", "Antihistamin", "Antihipertensi", "Antidiabetes", "Lainnya"])
-                satuan = st.selectbox("Satuan", ["Tablet", "Kapsul", "Botol", "Ampul", "Sachet", "Strip", "Tube", "Lainnya"])
-            with col2:
-                stok_masuk = st.number_input("Stok Masuk", min_value=0, value=0)
-                stok_keluar = st.number_input("Stok Keluar (Terjual)", min_value=0, value=0)
-                harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=0, value=0, step=500)
-                tgl_exp = st.date_input("Tanggal Kadaluarsa", value=date.today())
-                supplier = st.text_input("Supplier", placeholder="Nama distributor/supplier")
-                keterangan = st.text_area("Keterangan", placeholder="Opsional")
 
-            submitted = st.form_submit_button("💾 Simpan Transaksi", type="primary")
+            fc3, fc4 = st.columns(2)
+            with fc3:
+                kategori = st.selectbox("Kategori", ["Analgesik", "Antibiotik", "Antasida", "Vitamin", "Antihistamin", "Antihipertensi", "Antidiabetes", "Lainnya"])
+            with fc4:
+                satuan = st.selectbox("Satuan", ["Tablet", "Kapsul", "Botol", "Ampul", "Sachet", "Strip", "Tube", "Lainnya"])
+
+            fc5, fc6 = st.columns(2)
+            with fc5:
+                stok_masuk = st.number_input("Stok Masuk", min_value=0, value=0)
+            with fc6:
+                stok_keluar = st.number_input("Stok Keluar (Terjual)", min_value=0, value=0)
+
+            fc7, fc8 = st.columns(2)
+            with fc7:
+                harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=0, value=0, step=500)
+            with fc8:
+                tgl_exp = st.date_input("Tanggal Kadaluarsa", value=date.today())
+
+            fc9, fc10 = st.columns(2)
+            with fc9:
+                supplier = st.text_input("Supplier", placeholder="Nama distributor/supplier")
+            with fc10:
+                keterangan = st.text_area("Keterangan", placeholder="Opsional", height=68)
+
+            submitted = st.form_submit_button("💾 Simpan Transaksi", type="primary", use_container_width=True)
 
         if submitted:
             if not nama_obat.strip():
@@ -631,8 +647,7 @@ elif menu == "🛒 Update Stok & Kasir":
                 </div>
                 <div style="text-align: center; margin-top: 20px; font-size: 10px;">
                     - Belanja tanpa struk/nota gratis -<br>
-                    - Harga sudah termasuk PPN -<br>
-                    - Barang yang sudah dibeli tidak dapat dikembalikan lagi -
+                    - Harga sudah termasuk PPN -
                 </div>
             </div>
             """
@@ -716,8 +731,7 @@ elif menu == "🛒 Update Stok & Kasir":
             <div class="dashed"></div>
             <div class="center" style="font-size:10px;">
               - Belanja tanpa struk/nota gratis -<br>
-              - Harga sudah termasuk PPN -<br>
-              - Barang yang sudah dibeli tidak dapat dikembalikan lagi -
+              - Harga sudah termasuk PPN -
             </div>
             <br>
             <button onclick='window.print()' style='padding:6px 16px;background:#2c7be5;color:white;
