@@ -944,8 +944,8 @@ elif menu == "🛍️ Entri Pembelian":
     # ── Footer ────────────────────────────────────────────────────────────────
     st.markdown("---")
     col_f1, col_f2 = st.columns(2)
-    col_f1.caption("all rights reserved")
-    col_f2.caption("apotek veteran sehat blitar")
+    col_f1.caption("All Rights Reserved")
+    col_f2.caption("Apotek Veteran Sehat Blitar")
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
