@@ -248,6 +248,21 @@ st.markdown(
         background: #30b5d5;
     }
     
+    /* Tombol Primary Streamlit (untuk tombol Cari) */
+    .stButton>button[data-baseweb="button"] {
+        background: #3dc7e8 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 4px !important;
+        font-weight: 500 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        width: 80px !important;
+    }
+    
+    .stButton>button[data-baseweb="button"]:hover {
+        background: #30b5d5 !important;
+    }
+    
     /* Tombol Simpan Hijau (#28a745) */
     .btn-save {
         background: #28a745;
@@ -266,6 +281,20 @@ st.markdown(
     
     .btn-save:hover {
         background: #218838;
+    }
+    
+    /* Tombol Primary Streamlit (untuk tombol Simpan) */
+    .stButton>button[data-baseweb="button"][type="primary"] {
+        background: #28a745 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 4px !important;
+        font-weight: 500 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+    }
+    
+    .stButton>button[data-baseweb="button"][type="primary"]:hover {
+        background: #218838 !important;
     }
     
     /* Tombol Reset Flat */
@@ -287,6 +316,36 @@ st.markdown(
     .btn-reset:hover {
         background: #f5f5f5;
         border-color: #bbb;
+    }
+    
+    /* Tombol Secondary Streamlit (untuk tombol Reset) */
+    .stButton>button[data-baseweb="button"][data-testid="stButton"] {
+        background: transparent !important;
+        color: #666 !important;
+        border: 1px solid #ccc !important;
+        border-radius: 4px !important;
+        font-weight: 500 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+    }
+    
+    .stButton>button[data-baseweb="button"][data-testid="stButton"]:hover {
+        background: #f5f5f5 !important;
+        border-color: #bbb !important;
+    }
+    
+    /* Tombol Secondary Streamlit (untuk tombol Reset) */
+    .stButton>button[data-baseweb="button"][type="secondary"] {
+        background: transparent !important;
+        color: #666 !important;
+        border: 1px solid #ccc !important;
+        border-radius: 4px !important;
+        font-weight: 500 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+    }
+    
+    .stButton>button[data-baseweb="button"][type="secondary"]:hover {
+        background: #f5f5f5 !important;
+        border-color: #bbb !important;
     }
     
     /* Total Nilai Retur di Kanan Atas */
@@ -454,6 +513,7 @@ st.markdown(
 # ─────────────────────────────────────────────────────────────────────────────
 
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
+RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
 
 KOLOM_WAJIB = [
     "Tanggal", "Nama Obat", "Kategori", "Satuan",
@@ -462,14 +522,28 @@ KOLOM_WAJIB = [
     "Tanggal Kadaluarsa", "Supplier", "Keterangan"
 ]
 
+RETUR_HISTORY_COLUMNS = [
+    "Nomor Faktur", "Tanggal Retur", "Supplier", "Gudang",
+    "Jumlah Item", "Total Nilai Retur", "Tanggal Disimpan"
+]
+
 def load_data():
     if os.path.exists(DATASET_PATH):
         df = pd.read_csv(DATASET_PATH, parse_dates=["Tanggal", "Tanggal Kadaluarsa"])
         return df
     return None
 
+def load_retur_history():
+    if os.path.exists(RETUR_HISTORY_PATH):
+        df = pd.read_csv(RETUR_HISTORY_PATH, parse_dates=["Tanggal Retur", "Tanggal Disimpan"])
+        return df
+    return None
+
 def save_data(df):
     df.to_csv(DATASET_PATH, index=False)
+
+def save_retur_history(df):
+    df.to_csv(RETUR_HISTORY_PATH, index=False)
 
 def format_rupiah(val):
     try:
@@ -1177,18 +1251,36 @@ elif menu == "🛒 Update Stok & Kasir":
 # FITUR 6 — RETUR PEMBELIAN
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🏥 Retur Pembelian":
-    # Header dengan styling modern
+    # ── Navbar ERP Maroon (#8d1d1d) ───────────────────────────────────────────
     st.markdown(
         """
-        <div class='retur-header' style='text-align: center; padding: 30px;'>
-            <h1 style='margin: 0; font-size: 32px;'>🏥 Retur Pembelian Obat</h1>
-            <p style='margin: 10px 0 0 0; opacity: 0.9;'>Formulir pencatatan retur pembelian obat ke supplier</p>
+        <div class='erp-navbar'>
+            <div class='erp-menu-left'>
+                <span class='erp-hamburger'>☰</span>
+                <div class='erp-status-container'>
+                    <span class='erp-status-label'>PPN Otomatis :</span>
+                    <span class='erp-status-value'>OFF</span>
+                </div>
+            </div>
+            <div class='erp-promo'>KOMISI 1 JUTA</div>
+            <div class='erp-menu-right'>
+                <span class='erp-icon'>?</span>
+                <span class='erp-icon'>↻</span>
+                <span class='erp-icon'>🔔</span>
+                <div class='erp-avatar'>AV</div>
+                <button class='erp-logout'>Logout</button>
+            </div>
         </div>
         """,
         unsafe_allow_html=True
     )
-    st.markdown("---")
-
+    
+    # ── Title Transaksi di Tengah ─────────────────────────────────────────────
+    st.markdown(
+        "<div class='transaction-title'>Retur Pembelian Obat</div>",
+        unsafe_allow_html=True
+    )
+    
     # ── Session state untuk data retur ───────────────────────────────────────
     if "retur_form_data" not in st.session_state:
         st.session_state.retur_form_data = {}
@@ -1199,15 +1291,14 @@ elif menu == "🏥 Retur Pembelian":
             "Jumlah Retur", "HPP", "Subtotal Retur"
         ])
     if "retur_history" not in st.session_state:
-        st.session_state.retur_history = pd.DataFrame(columns=[
-            "Nomor Faktur", "Tanggal Retur", "Supplier", "Gudang",
-            "Jumlah Item", "Total Nilai Retur", "Tanggal Disimpan"
-        ])
-
-    # ── Form Header ───────────────────────────────────────────────────────────
+        st.session_state.retur_history = load_retur_history()
+        if st.session_state.retur_history is None:
+            st.session_state.retur_history = pd.DataFrame(columns=RETUR_HISTORY_COLUMNS)
+    
+    # ── Form Header Dua Kolom ────────────────────────────────────────────────
     st.markdown(
         """
-        <div class='retur-card'>
+        <div class='retur-form'>
             <h3>📋 Form Pencarian Faktur</h3>
         """,
         unsafe_allow_html=True
@@ -1217,7 +1308,7 @@ elif menu == "🏥 Retur Pembelian":
     
     with col_h1:
         nomor_faktur = st.text_input("Nomor Faktur", key="nomor_faktur_input")
-        btn_cari_faktur = st.button("🔍 Cari", type="primary", use_container_width=True)
+        btn_cari_faktur = st.button("Cari", type="primary", use_container_width=True)
     
     with col_h2:
         col_tgl1, col_tgl2 = st.columns(2)
@@ -1232,11 +1323,13 @@ elif menu == "🏥 Retur Pembelian":
     with col_s2:
         gudang = st.selectbox("Gudang", ["Gudang Utama", "Gudang Cabang", "Gudang Darurat"], key="gudang_input", disabled=True)
     with col_s3:
-        jenis_pembayaran = st.selectbox("Jenis Pembayaran", ["Tunai", "Hutang"], key="jenis_pembayaran_input", disabled=True)
+        jenis_pembayaran = st.selectbox("Jenis Pembayaran", ["HUTANG", "Tunai"], key="jenis_pembayaran_input", disabled=True)
     with col_s4:
-        tanggal_jatuh_tempo = st.date_input("Tanggal Jatuh Tempo", key="tanggal_jatuh_tempo", disabled=True)
+        tanggal_jatuh_tempo = st.date_input("Tanggal JT", key="tanggal_jatuh_tempo", disabled=True)
     
-    # Tombol Cari Faktur
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Tombol Cari Faktur dengan styling cyan
     if btn_cari_faktur and nomor_faktur.strip():
             # Simulasi pencarian faktur (dalam implementasi nyata, ini akan query database)
             # Untuk demo, kita gunakan data dummy jika faktur ditemukan
@@ -1296,16 +1389,14 @@ elif menu == "🏥 Retur Pembelian":
             ])
             st.success("✅ Data faktur ditemukan!")
     
-    st.markdown("</div>", unsafe_allow_html=True)
-
     # ── Tampilkan data jika faktur sudah dipilih ──────────────────────────────
     if st.session_state.retur_form_data:
         st.markdown("---")
         
-        # Tampilkan data header dengan card layout
+        # Tampilkan data header dengan form layout
         st.markdown(
             """
-            <div class='retur-card'>
+            <div class='retur-form'>
                 <h3>📦 Informasi Transaksi</h3>
             """,
             unsafe_allow_html=True
@@ -1323,11 +1414,21 @@ elif menu == "🏥 Retur Pembelian":
         
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # Tampilkan tabel item dengan data_editor
-        st.markdown("---")
+        # ── Total Retur di Kanan Atas ──────────────────────────────────────────
         st.markdown(
             """
-            <div class='retur-card'>
+            <div class='total-retur-container'>
+                <span class='total-label'>Total Nilai Retur:</span>
+                <span class='total-value' id='total-retur-value'>Rp 0</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # Tampilkan tabel item dengan data_editor
+        st.markdown(
+            """
+            <div class='retur-table'>
                 <h3>📝 Detail Item Retur</h3>
             """,
             unsafe_allow_html=True
@@ -1344,13 +1445,13 @@ elif menu == "🏥 Retur Pembelian":
             hide_index=True,
             column_config={
                 "Pilih": st.column_config.CheckboxColumn("Pilih", default=True),
-                "Kode Obat": st.column_config.TextColumn("Kode Obat", disabled=True),
+                "Kode Obat": st.column_config.TextColumn("Kode", disabled=True),
                 "Nama Obat": st.column_config.TextColumn("Nama Obat", disabled=True),
                 "Satuan": st.column_config.TextColumn("Satuan", disabled=True),
-                "No Batch": st.column_config.TextColumn("No Batch", disabled=True),
+                "No Batch": st.column_config.TextColumn("No. Batch", disabled=True),
                 "Tanggal Exp": st.column_config.TextColumn("Tanggal Exp", disabled=True),
                 "Ketentuan Retur": st.column_config.TextColumn("Ketentuan Retur", disabled=True),
-                "Maks. bln sblm ED": st.column_config.NumberColumn("Maks. bln sblm ED", disabled=True),
+                "Maks. bln sblm ED": st.column_config.NumberColumn("Maks bln sblm ED", disabled=True),
                 "Tersedia": st.column_config.NumberColumn("Tersedia", disabled=True),
                 "Jumlah Retur": st.column_config.NumberColumn("Jumlah Retur", min_value=0, default=0),
                 "HPP": st.column_config.NumberColumn("HPP", disabled=True, format="Rp %.2f"),
@@ -1366,74 +1467,18 @@ elif menu == "🏥 Retur Pembelian":
         
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # ── Validasi Retur ─────────────────────────────────────────────────────
-        st.markdown("---")
+        # ── Separator Garis Horizontal Turquoise ───────────────────────────────
         st.markdown(
             """
-            <div class='retur-card'>
-                <h3>⚠️ Validasi Retur</h3>
+            <div class='separator'></div>
             """,
             unsafe_allow_html=True
         )
         
-        validasi_messages = []
-        for idx, row in edited_items.iterrows():
-            if row["Pilih"] and row["Jumlah Retur"] > 0:
-                # Validasi 1: Jumlah retur tidak melebihi stok tersedia
-                if row["Jumlah Retur"] > row["Tersedia"]:
-                    validasi_messages.append({
-                        "type": "error",
-                        "message": f"❌ {row['Nama Obat']}: Jumlah retur ({row['Jumlah Retur']}) melebihi stok tersedia ({row['Tersedia']})"
-                    })
-                
-                # Validasi 2: Batch sudah tidak tersedia
-                if row["Tersedia"] == 0:
-                    validasi_messages.append({
-                        "type": "error",
-                        "message": f"❌ {row['Nama Obat']}: Batch {row['No Batch']} sudah tidak tersedia"
-                    })
-                
-                # Validasi 3: Tanggal expired sudah melewati masa berlaku
-                if pd.to_datetime(row["Tanggal Exp"]) < pd.Timestamp(date.today()):
-                    validasi_messages.append({
-                        "type": "error",
-                        "message": f"❌ {row['Nama Obat']}: Batch {row['No Batch']} sudah kadaluarsa"
-                    })
-        
-        if validasi_messages:
-            for msg in validasi_messages:
-                if msg["type"] == "error":
-                    st.error(msg["message"])
-                else:
-                    st.warning(msg["message"])
-        else:
-            st.success("✅ Semua item memenuhi syarat retur!")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        # ── Total Retur ────────────────────────────────────────────────────────
-        st.markdown("---")
+        # ── Tombol Aksi (Simpan dan Reset) ─────────────────────────────────────
         st.markdown(
             """
-            <div class='retur-card'>
-                <h3>💰 Total Retur</h3>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        total_retur = edited_items["Subtotal Retur"].sum()
-        
-        col_t1, col_t2, col_t3 = st.columns([2, 1, 1])
-        with col_t2:
-            st.metric("Total Nilai Retur", f"Rp {total_retur:,.2f}".replace(",", "."))
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        # ── Tombol Aksi ────────────────────────────────────────────────────────
-        st.markdown("---")
-        st.markdown(
-            """
-            <div class='retur-card'>
+            <div class='retur-form'>
                 <h3>⚙️ Aksi</h3>
             """,
             unsafe_allow_html=True
@@ -1443,10 +1488,9 @@ elif menu == "🏥 Retur Pembelian":
         
         with col_btn1:
             if st.button("💾 Simpan", type="primary", use_container_width=True):
+                total_retur = edited_items["Subtotal Retur"].sum()
                 if total_retur == 0:
                     st.warning("⚠️ Belum ada item yang dipilih untuk diretur!")
-                elif any(msg["type"] == "error" for msg in validasi_messages):
-                    st.error("❌ Tidak dapat menyimpan: Ada validasi error. Perbaiki item yang bermasalah.")
                 else:
                     # Simulasi penyimpanan ke database
                     # Dalam implementasi nyata, lakukan:
@@ -1467,6 +1511,9 @@ elif menu == "🏥 Retur Pembelian":
                     }])
                     st.session_state.retur_history = pd.concat([st.session_state.retur_history, new_history], ignore_index=True)
                     
+                    # Simpan ke file CSV
+                    save_retur_history(st.session_state.retur_history)
+                    
                     st.success(f"✅ Retur pembelian berhasil disimpan! Total retur: Rp {total_retur:,.2f}".replace(",", "."))
                     
                     # Reset form
@@ -1475,19 +1522,19 @@ elif menu == "🏥 Retur Pembelian":
                     st.rerun()
         
         with col_btn2:
-            if st.button("🗑️ Reset", type="secondary", use_container_width=True):
+            if st.button("↻ Reset", type="secondary", use_container_width=True):
                 st.session_state.retur_items["Jumlah Retur"] = 0
                 st.session_state.retur_items["Subtotal Retur"] = 0
                 st.rerun()
         
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # ── Riwayat Retur ──────────────────────────────────────────────────────
+        # ── Tabel Riwayat Retur ────────────────────────────────────────────────
         if not st.session_state.retur_history.empty:
             st.markdown("---")
             st.markdown(
                 """
-                <div class='retur-card'>
+                <div class='retur-table'>
                     <h3>📜 Riwayat Retur</h3>
                 """,
                 unsafe_allow_html=True
@@ -1501,6 +1548,17 @@ elif menu == "🏥 Retur Pembelian":
             st.dataframe(history_display, use_container_width=True, hide_index=True)
             
             st.markdown("</div>", unsafe_allow_html=True)
+    
+    # ── Footer ────────────────────────────────────────────────────────────────
+    st.markdown(
+        """
+        <div class='erp-footer'>
+            <p>All Rights Reserved</p>
+            <p style='color: #8d1d1d; font-weight: 500;'>Vmedis 1.8.0</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 5 — ENTRI PEMBELIAN
