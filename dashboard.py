@@ -11,6 +11,7 @@ st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon=
 # 1. Menghilangkan margin dan padding default di bagian atas sidebar dan main.
 # 2. Mengatur elemen agar rapat ke sisi kiri.
 # 3. Memberikan kontrol penuh atas penempatan logo dan teks agar sesuai dengan mockup.
+# 4. Menambahkan styling modern untuk fitur Retur Pembelian dengan warna hijau.
 st.markdown(
     """
     <style>
@@ -31,6 +32,88 @@ st.markdown(
     /* Memastikan teks title "Dashboard..." di konten utama sejajar kiri */
     h1 {
         text-align: left !important;
+    }
+    /* Styling modern untuk fitur Retur Pembelian */
+    .retur-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    .retur-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    .retur-card h3 {
+        color: #10b981;
+        margin-top: 0;
+        border-bottom: 2px solid #10b981;
+        padding-bottom: 10px;
+    }
+    .retur-metric {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+    }
+    .retur-metric .metric-value {
+        font-size: 24px;
+        font-weight: bold;
+    }
+    .retur-metric .metric-label {
+        font-size: 12px;
+        opacity: 0.9;
+    }
+    /* Styling untuk form elements */
+    .stForm {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 20px;
+    }
+    /* Styling untuk metric cards */
+    [data-testid="stMetric"] {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    [data-testid="stMetric"] [data-testid="stMetricValue"] {
+        color: #10b981;
+        font-size: 28px;
+        font-weight: bold;
+    }
+    [data-testid="stMetric"] [data-testid="stMetricLabel"] {
+        color: #6b7280;
+        font-size: 14px;
+    }
+    /* Styling untuk buttons */
+    .stButton>button {
+        border-radius: 8px;
+        font-weight: 500;
+    }
+    .stButton>button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    /* Styling untuk data editor */
+    .stDataFrame {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+    }
+    /* Styling untuk info boxes */
+    .stInfo {
+        background: #ecfdf5;
+        border-left: 4px solid #10b981;
+        padding: 12px 16px;
+        border-radius: 4px;
     }
     </style>
     """,
@@ -127,6 +210,7 @@ if _role == "Admin":
         "✏️ Ubah Stok Obat Hari Ini",
         "🖨️ Cetak & Print Stok Obat",
         "🛒 Update Stok & Kasir",
+        "🏥 Retur Pembelian",
         "🛍️ Entri Pembelian"
     ]
 else:  # Kasir
@@ -758,6 +842,262 @@ elif menu == "🛒 Update Stok & Kasir":
             st.info("Keranjang kosong. Tambahkan obat dari form di sebelah kiri.")
 
 # ══════════════════════════════════════════════════════════════════════════════
+# FITUR 6 — RETUR PEMBELIAN
+# ══════════════════════════════════════════════════════════════════════════════
+elif menu == "🏥 Retur Pembelian":
+    st.title("🏥 Retur Pembelian Obat")
+    st.markdown("Formulir pencatatan retur pembelian obat ke supplier.")
+    st.markdown("---")
+
+    # ── Session state untuk data retur ───────────────────────────────────────
+    if "retur_form_data" not in st.session_state:
+        st.session_state.retur_form_data = {}
+    if "retur_items" not in st.session_state:
+        st.session_state.retur_items = pd.DataFrame(columns=[
+            "Pilih", "Kode Obat", "Nama Obat", "Satuan", "Nomor Batch",
+            "Tanggal Expired", "Maksimal Bulan Sebelum ED", "Stok Saat Ini",
+            "Jumlah Dibeli", "Sudah Diretur", "Sisa Bisa Diretur",
+            "Jumlah Retur", "Harga Pokok (HPP)", "Subtotal Retur"
+        ])
+
+    # ── Form Header ───────────────────────────────────────────────────────────
+    with st.form("form_retur_header"):
+        st.subheader("📋 Data Faktur Pembelian")
+        
+        col_h1, col_h2 = st.columns([2, 3])
+        
+        with col_h1:
+            nomor_faktur = st.text_input("Nomor Faktur", key="nomor_faktur_input")
+            btn_cari_faktur = st.button("🔍 Cari", use_container_width=True)
+        
+        with col_h2:
+            col_tgl1, col_tgl2 = st.columns(2)
+            with col_tgl1:
+                tanggal_faktur = st.date_input("Tanggal Faktur", key="tanggal_faktur")
+            with col_tgl2:
+                tanggal_retur = st.date_input("Tanggal Retur", value=date.today(), key="tanggal_retur")
+        
+        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+        with col_s1:
+            supplier = st.text_input("Supplier", key="supplier_input")
+        with col_s2:
+            gudang = st.selectbox("Gudang", ["Gudang Utama", "Gudang Cabang", "Gudang Darurat"], key="gudang_input")
+        with col_s3:
+            jenis_pembayaran = st.selectbox("Jenis Pembayaran", ["Tunai", "Hutang"], key="jenis_pembayaran_input")
+        with col_s4:
+            tanggal_jatuh_tempo = st.date_input("Tanggal Jatuh Tempo", key="tanggal_jatuh_tempo")
+        
+        # Tombol Cari Faktur
+        if btn_cari_faktur and nomor_faktur.strip():
+            # Simulasi pencarian faktur (dalam implementasi nyata, ini akan query database)
+            # Untuk demo, kita gunakan data dummy jika faktur ditemukan
+            st.session_state.retur_form_data = {
+                "nomor_faktur": nomor_faktur.strip(),
+                "tanggal_faktur": tanggal_faktur,
+                "supplier": supplier if supplier.strip() else "Supplier Dummy",
+                "gudang": gudang,
+                "jenis_pembayaran": jenis_pembayaran,
+                "tanggal_jatuh_tempo": tanggal_jatuh_tempo
+            }
+            
+            # Simulasi data item pembelian (dalam implementasi nyata, query dari database)
+            st.session_state.retur_items = pd.DataFrame([
+                {
+                    "Pilih": True,
+                    "Kode Obat": "OBT001",
+                    "Nama Obat": "Paracetamol 500mg",
+                    "Satuan": "BOX",
+                    "Nomor Batch": "BATCH001",
+                    "Tanggal Expired": pd.Timestamp(date.today() + pd.Timedelta(days=180)),
+                    "Maksimal Bulan Sebelum ED": 6,
+                    "Stok Saat Ini": 50,
+                    "Jumlah Dibeli": 100,
+                    "Sudah Diretur": 20,
+                    "Sisa Bisa Diretur": 80,
+                    "Jumlah Retur": 0,
+                    "Harga Pokok (HPP)": 5000.00,
+                    "Subtotal Retur": 0.00
+                },
+                {
+                    "Pilih": True,
+                    "Kode Obat": "OBT002",
+                    "Nama Obat": "Amoxicillin 250mg",
+                    "Satuan": "BOTOL",
+                    "Nomor Batch": "BATCH002",
+                    "Tanggal Expired": pd.Timestamp(date.today() + pd.Timedelta(days=90)),
+                    "Maksimal Bulan Sebelum ED": 3,
+                    "Stok Saat Ini": 30,
+                    "Jumlah Dibeli": 50,
+                    "Sudah Diretur": 10,
+                    "Sisa Bisa Diretur": 40,
+                    "Jumlah Retur": 0,
+                    "Harga Pokok (HPP)": 8000.00,
+                    "Subtotal Retur": 0.00
+                },
+                {
+                    "Pilih": False,
+                    "Kode Obat": "OBT003",
+                    "Nama Obat": "Ciprofloxacin 500mg",
+                    "Satuan": "TABLET",
+                    "Nomor Batch": "BATCH003",
+                    "Tanggal Expired": pd.Timestamp(date.today() - pd.Timedelta(days=30)),
+                    "Maksimal Bulan Sebelum ED": 0,
+                    "Stok Saat Ini": 0,
+                    "Jumlah Dibeli": 200,
+                    "Sudah Diretur": 0,
+                    "Sisa Bisa Diretur": 200,
+                    "Jumlah Retur": 0,
+                    "Harga Pokok (HPP)": 12000.00,
+                    "Subtotal Retur": 0.00
+                }
+            ])
+            st.success("✅ Data faktur ditemukan!")
+        
+        st.form_submit_button("", use_container_width=True)  # Dummy submit untuk form
+
+    # ── Tampilkan data jika faktur sudah dipilih ──────────────────────────────
+    if st.session_state.retur_form_data:
+        st.markdown("---")
+        st.subheader("📦 Item Pembelian")
+        
+        # Tampilkan data header
+        col_d1, col_d2, col_d3, col_d4 = st.columns(4)
+        with col_d1:
+            st.info(f"**Nomor Faktur:** {st.session_state.retur_form_data['nomor_faktur']}")
+        with col_d2:
+            st.info(f"**Supplier:** {st.session_state.retur_form_data['supplier']}")
+        with col_d3:
+            st.info(f"**Gudang:** {st.session_state.retur_form_data['gudang']}")
+        with col_d4:
+            st.info(f"**Jenis Pembayaran:** {st.session_state.retur_form_data['jenis_pembayaran']}")
+        
+        # Tampilkan tabel item dengan data_editor
+        st.markdown("---")
+        st.subheader("📝 Detail Item Retur")
+        
+        # Konversi tanggal ke string untuk display
+        items_display = st.session_state.retur_items.copy()
+        items_display["Tanggal Expired"] = pd.to_datetime(items_display["Tanggal Expired"]).dt.strftime("%d-%m-%Y")
+        
+        # Data editor untuk input jumlah retur
+        edited_items = st.data_editor(
+            items_display,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Pilih": st.column_config.CheckboxColumn("Pilih", default=True),
+                "Kode Obat": st.column_config.TextColumn("Kode Obat", disabled=True),
+                "Nama Obat": st.column_config.TextColumn("Nama Obat", disabled=True),
+                "Satuan": st.column_config.TextColumn("Satuan", disabled=True),
+                "Nomor Batch": st.column_config.TextColumn("Nomor Batch", disabled=True),
+                "Tanggal Expired": st.column_config.TextColumn("Tanggal Expired", disabled=True),
+                "Maksimal Bulan Sebelum ED": st.column_config.NumberColumn("Maks. Bulan Sebelum ED", disabled=True),
+                "Stok Saat Ini": st.column_config.NumberColumn("Stok Saat Ini", disabled=True),
+                "Jumlah Dibeli": st.column_config.NumberColumn("Jumlah Dibeli", disabled=True),
+                "Sudah Diretur": st.column_config.NumberColumn("Sudah Diretur", disabled=True),
+                "Sisa Bisa Diretur": st.column_config.NumberColumn("Sisa Bisa Diretur", disabled=True),
+                "Jumlah Retur": st.column_config.NumberColumn("Jumlah Retur", min_value=0, default=0),
+                "Harga Pokok (HPP)": st.column_config.NumberColumn("Harga Pokok (HPP)", disabled=True, format="Rp %.2f"),
+                "Subtotal Retur": st.column_config.NumberColumn("Subtotal Retur", disabled=True, format="Rp %.2f")
+            }
+        )
+        
+        # Hitung subtotal retur otomatis
+        edited_items["Subtotal Retur"] = (edited_items["Jumlah Retur"] * edited_items["Harga Pokok (HPP)"]).round(2)
+        
+        # Update session state
+        st.session_state.retur_items = edited_items
+        
+        # ── Validasi Retur ─────────────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("⚠️ Validasi Retur")
+        
+        validasi_messages = []
+        for idx, row in edited_items.iterrows():
+            if row["Pilih"] and row["Jumlah Retur"] > 0:
+                # Validasi 1: Jumlah retur tidak melebihi sisa bisa diretur
+                if row["Jumlah Retur"] > row["Sisa Bisa Diretur"]:
+                    validasi_messages.append({
+                        "type": "error",
+                        "message": f"❌ {row['Nama Obat']}: Jumlah retur ({row['Jumlah Retur']}) melebihi sisa bisa diretur ({row['Sisa Bisa Diretur']})"
+                    })
+                
+                # Validasi 2: Stok gudang lebih kecil dari jumlah retur
+                if row["Stok Saat Ini"] < row["Jumlah Retur"]:
+                    validasi_messages.append({
+                        "type": "warning",
+                        "message": f"⚠️ {row['Nama Obat']}: Stok gudang ({row['Stok Saat Ini']}) lebih kecil dari jumlah retur ({row['Jumlah Retur']})"
+                    })
+                
+                # Validasi 3: Batch sudah tidak tersedia
+                if row["Stok Saat Ini"] == 0:
+                    validasi_messages.append({
+                        "type": "error",
+                        "message": f"❌ {row['Nama Obat']}: Batch {row['Nomor Batch']} sudah tidak tersedia"
+                    })
+                
+                # Validasi 4: Tanggal expired sudah melewati ketentuan retur supplier
+                if row["Maksimal Bulan Sebelum ED"] == 0:
+                    validasi_messages.append({
+                        "type": "error",
+                        "message": f"❌ {row['Nama Obat']}: Batch {row['Nomor Batch']} sudah melewati masa retur supplier"
+                    })
+        
+        if validasi_messages:
+            for msg in validasi_messages:
+                if msg["type"] == "error":
+                    st.error(msg["message"])
+                else:
+                    st.warning(msg["message"])
+        else:
+            st.success("✅ Semua item memenuhi syarat retur!")
+        
+        # ── Total Retur ────────────────────────────────────────────────────────
+        st.markdown("---")
+        total_retur = edited_items["Subtotal Retur"].sum()
+        
+        col_t1, col_t2, col_t3 = st.columns([2, 1, 1])
+        with col_t2:
+            st.metric("Total Nilai Retur", f"Rp {total_retur:,.2f}".replace(",", "."))
+        
+        # ── Tombol Aksi ────────────────────────────────────────────────────────
+        st.markdown("---")
+        col_btn1, col_btn2, col_btn3 = st.columns(3)
+        
+        with col_btn1:
+            if st.button("💾 Simpan", type="primary", use_container_width=True):
+                if total_retur == 0:
+                    st.warning("⚠️ Belum ada item yang dipilih untuk diretur!")
+                elif any(msg["type"] == "error" for msg in validasi_messages):
+                    st.error("❌ Tidak dapat menyimpan: Ada validasi error. Perbaiki item yang bermasalah.")
+                else:
+                    # Simulasi penyimpanan ke database
+                    # Dalam implementasi nyata, lakukan:
+                    # 1. Kurangi hutang supplier
+                    # 2. Tambah stok gudang
+                    # 3. Catat histori retur
+                    # 4. Update status pembelian
+                    
+                    st.success(f"✅ Retur pembelian berhasil disimpan! Total retur: Rp {total_retur:,.2f}".replace(",", "."))
+                    
+                    # Reset form
+                    st.session_state.retur_form_data = {}
+                    st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
+                    st.rerun()
+        
+        with col_btn2:
+            if st.button("🗑️ Reset", type="secondary", use_container_width=True):
+                st.session_state.retur_items["Jumlah Retur"] = 0
+                st.session_state.retur_items["Subtotal Retur"] = 0
+                st.rerun()
+        
+        with col_btn3:
+            if st.button("⬅️ Kembali", type="secondary", use_container_width=True):
+                st.session_state.retur_form_data = {}
+                st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
+                st.rerun()
+
+# ══════════════════════════════════════════════════════════════════════════════
 # FITUR 5 — ENTRI PEMBELIAN
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🛍️ Entri Pembelian":
@@ -808,26 +1148,6 @@ elif menu == "🛍️ Entri Pembelian":
                 st.warning("Obat tidak ditemukan di dataset.")
         else:
             st.info("Dataset stok belum tersedia.")
-
-    st.markdown("---")
-
-    # ── Baris 2: Ketentuan retur & tanggal ───────────────────────────────────
-    st.subheader("📋 Ketentuan & Tanggal")
-    col_retur, col_tgl, col_terapkan = st.columns([2, 2, 1])
-    with col_retur:
-        ketentuan_retur = st.selectbox(
-            "Ketentuan Pengembalian",
-            ["Bisa Diretur", "Tidak Bisa Diretur"]
-        )
-    with col_tgl:
-        tgl_beli = st.date_input("Tanggal Pembelian", value=date.today())
-    with col_terapkan:
-        st.markdown("<div style='margin-top:28px'>", unsafe_allow_html=True)
-        btn_terapkan = st.button("✅ Terapkan", use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    if btn_terapkan:
-        st.success(f"Ketentuan: **{ketentuan_retur}** | Tanggal: **{tgl_beli.strftime('%d-%m-%Y')}** diterapkan.")
 
     st.markdown("---")
 
@@ -911,7 +1231,7 @@ elif menu == "🛍️ Entri Pembelian":
                     stok_sblm = int(prev["Stok Akhir"].iloc[-1]) if not prev.empty else 0
                     stok_akhir_baru = stok_sblm + int(row["Jumlah"])
                     new_rows.append({
-                        "Tanggal": pd.Timestamp(tgl_beli),
+                        "Tanggal": pd.Timestamp(date.today()),
                         "Nama Obat": str(row["Nama Obat"]).strip(),
                         "Kategori": "Lainnya",
                         "Satuan": row["Satuan"] if row["Satuan"] else "Lainnya",
@@ -922,7 +1242,7 @@ elif menu == "🛍️ Entri Pembelian":
                         "Total Nilai (Rp)": float(row["Subtotal"]) - float(row["Nominal Diskon"]),
                         "Tanggal Kadaluarsa": pd.Timestamp(date.today()),
                         "Supplier": "",
-                        "Keterangan": f"Pembelian | {ketentuan_retur}"
+                        "Keterangan": "Pembelian"
                     })
                 if new_rows:
                     df_stok = pd.concat([df_stok, pd.DataFrame(new_rows)], ignore_index=True)
