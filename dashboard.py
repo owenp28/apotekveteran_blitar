@@ -845,8 +845,16 @@ elif menu == "🛒 Update Stok & Kasir":
 # FITUR 6 — RETUR PEMBELIAN
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🏥 Retur Pembelian":
-    st.title("🏥 Retur Pembelian Obat")
-    st.markdown("Formulir pencatatan retur pembelian obat ke supplier.")
+    # Header dengan styling modern
+    st.markdown(
+        """
+        <div class='retur-header' style='text-align: center; padding: 30px;'>
+            <h1 style='margin: 0; font-size: 32px;'>🏥 Retur Pembelian Obat</h1>
+            <p style='margin: 10px 0 0 0; opacity: 0.9;'>Formulir pencatatan retur pembelian obat ke supplier</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
     st.markdown("---")
 
     # ── Session state untuk data retur ───────────────────────────────────────
@@ -861,14 +869,20 @@ elif menu == "🏥 Retur Pembelian":
         ])
 
     # ── Form Header ───────────────────────────────────────────────────────────
+    st.markdown(
+        """
+        <div class='retur-card'>
+            <h3>📋 Data Faktur Pembelian</h3>
+        """,
+        unsafe_allow_html=True
+    )
+    
     with st.form("form_retur_header"):
-        st.subheader("📋 Data Faktur Pembelian")
-        
         col_h1, col_h2 = st.columns([2, 3])
         
         with col_h1:
             nomor_faktur = st.text_input("Nomor Faktur", key="nomor_faktur_input")
-            btn_cari_faktur = st.button("🔍 Cari", use_container_width=True)
+            btn_cari_faktur = st.button("🔍 Cari", use_container_width=True, type="primary")
         
         with col_h2:
             col_tgl1, col_tgl2 = st.columns(2)
@@ -954,13 +968,22 @@ elif menu == "🏥 Retur Pembelian":
             st.success("✅ Data faktur ditemukan!")
         
         st.form_submit_button("", use_container_width=True)  # Dummy submit untuk form
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Tampilkan data jika faktur sudah dipilih ──────────────────────────────
     if st.session_state.retur_form_data:
         st.markdown("---")
-        st.subheader("📦 Item Pembelian")
         
-        # Tampilkan data header
+        # Tampilkan data header dengan card layout
+        st.markdown(
+            """
+            <div class='retur-card'>
+                <h3>📦 Item Pembelian</h3>
+            """,
+            unsafe_allow_html=True
+        )
+        
         col_d1, col_d2, col_d3, col_d4 = st.columns(4)
         with col_d1:
             st.info(f"**Nomor Faktur:** {st.session_state.retur_form_data['nomor_faktur']}")
@@ -971,9 +994,17 @@ elif menu == "🏥 Retur Pembelian":
         with col_d4:
             st.info(f"**Jenis Pembayaran:** {st.session_state.retur_form_data['jenis_pembayaran']}")
         
+        st.markdown("</div>", unsafe_allow_html=True)
+        
         # Tampilkan tabel item dengan data_editor
         st.markdown("---")
-        st.subheader("📝 Detail Item Retur")
+        st.markdown(
+            """
+            <div class='retur-card'>
+                <h3>📝 Detail Item Retur</h3>
+            """,
+            unsafe_allow_html=True
+        )
         
         # Konversi tanggal ke string untuk display
         items_display = st.session_state.retur_items.copy()
@@ -1008,9 +1039,17 @@ elif menu == "🏥 Retur Pembelian":
         # Update session state
         st.session_state.retur_items = edited_items
         
+        st.markdown("</div>", unsafe_allow_html=True)
+        
         # ── Validasi Retur ─────────────────────────────────────────────────────
         st.markdown("---")
-        st.subheader("⚠️ Validasi Retur")
+        st.markdown(
+            """
+            <div class='retur-card'>
+                <h3>⚠️ Validasi Retur</h3>
+            """,
+            unsafe_allow_html=True
+        )
         
         validasi_messages = []
         for idx, row in edited_items.iterrows():
@@ -1052,16 +1091,36 @@ elif menu == "🏥 Retur Pembelian":
         else:
             st.success("✅ Semua item memenuhi syarat retur!")
         
+        st.markdown("</div>", unsafe_allow_html=True)
+        
         # ── Total Retur ────────────────────────────────────────────────────────
         st.markdown("---")
+        st.markdown(
+            """
+            <div class='retur-card'>
+                <h3>💰 Total Retur</h3>
+            """,
+            unsafe_allow_html=True
+        )
+        
         total_retur = edited_items["Subtotal Retur"].sum()
         
         col_t1, col_t2, col_t3 = st.columns([2, 1, 1])
         with col_t2:
             st.metric("Total Nilai Retur", f"Rp {total_retur:,.2f}".replace(",", "."))
         
+        st.markdown("</div>", unsafe_allow_html=True)
+        
         # ── Tombol Aksi ────────────────────────────────────────────────────────
         st.markdown("---")
+        st.markdown(
+            """
+            <div class='retur-card'>
+                <h3>⚙️ Aksi</h3>
+            """,
+            unsafe_allow_html=True
+        )
+        
         col_btn1, col_btn2, col_btn3 = st.columns(3)
         
         with col_btn1:
@@ -1096,6 +1155,8 @@ elif menu == "🏥 Retur Pembelian":
                 st.session_state.retur_form_data = {}
                 st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
                 st.rerun()
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 5 — ENTRI PEMBELIAN
@@ -1115,9 +1176,10 @@ elif menu == "🛍️ Entri Pembelian":
                 "Jumlah": 2.00,
                 "Satuan": "BOX",
                 "Harga Beli": 5000.00,
+                "Harga Jual": 6000.00,
                 "Subtotal": 10000.00,
-                "Diskon (%)": 0.00,
-                "Nominal Diskon": 0.00
+                "Batch": "BATCH001",
+                "Tanggal Expired": pd.Timestamp(date.today() + pd.Timedelta(days=180))
             }
         ])
 
@@ -1153,7 +1215,7 @@ elif menu == "🛍️ Entri Pembelian":
 
     # ── Tabel rincian item pembelian ──────────────────────────────────────────
     st.subheader("📦 Rincian Item Pembelian")
-    st.caption("Klik baris untuk mengedit. Kolom Jumlah, Satuan, Harga Beli, Diskon (%), dan Nominal Diskon dapat diedit.")
+    st.caption("Klik baris untuk mengedit. Kolom Jumlah, Satuan, Harga Beli, Harga Jual, Batch, dan Tanggal Expired dapat diedit.")
 
     SATUAN_OPTIONS = ["BOX", "BOTOL", "TABLET", "KAPSUL", "AMPUL", "SACHET", "STRIP", "TUBE", "LAINNYA"]
 
@@ -1181,21 +1243,23 @@ elif menu == "🛍️ Entri Pembelian":
             "Harga Beli": st.column_config.NumberColumn(
                 "Harga Beli", min_value=0.0, format="%.2f", width="medium"
             ),
+            "Harga Jual": st.column_config.NumberColumn(
+                "Harga Jual", min_value=0.0, format="%.2f", width="medium"
+            ),
             "Subtotal": st.column_config.NumberColumn(
                 "Subtotal", disabled=True, format="%.2f", width="medium"
             ),
-            "Diskon (%)": st.column_config.NumberColumn(
-                "Diskon (%)", min_value=0.0, max_value=100.0, format="%.2f", width="small"
+            "Batch": st.column_config.TextColumn(
+                "Batch", width="small"
             ),
-            "Nominal Diskon": st.column_config.NumberColumn(
-                "Nominal Diskon", min_value=0.0, format="%.2f", width="medium"
+            "Tanggal Expired": st.column_config.DateColumn(
+                "Tanggal Expired", min_value=date.today(), format="DD-MM-YYYY"
             ),
         }
     )
 
-    # Hitung ulang Subtotal dan Nominal Diskon otomatis
+    # Hitung ulang Subtotal otomatis
     edited_df["Subtotal"] = (edited_df["Jumlah"].fillna(0) * edited_df["Harga Beli"].fillna(0)).round(2)
-    edited_df["Nominal Diskon"] = (edited_df["Subtotal"] * edited_df["Diskon (%)"].fillna(0) / 100).round(2)
     # Perbarui nomor urut
     edited_df["No."] = range(1, len(edited_df) + 1)
     st.session_state.df_beli = edited_df
@@ -1203,13 +1267,10 @@ elif menu == "🛍️ Entri Pembelian":
     # ── Ringkasan total ───────────────────────────────────────────────────────
     st.markdown("---")
     total_subtotal   = edited_df["Subtotal"].sum()
-    total_diskon     = edited_df["Nominal Diskon"].sum()
-    total_bayar      = total_subtotal - total_diskon
 
-    col_s1, col_s2, col_s3 = st.columns(3)
+    col_s1, col_s2 = st.columns(2)
     col_s1.metric("Total Subtotal", f"Rp {total_subtotal:,.2f}".replace(",", "."))
-    col_s2.metric("Total Diskon",   f"Rp {total_diskon:,.2f}".replace(",", "."))
-    col_s3.metric("Total Bayar",    f"Rp {total_bayar:,.2f}".replace(",", "."))
+    col_s2.metric("Total Bayar",    f"Rp {total_subtotal:,.2f}".replace(",", "."))
 
     st.markdown("---")
 
@@ -1239,8 +1300,8 @@ elif menu == "🛍️ Entri Pembelian":
                         "Stok Keluar": 0,
                         "Stok Akhir": stok_akhir_baru,
                         "Harga Satuan (Rp)": float(row["Harga Beli"]),
-                        "Total Nilai (Rp)": float(row["Subtotal"]) - float(row["Nominal Diskon"]),
-                        "Tanggal Kadaluarsa": pd.Timestamp(date.today()),
+                        "Total Nilai (Rp)": float(row["Subtotal"]),
+                        "Tanggal Kadaluarsa": pd.Timestamp(row["Tanggal Expired"]),
                         "Supplier": "",
                         "Keterangan": "Pembelian"
                     })
@@ -1256,16 +1317,23 @@ elif menu == "🛍️ Entri Pembelian":
                 {
                     "No.": 1, "Kode Obat": "", "Nama Obat": "",
                     "Jumlah": 0.0, "Satuan": "BOX", "Harga Beli": 0.0,
-                    "Subtotal": 0.0, "Diskon (%)": 0.0, "Nominal Diskon": 0.0
+                    "Harga Jual": 0.0, "Subtotal": 0.0,
+                    "Batch": "", "Tanggal Expired": pd.Timestamp(date.today())
                 }
             ])
             st.rerun()
 
     # ── Footer ────────────────────────────────────────────────────────────────
     st.markdown("---")
-    col_f1, col_f2 = st.columns(2)
-    col_f1.caption("All Rights Reserved")
-    col_f2.caption("Apotek Veteran Sehat Blitar")
+    st.markdown(
+        """
+        <div class='retur-card' style='text-align: center; padding: 20px;'>
+            <p style='margin: 0; color: #6b7280;'>All Rights Reserved</p>
+            <p style='margin: 5px 0 0 0; color: #10b981; font-weight: 500;'>Apotek Veteran Sehat Blitar</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
