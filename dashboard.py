@@ -22,10 +22,11 @@ st.markdown(
         box-sizing: border-box;
     }
     
-    /* Background putih 100% */
+    /* Dark Mode Background */
     body {
-        background: #ffffff;
-        font-family: Arial, Helvetica, sans-serif;
+        background: #1a1a2e;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #e0e0e0;
     }
     
     /* Mengurangi padding di bagian atas sidebar */
@@ -42,469 +43,270 @@ st.markdown(
         padding-right: 20px !important;
     }
     
-    /* ── Navbar ERP Maroon (#8d1d1d) ─────────────────────────────────────────── */
-    .erp-navbar {
-        background: #8d1d1d;
-        color: white;
-        padding: 12px 20px;
-        height: 55px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        font-family: Arial, Helvetica, sans-serif;
-        border-radius: 0;
-    }
-    
-    .erp-menu-left {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-    }
-    
-    .erp-hamburger {
-        font-size: 20px;
-        cursor: pointer;
-        padding: 5px 10px;
-    }
-    
-    .erp-status-container {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-    }
-    
-    .erp-status-label {
-        font-size: 13px;
-        color: white;
-    }
-    
-    .erp-status-value {
-        font-size: 13px;
-        color: #ffcc00;
-        font-weight: 500;
-    }
-    
-    .erp-promo {
-        background: #ffcc00;
-        color: #333;
-        padding: 5px 15px;
-        border-radius: 4px;
-        font-size: 13px;
-        font-weight: 500;
-    }
-    
-    .erp-menu-right {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-    }
-    
-    .erp-icon {
-        font-size: 18px;
-        cursor: pointer;
-        color: white;
-        padding: 5px 10px;
-    }
-    
-    .erp-icon:hover {
-        opacity: 0.8;
-    }
-    
-    .erp-avatar {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: #a0a0a0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        font-weight: bold;
-        cursor: pointer;
-    }
-    
-    .erp-logout {
-        background: #606060;
-        color: white;
-        border: none;
-        padding: 5px 12px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 13px;
-        font-family: Arial, Helvetica, sans-serif;
-    }
-    
-    .erp-logout:hover {
-        background: #404040;
-    }
-    
-    /* ── Title Transaksi di Tengah ───────────────────────────────────────────── */
-    .transaction-title {
-        font-size: 36px;
-        font-weight: 500;
-        color: #000;
+    /* ── Header Aplikasi ────────────────────────────────────────────────────── */
+    .app-header {
         text-align: center;
-        margin: 20px 0 15px 0;
-        font-family: Arial, Helvetica, sans-serif;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
     
-    /* ── Form Transaksi Dua Kolom ────────────────────────────────────────────── */
-    .retur-form {
-        background: white;
-        padding: 15px;
-        margin-bottom: 15px;
-        border: 1px solid #ddd;
-        border-radius: 0;
-    }
-    
-    .retur-form h3 {
-        color: #333;
-        margin-top: 0;
-        margin-bottom: 12px;
-        font-size: 14px;
-        font-weight: 600;
-        font-family: Arial, Helvetica, sans-serif;
-        border-bottom: 1px solid #ddd;
-        padding-bottom: 8px;
-    }
-    
-    .form-row {
-        display: flex;
-        gap: 15px;
+    .app-title {
+        font-size: 42px;
+        font-weight: 700;
+        color: #e94560;
         margin-bottom: 10px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     }
     
-    .form-col {
-        flex: 1;
+    .app-subtitle {
+        font-size: 16px;
+        color: #a0a0a0;
+        font-weight: 400;
+    }
+    
+    /* ── Form Container ─────────────────────────────────────────────────────── */
+    .form-container {
+        background: #16213e;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #0f3460;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    .form-section-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #e94560;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e94560;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    /* ── Grid Layout ────────────────────────────────────────────────────────── */
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .form-grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
     }
     
     .form-label {
-        font-size: 13px;
-        color: #333;
-        margin-bottom: 4px;
+        font-size: 14px;
         font-weight: 500;
-        font-family: Arial, Helvetica, sans-serif;
+        color: #a0a0a0;
     }
     
     .form-input {
         width: 100%;
-        padding: 8px 12px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
+        padding: 10px 14px;
+        border: 1px solid #0f3460;
+        border-radius: 6px;
+        background: #1a1a2e;
+        color: #e0e0e0;
         font-size: 14px;
-        font-family: Arial, Helvetica, sans-serif;
-        background: #f5f5f5;
-    }
-    
-    .form-input[readonly], .form-input:disabled {
-        background: #e8e8e8;
-        color: #555;
+        transition: all 0.3s ease;
     }
     
     .form-input:focus {
         outline: none;
-        border-color: #28a745;
+        border-color: #e94560;
+        box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.2);
     }
     
-    .form-select {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
+    .form-input:disabled {
+        background: #16213e;
+        color: #666;
+        cursor: not-allowed;
+    }
+    
+    /* ── Tombol Custom ──────────────────────────────────────────────────────── */
+    .btn-custom {
+        padding: 12px 24px;
+        border-radius: 6px;
         font-size: 14px;
-        font-family: Arial, Helvetica, sans-serif;
-        background: #f5f5f5;
-    }
-    
-    .form-select[disabled] {
-        background: #e8e8e8;
-    }
-    
-    .form-date {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 14px;
-        font-family: Arial, Helvetica, sans-serif;
-        background: white;
-    }
-    
-    /* Tombol Cari Cyan (#3dc7e8) */
-    .btn-cari {
-        background: #3dc7e8;
-        color: white;
-        border: none;
-        padding: 8px 20px;
-        border-radius: 4px;
-        font-size: 13px;
-        font-weight: 500;
+        font-weight: 600;
         cursor: pointer;
-        font-family: Arial, Helvetica, sans-serif;
-        width: 80px;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    /* Tombol Cari - Coral/Merah */
+    .btn-cari {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        color: white;
     }
     
     .btn-cari:hover {
-        background: #30b5d5;
+        background: linear-gradient(135deg, #ee5a24 0%, #d64520 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(238, 90, 36, 0.4);
     }
     
-    /* Tombol Primary Streamlit (untuk tombol Cari) */
-    .stButton>button[data-baseweb="button"] {
-        background: #3dc7e8 !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 4px !important;
-        font-weight: 500 !important;
-        font-family: Arial, Helvetica, sans-serif !important;
-        width: 80px !important;
-    }
-    
-    .stButton>button[data-baseweb="button"]:hover {
-        background: #30b5d5 !important;
-    }
-    
-    /* Tombol Simpan Hijau (#28a745) */
+    /* Tombol Simpan - Hijau */
     .btn-save {
-        background: #28a745;
+        background: linear-gradient(135deg, #28a745 0%, #218838 100%);
         color: white;
-        border: none;
-        padding: 10px 24px;
-        border-radius: 4px;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-family: Arial, Helvetica, sans-serif;
     }
     
     .btn-save:hover {
-        background: #218838;
+        background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
     }
     
-    /* Tombol Primary Streamlit (untuk tombol Simpan) */
-    .stButton>button[data-baseweb="button"][type="primary"] {
-        background: #28a745 !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 4px !important;
-        font-weight: 500 !important;
-        font-family: Arial, Helvetica, sans-serif !important;
-    }
-    
-    .stButton>button[data-baseweb="button"][type="primary"]:hover {
-        background: #218838 !important;
-    }
-    
-    /* Tombol Reset Flat */
+    /* Tombol Reset - Abu-abu */
     .btn-reset {
-        background: transparent;
-        color: #666;
-        border: 1px solid #ccc;
-        padding: 10px 24px;
-        border-radius: 4px;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-family: Arial, Helvetica, sans-serif;
+        background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+        color: white;
     }
     
     .btn-reset:hover {
-        background: #f5f5f5;
-        border-color: #bbb;
+        background: linear-gradient(135deg, #5a6268 0%, #4e555b 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
     }
     
-    /* Tombol Secondary Streamlit (untuk tombol Reset) */
-    .stButton>button[data-baseweb="button"][data-testid="stButton"] {
-        background: transparent !important;
-        color: #666 !important;
-        border: 1px solid #ccc !important;
-        border-radius: 4px !important;
-        font-weight: 500 !important;
-        font-family: Arial, Helvetica, sans-serif !important;
-    }
-    
-    .stButton>button[data-baseweb="button"][data-testid="stButton"]:hover {
-        background: #f5f5f5 !important;
-        border-color: #bbb !important;
-    }
-    
-    /* Tombol Secondary Streamlit (untuk tombol Reset) */
-    .stButton>button[data-baseweb="button"][type="secondary"] {
-        background: transparent !important;
-        color: #666 !important;
-        border: 1px solid #ccc !important;
-        border-radius: 4px !important;
-        font-weight: 500 !important;
-        font-family: Arial, Helvetica, sans-serif !important;
-    }
-    
-    .stButton>button[data-baseweb="button"][type="secondary"]:hover {
-        background: #f5f5f5 !important;
-        border-color: #bbb !important;
-    }
-    
-    /* Total Nilai Retur di Kanan Atas */
-    .total-retur-container {
+    /* ── Total Nominal Container ────────────────────────────────────────────── */
+    .total-container {
         display: flex;
-        justify-content: flex-end;
+        justify-content: space-between;
         align-items: center;
-        gap: 15px;
-        margin-bottom: 15px;
+        padding: 20px;
+        background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+        border-radius: 12px;
+        margin: 20px 0;
+        border: 1px solid #0f3460;
     }
     
     .total-label {
-        font-size: 14px;
-        color: #666;
-        font-family: Arial, Helvetica, sans-serif;
+        font-size: 16px;
+        color: #a0a0a0;
+        font-weight: 500;
     }
     
     .total-value {
-        font-size: 28px;
-        font-weight: bold;
-        color: #333;
-        font-family: Arial, Helvetica, sans-serif;
+        font-size: 42px;
+        font-weight: 700;
+        color: #e94560;
+        text-align: right;
+        font-family: 'Courier New', monospace;
     }
     
-    /* Separator Garis Horizontal Turquoise */
-    .separator {
-        height: 2px;
-        background: #40e0d0;
-        margin: 15px 0;
-        border-radius: 0;
-    }
-    
-    /* ── Tabel Detail Item ───────────────────────────────────────────────────── */
-    .retur-table {
-        background: white;
-        padding: 15px;
-        margin-bottom: 15px;
-        border: 1px solid #ddd;
-        border-radius: 0;
-    }
-    
-    .retur-table h3 {
-        color: #333;
-        margin-top: 0;
-        margin-bottom: 12px;
-        font-size: 14px;
-        font-weight: 600;
-        font-family: Arial, Helvetica, sans-serif;
-        border-bottom: 1px solid #ddd;
-        padding-bottom: 8px;
-    }
-    
-    /* Scrollbar horizontal untuk tabel */
+    /* ── Tabel Data Editor ──────────────────────────────────────────────────── */
     .table-container {
-        overflow-x: auto;
-        max-height: 400px;
+        background: #16213e;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #0f3460;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
     
-    .table-container::-webkit-scrollbar {
-        height: 10px;
-    }
-    
-    .table-container::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 5px;
-    }
-    
-    .table-container::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 5px;
-    }
-    
-    .table-container::-webkit-scrollbar-thumb:hover {
-        background: #555;
-    }
-    
-    /* ── Card tanpa shadow ───────────────────────────────────────────────────── */
-    .retur-card {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 0;
-        padding: 15px;
-        margin-bottom: 15px;
-    }
-    
-    .retur-card h3 {
-        color: #333;
-        margin-top: 0;
-        border-bottom: 1px solid #ddd;
-        padding-bottom: 8px;
-        font-size: 14px;
+    .table-title {
+        font-size: 18px;
         font-weight: 600;
-        font-family: Arial, Helvetica, sans-serif;
+        color: #e94560;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e94560;
     }
     
-    /* Info boxes */
-    .stInfo {
-        background: #f8f9fa;
-        border-left: 4px solid #28a745;
-        padding: 10px 12px;
-        border-radius: 0;
-    }
-    
-    /* Metric */
-    [data-testid="stMetric"] {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 0;
-        padding: 12px;
-    }
-    
-    [data-testid="stMetric"] [data-testid="stMetricValue"] {
-        color: #333;
-        font-size: 24px;
-        font-weight: bold;
-    }
-    
-    [data-testid="stMetric"] [data-testid="stMetricLabel"] {
-        color: #666;
-        font-size: 13px;
-    }
-    
-    /* Button */
-    .stButton>button {
-        border-radius: 4px;
-        font-weight: 500;
-        font-family: Arial, Helvetica, sans-serif;
-    }
-    
-    .stButton>button:hover {
-        transform: none;
-        box-shadow: none;
-    }
-    
-    /* Data Editor - Tabel */
+    /* Styling untuk data editor */
     .stDataFrame {
-        border: 1px solid #ddd;
-        border-radius: 0;
+        background: #1a1a2e;
+        border-radius: 8px;
+        overflow: hidden;
     }
     
     .stDataFrame th {
-        background: #f5f5f5;
+        background: #0f3460;
+        color: #e0e0e0;
         font-weight: 600;
-        color: #333;
         font-size: 13px;
+        padding: 10px;
     }
     
     .stDataFrame td {
+        color: #e0e0e0;
         font-size: 13px;
-        color: #333;
+        padding: 8px;
     }
     
-    /* Footer */
-    .erp-footer {
+    .stDataFrame tr:hover {
+        background: #1f3a5e;
+    }
+    
+    /* ── Info Box ───────────────────────────────────────────────────────────── */
+    .info-box {
+        background: #1f3a5e;
+        border-left: 4px solid #e94560;
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        margin-bottom: 15px;
+    }
+    
+    .info-box strong {
+        color: #e94560;
+    }
+    
+    /* ── Footer ─────────────────────────────────────────────────────────────── */
+    .app-footer {
         text-align: center;
-        padding: 15px;
+        padding: 20px;
         color: #666;
-        font-size: 12px;
-        font-family: Arial, Helvetica, sans-serif;
+        font-size: 14px;
+        margin-top: 30px;
+    }
+    
+    /* ── Action Buttons Container ───────────────────────────────────────────── */
+    .action-buttons {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    
+    /* ── Responsive ─────────────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .form-grid-4 {
+            grid-template-columns: 1fr;
+        }
+        
+        .total-container {
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .total-value {
+            text-align: center;
+        }
     }
     </style>
     """,
@@ -1248,317 +1050,303 @@ elif menu == "🛒 Update Stok & Kasir":
             st.info("Keranjang kosong. Tambahkan obat dari form di sebelah kiri.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 6 — RETUR PEMBELIAN
+# FITUR 5 — RETUR PEMBELIAN
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🏥 Retur Pembelian":
-    # ── Navbar ERP Maroon (#8d1d1d) ───────────────────────────────────────────
+    # ── Header Aplikasi ──────────────────────────────────────────────────────
     st.markdown(
         """
-        <div class='erp-navbar'>
-            <div class='erp-menu-left'>
-                <span class='erp-hamburger'>☰</span>
-                <div class='erp-status-container'>
-                    <span class='erp-status-label'>PPN Otomatis :</span>
-                    <span class='erp-status-value'>OFF</span>
-                </div>
-            </div>
-            <div class='erp-promo'>KOMISI 1 JUTA</div>
-            <div class='erp-menu-right'>
-                <span class='erp-icon'>?</span>
-                <span class='erp-icon'>↻</span>
-                <span class='erp-icon'>🔔</span>
-                <div class='erp-avatar'>AV</div>
-                <button class='erp-logout'>Logout</button>
-            </div>
+        <div class='app-header'>
+            <div class='app-title'>💊 Retur Pembelian Obat</div>
+            <div class='app-subtitle'>Formulir pencatatan retur pembelian obat ke supplier</div>
         </div>
         """,
         unsafe_allow_html=True
     )
     
-    # ── Title Transaksi di Tengah ─────────────────────────────────────────────
-    st.markdown(
-        "<div class='transaction-title'>Retur Pembelian Obat</div>",
-        unsafe_allow_html=True
-    )
-    
-    # ── Session state untuk data retur ───────────────────────────────────────
-    if "retur_form_data" not in st.session_state:
-        st.session_state.retur_form_data = {}
-    if "retur_items" not in st.session_state:
-        st.session_state.retur_items = pd.DataFrame(columns=[
-            "Pilih", "Kode Obat", "Nama Obat", "Satuan", "No Batch",
-            "Tanggal Exp", "Ketentuan Retur", "Maks. bln sblm ED", "Tersedia",
-            "Jumlah Retur", "HPP", "Subtotal Retur"
-        ])
-    if "retur_history" not in st.session_state:
-        st.session_state.retur_history = load_retur_history()
-        if st.session_state.retur_history is None:
-            st.session_state.retur_history = pd.DataFrame(columns=RETUR_HISTORY_COLUMNS)
-    
-    # ── Form Header Dua Kolom ────────────────────────────────────────────────
+    # ── Form Pencarian Faktur ─────────────────────────────────────────────────
     st.markdown(
         """
-        <div class='retur-form'>
-            <h3>📋 Form Pencarian Faktur</h3>
+        <div class='form-container'>
+            <div class='form-section-title'>📋 Form Pencarian Faktur</div>
         """,
         unsafe_allow_html=True
     )
     
-    col_h1, col_h2 = st.columns([2, 3])
+    # Baris 1: 3 Kolom
+    col_h1, col_h2, col_h3 = st.columns(3)
     
     with col_h1:
-        nomor_faktur = st.text_input("Nomor Faktur", key="nomor_faktur_input")
-        btn_cari_faktur = st.button("Cari", type="primary", use_container_width=True)
+        nomor_faktur = st.text_input(
+            "Nomor Faktur",
+            value="2605/PDF.CC/1501",
+            key="nomor_faktur_input",
+            label_visibility="collapsed"
+        )
     
     with col_h2:
-        col_tgl1, col_tgl2 = st.columns(2)
-        with col_tgl1:
-            tanggal_faktur = st.date_input("Tanggal Faktur", key="tanggal_faktur")
-        with col_tgl2:
-            tanggal_retur = st.date_input("Tanggal Retur", value=date.today(), key="tanggal_retur")
+        tanggal_faktur = st.date_input(
+            "Tanggal Faktur",
+            value=date(2026, 5, 15),
+            key="tanggal_faktur",
+            label_visibility="collapsed"
+        )
     
-    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-    with col_s1:
-        supplier = st.text_input("Supplier", key="supplier_input", disabled=True)
-    with col_s2:
-        gudang = st.selectbox("Gudang", ["Gudang Utama", "Gudang Cabang", "Gudang Darurat"], key="gudang_input", disabled=True)
-    with col_s3:
-        jenis_pembayaran = st.selectbox("Jenis Pembayaran", ["HUTANG", "Tunai"], key="jenis_pembayaran_input", disabled=True)
-    with col_s4:
-        tanggal_jatuh_tempo = st.date_input("Tanggal JT", key="tanggal_jatuh_tempo", disabled=True)
+    with col_h3:
+        tanggal_retur = st.date_input(
+            "Tanggal Retur",
+            value=date(2026, 7, 5),
+            key="tanggal_retur",
+            label_visibility="collapsed"
+        )
+    
+    # Tombol Cari
+    col_btn_cari, col_spacer = st.columns([1, 3])
+    with col_btn_cari:
+        btn_cari = st.button("🔍 Cari", key="btn_cari", use_container_width=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
     
-    # Tombol Cari Faktur dengan styling cyan
-    if btn_cari_faktur and nomor_faktur.strip():
-            # Simulasi pencarian faktur (dalam implementasi nyata, ini akan query database)
-            # Untuk demo, kita gunakan data dummy jika faktur ditemukan
+    # ── Detail Supplier & Pembayaran ───────────────────────────────────────────
+    if btn_cari or st.session_state.retur_form_data:
+        st.markdown(
+            """
+            <div class='form-container'>
+                <div class='form-section-title'>📦 Detail Supplier & Pembayaran</div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # Baris 2-4: 4 Kolom
+        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+        
+        with col_s1:
+            supplier = st.text_input(
+                "Supplier",
+                value="PDF (PUNDENSEHAT DISTRIBUTOR FARMASI)",
+                key="supplier_input",
+                disabled=True,
+                label_visibility="collapsed"
+            )
+        
+        with col_s2:
+            gudang = st.selectbox(
+                "Gudang",
+                ["Gudang Utama", "Gudang Cabang", "Gudang Darurat"],
+                index=0,
+                key="gudang_input",
+                disabled=True,
+                label_visibility="collapsed"
+            )
+        
+        with col_s3:
+            jenis_pembayaran = st.selectbox(
+                "Jenis Pembayaran",
+                ["Hutang", "Tunai"],
+                index=0,
+                key="jenis_pembayaran_input",
+                disabled=True,
+                label_visibility="collapsed"
+            )
+        
+        with col_s4:
+            tanggal_jatuh_tempo = st.date_input(
+                "Tanggal Jatuh Tempo",
+                value=date(2026, 6, 15),
+                key="tanggal_jatuh_tempo",
+                disabled=True,
+                label_visibility="collapsed"
+            )
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # ── Simpan Data Faktur ke Session State ────────────────────────────────
+        if btn_cari:
             st.session_state.retur_form_data = {
-                "nomor_faktur": nomor_faktur.strip(),
+                "nomor_faktur": nomor_faktur,
                 "tanggal_faktur": tanggal_faktur,
-                "supplier": supplier if supplier.strip() else "Supplier Dummy",
+                "tanggal_retur": tanggal_retur,
+                "supplier": supplier,
                 "gudang": gudang,
                 "jenis_pembayaran": jenis_pembayaran,
                 "tanggal_jatuh_tempo": tanggal_jatuh_tempo
             }
-            
-            # Simulasi data item pembelian (dalam implementasi nyata, query dari database)
-            st.session_state.retur_items = pd.DataFrame([
-                {
-                    "Pilih": True,
-                    "Kode Obat": "OBT001",
-                    "Nama Obat": "Paracetamol 500mg",
-                    "Satuan": "BOX",
-                    "No Batch": "BATCH001",
-                    "Tanggal Exp": pd.Timestamp(date.today() + pd.Timedelta(days=180)),
-                    "Ketentuan Retur": "Bisa Diretur",
-                    "Maks. bln sblm ED": 6,
-                    "Tersedia": 50,
-                    "Jumlah Retur": 0,
-                    "HPP": 5000.00,
-                    "Subtotal Retur": 0.00
-                },
-                {
-                    "Pilih": True,
-                    "Kode Obat": "OBT002",
-                    "Nama Obat": "Amoxicillin 250mg",
-                    "Satuan": "BOTOL",
-                    "No Batch": "BATCH002",
-                    "Tanggal Exp": pd.Timestamp(date.today() + pd.Timedelta(days=90)),
-                    "Ketentuan Retur": "Bisa Diretur",
-                    "Maks. bln sblm ED": 3,
-                    "Tersedia": 30,
-                    "Jumlah Retur": 0,
-                    "HPP": 8000.00,
-                    "Subtotal Retur": 0.00
-                },
-                {
-                    "Pilih": False,
-                    "Kode Obat": "OBT003",
-                    "Nama Obat": "Ciprofloxacin 500mg",
-                    "Satuan": "TABLET",
-                    "No Batch": "BATCH003",
-                    "Tanggal Exp": pd.Timestamp(date.today() - pd.Timedelta(days=30)),
-                    "Ketentuan Retur": "Bisa Diretur",
-                    "Maks. bln sblm ED": 0,
-                    "Tersedia": 0,
-                    "Jumlah Retur": 0,
-                    "HPP": 12000.00,
-                    "Subtotal Retur": 0.00
-                }
-            ])
-            st.success("✅ Data faktur ditemukan!")
-    
-    # ── Tampilkan data jika faktur sudah dipilih ──────────────────────────────
-    if st.session_state.retur_form_data:
-        st.markdown("---")
         
-        # Tampilkan data header dengan form layout
-        st.markdown(
-            """
-            <div class='retur-form'>
-                <h3>📦 Informasi Transaksi</h3>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        col_d1, col_d2, col_d3, col_d4 = st.columns(4)
-        with col_d1:
-            st.info(f"**Nomor Faktur:** {st.session_state.retur_form_data['nomor_faktur']}")
-        with col_d2:
-            st.info(f"**Supplier:** {st.session_state.retur_form_data['supplier']}")
-        with col_d3:
-            st.info(f"**Gudang:** {st.session_state.retur_form_data['gudang']}")
-        with col_d4:
-            st.info(f"**Jenis Pembayaran:** {st.session_state.retur_form_data['jenis_pembayaran']}")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        # ── Total Retur di Kanan Atas ──────────────────────────────────────────
-        st.markdown(
-            """
-            <div class='total-retur-container'>
-                <span class='total-label'>Total Nilai Retur:</span>
-                <span class='total-value' id='total-retur-value'>Rp 0</span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        # Tampilkan tabel item dengan data_editor
-        st.markdown(
-            """
-            <div class='retur-table'>
-                <h3>📝 Detail Item Retur</h3>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        # Konversi tanggal ke string untuk display
-        items_display = st.session_state.retur_items.copy()
-        items_display["Tanggal Exp"] = pd.to_datetime(items_display["Tanggal Exp"]).dt.strftime("%d-%m-%Y")
-        
-        # Data editor untuk input jumlah retur
-        edited_items = st.data_editor(
-            items_display,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Pilih": st.column_config.CheckboxColumn("Pilih", default=True),
-                "Kode Obat": st.column_config.TextColumn("Kode", disabled=True),
-                "Nama Obat": st.column_config.TextColumn("Nama Obat", disabled=True),
-                "Satuan": st.column_config.TextColumn("Satuan", disabled=True),
-                "No Batch": st.column_config.TextColumn("No. Batch", disabled=True),
-                "Tanggal Exp": st.column_config.TextColumn("Tanggal Exp", disabled=True),
-                "Ketentuan Retur": st.column_config.TextColumn("Ketentuan Retur", disabled=True),
-                "Maks. bln sblm ED": st.column_config.NumberColumn("Maks bln sblm ED", disabled=True),
-                "Tersedia": st.column_config.NumberColumn("Tersedia", disabled=True),
-                "Jumlah Retur": st.column_config.NumberColumn("Jumlah Retur", min_value=0, default=0),
-                "HPP": st.column_config.NumberColumn("HPP", disabled=True, format="Rp %.2f"),
-                "Subtotal Retur": st.column_config.NumberColumn("Subtotal Retur", disabled=True, format="Rp %.2f")
-            }
-        )
-        
-        # Hitung subtotal retur otomatis
-        edited_items["Subtotal Retur"] = (edited_items["Jumlah Retur"] * edited_items["HPP"]).round(2)
-        
-        # Update session state
-        st.session_state.retur_items = edited_items
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        # ── Separator Garis Horizontal Turquoise ───────────────────────────────
-        st.markdown(
-            """
-            <div class='separator'></div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        # ── Tombol Aksi (Simpan dan Reset) ─────────────────────────────────────
-        st.markdown(
-            """
-            <div class='retur-form'>
-                <h3>⚙️ Aksi</h3>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        col_btn1, col_btn2 = st.columns(2)
-        
-        with col_btn1:
-            if st.button("💾 Simpan", type="primary", use_container_width=True):
-                total_retur = edited_items["Subtotal Retur"].sum()
-                if total_retur == 0:
-                    st.warning("⚠️ Belum ada item yang dipilih untuk diretur!")
-                else:
-                    # Simulasi penyimpanan ke database
-                    # Dalam implementasi nyata, lakukan:
-                    # 1. Kurangi hutang supplier
-                    # 2. Tambah stok gudang
-                    # 3. Catat histori retur
-                    # 4. Update status pembelian
-                    
-                    # Simpan ke riwayat retur
-                    new_history = pd.DataFrame([{
-                        "Nomor Faktur": st.session_state.retur_form_data['nomor_faktur'],
-                        "Tanggal Retur": st.session_state.retur_form_data['tanggal_retur'],
-                        "Supplier": st.session_state.retur_form_data['supplier'],
-                        "Gudang": st.session_state.retur_form_data['gudang'],
-                        "Jumlah Item": len(edited_items[edited_items["Jumlah Retur"] > 0]),
-                        "Total Nilai Retur": total_retur,
-                        "Tanggal Disimpan": datetime.now()
-                    }])
-                    st.session_state.retur_history = pd.concat([st.session_state.retur_history, new_history], ignore_index=True)
-                    
-                    # Simpan ke file CSV
-                    save_retur_history(st.session_state.retur_history)
-                    
-                    st.success(f"✅ Retur pembelian berhasil disimpan! Total retur: Rp {total_retur:,.2f}".replace(",", "."))
-                    
-                    # Reset form
-                    st.session_state.retur_form_data = {}
-                    st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
-                    st.rerun()
-        
-        with col_btn2:
-            if st.button("↻ Reset", type="secondary", use_container_width=True):
-                st.session_state.retur_items["Jumlah Retur"] = 0
-                st.session_state.retur_items["Subtotal Retur"] = 0
-                st.rerun()
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        # ── Tabel Riwayat Retur ────────────────────────────────────────────────
-        if not st.session_state.retur_history.empty:
-            st.markdown("---")
+        # ── Tampilkan Data Header ──────────────────────────────────────────────
+        if st.session_state.retur_form_data:
             st.markdown(
                 """
-                <div class='retur-table'>
-                    <h3>📜 Riwayat Retur</h3>
+                <div class='form-container'>
+                    <div class='form-section-title'>📋 Informasi Transaksi</div>
                 """,
                 unsafe_allow_html=True
             )
             
-            history_display = st.session_state.retur_history.copy()
-            history_display["Tanggal Retur"] = pd.to_datetime(history_display["Tanggal Retur"]).dt.strftime("%d-%m-%Y")
-            history_display["Tanggal Disimpan"] = pd.to_datetime(history_display["Tanggal Disimpan"]).dt.strftime("%d-%m-%Y %H:%M")
-            history_display["Total Nilai Retur"] = history_display["Total Nilai Retur"].apply(lambda x: f"Rp {x:,.2f}".replace(",", "."))
+            col_d1, col_d2, col_d3, col_d4 = st.columns(4)
             
-            st.dataframe(history_display, use_container_width=True, hide_index=True)
+            with col_d1:
+                st.info(f"**Nomor Faktur:** {st.session_state.retur_form_data['nomor_faktur']}")
+            
+            with col_d2:
+                st.info(f"**Supplier:** {st.session_state.retur_form_data['supplier']}")
+            
+            with col_d3:
+                st.info(f"**Gudang:** {st.session_state.retur_form_data['gudang']}")
+            
+            with col_d4:
+                st.info(f"**Jenis Pembayaran:** {st.session_state.retur_form_data['jenis_pembayaran']}")
             
             st.markdown("</div>", unsafe_allow_html=True)
-    
-    # ── Footer ────────────────────────────────────────────────────────────────
-    st.markdown(
-        """
-        <div class='erp-footer'>
-            <p>All Rights Reserved</p>
-            <p style='color: #8d1d1d; font-weight: 500;'>Vmedis 1.8.0</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+            
+            # ── Baris Aksi & Total Nominal ─────────────────────────────────────
+            st.markdown(
+                """
+                <div class='total-container'>
+                    <div class='action-buttons'>
+                        <button class='btn-custom btn-save' id='btn_simpan'>
+                            ✓ Simpan
+                        </button>
+                        <button class='btn-custom btn-reset' id='btn_reset'>
+                            ⟲ Reset
+                        </button>
+                    </div>
+                    <div>
+                        <div class='total-label'>Total Nilai Retur</div>
+                        <div class='total-value' id='total-retur-value'>Rp 0,00</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            
+            # ── Tabel Item Obat ────────────────────────────────────────────────
+            st.markdown(
+                """
+                <div class='table-container'>
+                    <div class='table-title'>📝 Detail Item Obat</div>
+                """,
+                unsafe_allow_html=True
+            )
+            
+            # Data default untuk tabel
+            if st.session_state.retur_items.empty:
+                st.session_state.retur_items = pd.DataFrame([
+                    {
+                        "Pilih": True,
+                        "Kode": "OBT2307310009",
+                        "Nama Obat": "LERZIN SYR",
+                        "Satuan": "BOTOL",
+                        "No. Batch": "TN03H",
+                        "Tanggal Exp": "2030-02-26",
+                        "Ketentuan Retur": "",
+                        "Maks bln sblm ED": "",
+                        "Tersedia": 5.00,
+                        "Jumlah Retur": 0.00,
+                        "HPP": ""
+                    }
+                ])
+            
+            # Tampilkan tabel dengan data_editor
+            edited_items = st.data_editor(
+                st.session_state.retur_items,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Pilih": st.column_config.CheckboxColumn("Pilih", default=True),
+                    "Kode": st.column_config.TextColumn("Kode", disabled=True),
+                    "Nama Obat": st.column_config.TextColumn("Nama Obat", disabled=True),
+                    "Satuan": st.column_config.TextColumn("Satuan", disabled=True),
+                    "No. Batch": st.column_config.TextColumn("No. Batch", disabled=True),
+                    "Tanggal Exp": st.column_config.TextColumn("Tanggal Exp", disabled=True),
+                    "Ketentuan Retur": st.column_config.TextColumn("Ketentuan Retur"),
+                    "Maks bln sblm ED": st.column_config.NumberColumn("Maks bln sblm ED"),
+                    "Tersedia": st.column_config.NumberColumn("Tersedia", disabled=True),
+                    "Jumlah Retur": st.column_config.NumberColumn("Jumlah Retur", min_value=0.0, format="%.2f"),
+                    "HPP": st.column_config.NumberColumn("HPP", min_value=0.0, format="Rp %.2f")
+                },
+                key="data_editor_key"
+            )
+            
+            # Hitung subtotal otomatis
+            edited_items["Subtotal"] = edited_items["Jumlah Retur"] * edited_items["HPP"]
+            
+            # Update session state
+            st.session_state.retur_items = edited_items
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            # ── Tombol Aksi (Simpan dan Reset) ─────────────────────────────────
+            col_btn1, col_btn2 = st.columns(2)
+            
+            with col_btn1:
+                if st.button("💾 Simpan", type="primary", use_container_width=True):
+                    total_retur = edited_items["Subtotal"].sum()
+                    if total_retur == 0:
+                        st.warning("⚠️ Belum ada item yang dipilih untuk diretur!")
+                    else:
+                        # Simpan ke riwayat retur
+                        new_history = pd.DataFrame([{
+                            "Nomor Faktur": st.session_state.retur_form_data['nomor_faktur'],
+                            "Tanggal Retur": st.session_state.retur_form_data['tanggal_retur'],
+                            "Supplier": st.session_state.retur_form_data['supplier'],
+                            "Gudang": st.session_state.retur_form_data['gudang'],
+                            "Jumlah Item": len(edited_items[edited_items["Jumlah Retur"] > 0]),
+                            "Total Nilai Retur": total_retur,
+                            "Tanggal Disimpan": datetime.now()
+                        }])
+                        
+                        st.session_state.retur_history = pd.concat(
+                            [st.session_state.retur_history, new_history], 
+                            ignore_index=True
+                        )
+                        
+                        # Simpan ke file CSV
+                        save_retur_history(st.session_state.retur_history)
+                        
+                        st.success(f"✅ Retur pembelian berhasil disimpan! Total retur: Rp {total_retur:,.2f}".replace(",", "."))
+                        
+                        # Reset form
+                        st.session_state.retur_form_data = {}
+                        st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
+                        st.rerun()
+            
+            with col_btn2:
+                if st.button("↻ Reset", type="secondary", use_container_width=True):
+                    st.session_state.retur_items["Jumlah Retur"] = 0.00
+                    st.session_state.retur_items["Subtotal"] = 0.00
+                    st.rerun()
+            
+            # ── Tabel Riwayat Retur ────────────────────────────────────────────
+            if not st.session_state.retur_history.empty:
+                st.markdown(
+                    """
+                    <div class='table-container'>
+                        <div class='table-title'>📜 Riwayat Retur</div>
+                    """,
+                    unsafe_allow_html=True
+                )
+                
+                history_display = st.session_state.retur_history.copy()
+                history_display["Tanggal Retur"] = pd.to_datetime(history_display["Tanggal Retur"]).dt.strftime("%d-%m-%Y")
+                history_display["Tanggal Disimpan"] = pd.to_datetime(history_display["Tanggal Disimpan"]).dt.strftime("%d-%m-%Y %H:%M")
+                history_display["Total Nilai Retur"] = history_display["Total Nilai Retur"].apply(
+                    lambda x: f"Rp {x:,.2f}".replace(",", ".")
+                )
+                
+                st.dataframe(history_display, use_container_width=True, hide_index=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+            
+            # ── Footer ─────────────────────────────────────────────────────────
+            st.markdown(
+                """
+                <div class='app-footer'>
+                    <p>All Rights Reserved</p>
+                    <p style='color: #e94560; font-weight: 600;'>Vmedis 1.8.0</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 5 — ENTRI PEMBELIAN
