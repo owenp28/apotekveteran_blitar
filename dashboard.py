@@ -402,6 +402,20 @@ if not st.session_state.logged_in:
                 st.error("Username, password, atau role tidak sesuai.")
     st.stop()
 
+# ── Session State untuk Retur Pembelian ─────────────────────────────────────
+if "retur_form_data" not in st.session_state:
+    st.session_state.retur_form_data = {}
+if "retur_items" not in st.session_state:
+    st.session_state.retur_items = pd.DataFrame(columns=[
+        "Pilih", "Kode", "Nama Obat", "Satuan", "No. Batch",
+        "Tanggal Exp", "Ketentuan Retur", "Maks bln sblm ED",
+        "Tersedia", "Jumlah Retur", "HPP", "Subtotal"
+    ])
+if "retur_history" not in st.session_state:
+    st.session_state.retur_history = load_retur_history()
+    if st.session_state.retur_history is None:
+        st.session_state.retur_history = pd.DataFrame(columns=RETUR_HISTORY_COLUMNS)
+
 # ── Sidebar navigasi ──────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
 st.sidebar.title("💊 Apotek Veteran Blitar")
