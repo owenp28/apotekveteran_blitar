@@ -1242,7 +1242,7 @@ elif menu == "🏥 Retur Pembelian":
                         "Maks bln sblm ED": "",
                         "Tersedia": 5.00,
                         "Jumlah Retur": 0.00,
-                        "HPP": ""
+                        "HPP": 0.00
                     }
                 ])
             
@@ -1268,7 +1268,7 @@ elif menu == "🏥 Retur Pembelian":
             )
             
             # Hitung subtotal otomatis
-            edited_items["Subtotal"] = edited_items["Jumlah Retur"] * edited_items["HPP"]
+            edited_items["Subtotal"] = edited_items["Jumlah Retur"].fillna(0) * edited_items["HPP"].fillna(0)
             
             # Update session state
             st.session_state.retur_items = edited_items
@@ -1280,6 +1280,8 @@ elif menu == "🏥 Retur Pembelian":
             
             with col_btn1:
                 if st.button("💾 Simpan", type="primary", use_container_width=True):
+                    # Isi HPP dengan 0.00 jika kosong
+                    edited_items["HPP"] = edited_items["HPP"].fillna(0.00)
                     total_retur = edited_items["Subtotal"].sum()
                     if total_retur == 0:
                         st.warning("⚠️ Belum ada item yang dipilih untuk diretur!")
@@ -1314,6 +1316,7 @@ elif menu == "🏥 Retur Pembelian":
                 if st.button("↻ Reset", type="secondary", use_container_width=True):
                     st.session_state.retur_items["Jumlah Retur"] = 0.00
                     st.session_state.retur_items["Subtotal"] = 0.00
+                    st.session_state.retur_items["HPP"] = 0.00
                     st.rerun()
             
             # ── Tabel Riwayat Retur ────────────────────────────────────────────
