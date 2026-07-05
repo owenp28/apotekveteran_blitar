@@ -33,87 +33,331 @@ st.markdown(
     h1 {
         text-align: left !important;
     }
-    /* Styling modern untuk fitur Retur Pembelian */
-    .retur-header {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    /* Navbar Maroon - Styling untuk navbar aplikasi ERP */
+    .erp-navbar {
+        background: #500000;
         color: white;
-        padding: 20px;
-        border-radius: 12px;
+        padding: 10px 20px;
+        border-radius: 0;
         margin-bottom: 20px;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: Arial, Helvetica, sans-serif;
     }
+    .erp-menu {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    .erp-status {
+        font-size: 13px;
+        color: #ffcc00;
+    }
+    .erp-promo {
+        background: #ffcc00;
+        color: #333;
+        padding: 5px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+    }
+    .erp-icons {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    .erp-icon {
+        font-size: 18px;
+        cursor: pointer;
+        color: white;
+    }
+    .erp-icon:hover {
+        opacity: 0.8;
+    }
+    .erp-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #707070;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: bold;
+    }
+    .erp-logout {
+        background: #707070;
+        color: white;
+        border: none;
+        padding: 5px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+    .erp-logout:hover {
+        background: #505050;
+    }
+    /* Title Retur Pembelian */
+    .retur-title {
+        font-size: 36px;
+        font-weight: bold;
+        color: #000;
+        margin-bottom: 10px;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .retur-ref {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 20px;
+    }
+    /* Form Transaksi - Dua Kolom Simetris */
+    .retur-form {
+        background: white;
+        padding: 20px;
+        border-radius: 0;
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+    }
+    .retur-form h3 {
+        color: #333;
+        margin-top: 0;
+        margin-bottom: 15px;
+        font-size: 16px;
+        font-weight: 600;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .form-row {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 15px;
+    }
+    .form-col {
+        flex: 1;
+    }
+    .form-label {
+        font-size: 13px;
+        color: #333;
+        margin-bottom: 5px;
+        font-weight: 500;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .form-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 13px;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #f5f5f5;
+    }
+    .form-input[readonly] {
+        background: #e8e8e8;
+    }
+    .form-input:focus {
+        outline: none;
+        border-color: #28a745;
+    }
+    .form-select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 13px;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #f5f5f5;
+    }
+    .form-select[disabled] {
+        background: #e8e8e8;
+    }
+    .form-date {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 13px;
+        font-family: Arial, Helvetica, sans-serif;
+        background: white;
+    }
+    .form-date::before {
+        content: "📅 ";
+    }
+    /* Tombol Aksi */
+    .action-buttons {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .btn-save {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .btn-save:hover {
+        background: #218838;
+    }
+    .btn-reset {
+        background: transparent;
+        color: #666;
+        border: 1px solid #ccc;
+        padding: 10px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .btn-reset:hover {
+        background: #f5f5f5;
+        border-color: #bbb;
+    }
+    /* Total Retur */
+    .total-retur {
+        text-align: right;
+        margin-bottom: 20px;
+    }
+    .total-label {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 5px;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .total-value {
+        font-size: 32px;
+        font-weight: bold;
+        color: #333;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    /* Separator */
+    .separator {
+        height: 2px;
+        background: #40e0d0;
+        margin: 20px 0;
+        border-radius: 0;
+    }
+    /* Tabel Detail Item */
+    .retur-table {
+        background: white;
+        padding: 20px;
+        border-radius: 0;
+        border: 1px solid #ddd;
+    }
+    .retur-table h3 {
+        color: #333;
+        margin-top: 0;
+        margin-bottom: 15px;
+        font-size: 16px;
+        font-weight: 600;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .table-header {
+        font-weight: 600;
+        color: #333;
+        font-size: 13px;
+        border-bottom: 1px solid #ddd;
+        padding: 10px 8px;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .table-row {
+        height: 38px;
+        border-bottom: 1px solid #eee;
+    }
+    .table-cell {
+        padding: 8px;
+        font-size: 13px;
+        color: #333;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .table-checkbox {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+    /* Scrollbar untuk tabel */
+    .table-container {
+        overflow-x: auto;
+        max-height: 400px;
+    }
+    .table-container::-webkit-scrollbar {
+        height: 12px;
+    }
+    .table-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 6px;
+    }
+    .table-container::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 6px;
+    }
+    .table-container::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+    /* Card tanpa shadow */
     .retur-card {
         background: white;
         border: 1px solid #e5e7eb;
-        border-radius: 12px;
+        border-radius: 0;
         padding: 20px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
     .retur-card h3 {
-        color: #10b981;
+        color: #333;
         margin-top: 0;
-        border-bottom: 2px solid #10b981;
+        border-bottom: 1px solid #ddd;
         padding-bottom: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        font-family: Arial, Helvetica, sans-serif;
     }
-    .retur-metric {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-        padding: 15px;
-        border-radius: 8px;
-        text-align: center;
+    /* Info boxes */
+    .stInfo {
+        background: #f8f9fa;
+        border-left: 4px solid #28a745;
+        padding: 12px 16px;
+        border-radius: 0;
     }
-    .retur-metric .metric-value {
-        font-size: 24px;
-        font-weight: bold;
-    }
-    .retur-metric .metric-label {
-        font-size: 12px;
-        opacity: 0.9;
-    }
-    /* Styling untuk form elements */
-    .stForm {
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 20px;
-    }
-    /* Styling untuk metric cards */
+    /* Metric */
     [data-testid="stMetric"] {
         background: white;
         border: 1px solid #e5e7eb;
-        border-radius: 12px;
+        border-radius: 0;
         padding: 15px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
     [data-testid="stMetric"] [data-testid="stMetricValue"] {
-        color: #10b981;
+        color: #333;
         font-size: 28px;
         font-weight: bold;
     }
     [data-testid="stMetric"] [data-testid="stMetricLabel"] {
-        color: #6b7280;
+        color: #666;
         font-size: 14px;
     }
-    /* Styling untuk buttons */
+    /* Button */
     .stButton>button {
-        border-radius: 8px;
+        border-radius: 6px;
         font-weight: 500;
+        font-family: Arial, Helvetica, sans-serif;
     }
     .stButton>button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        transform: none;
+        box-shadow: none;
     }
-    /* Styling untuk data editor */
+    /* Data Editor */
     .stDataFrame {
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-    }
-    /* Styling untuk info boxes */
-    .stInfo {
-        background: #ecfdf5;
-        border-left: 4px solid #10b981;
-        padding: 12px 16px;
-        border-radius: 4px;
+        border: 1px solid #ddd;
+        border-radius: 0;
     }
     </style>
     """,
