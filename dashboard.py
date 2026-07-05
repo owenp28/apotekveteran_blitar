@@ -862,10 +862,10 @@ elif menu == "🏥 Retur Pembelian":
         st.session_state.retur_form_data = {}
     if "retur_items" not in st.session_state:
         st.session_state.retur_items = pd.DataFrame(columns=[
-            "Pilih", "Kode Obat", "Nama Obat", "Satuan", "Nomor Batch",
-            "Tanggal Expired", "Maksimal Bulan Sebelum ED", "Stok Saat Ini",
-            "Jumlah Dibeli", "Sudah Diretur", "Sisa Bisa Diretur",
-            "Jumlah Retur", "Harga Pokok (HPP)", "Subtotal Retur"
+            "Pilih", "Kode Obat", "Nama Obat", "Satuan", "Batch",
+            "Tanggal Expired", "Stok Saat Ini", "Jumlah Dibeli",
+            "Sudah Diretur", "Sisa Bisa Diretur", "Jumlah Retur",
+            "Harga Pokok (HPP)", "Subtotal Retur"
         ])
 
     # ── Form Header ───────────────────────────────────────────────────────────
@@ -877,32 +877,32 @@ elif menu == "🏥 Retur Pembelian":
         unsafe_allow_html=True
     )
     
-    with st.form("form_retur_header"):
-        col_h1, col_h2 = st.columns([2, 3])
-        
-        with col_h1:
-            nomor_faktur = st.text_input("Nomor Faktur", key="nomor_faktur_input")
-            btn_cari_faktur = st.button("🔍 Cari", use_container_width=True, type="primary")
-        
-        with col_h2:
-            col_tgl1, col_tgl2 = st.columns(2)
-            with col_tgl1:
-                tanggal_faktur = st.date_input("Tanggal Faktur", key="tanggal_faktur")
-            with col_tgl2:
-                tanggal_retur = st.date_input("Tanggal Retur", value=date.today(), key="tanggal_retur")
-        
-        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-        with col_s1:
-            supplier = st.text_input("Supplier", key="supplier_input")
-        with col_s2:
-            gudang = st.selectbox("Gudang", ["Gudang Utama", "Gudang Cabang", "Gudang Darurat"], key="gudang_input")
-        with col_s3:
-            jenis_pembayaran = st.selectbox("Jenis Pembayaran", ["Tunai", "Hutang"], key="jenis_pembayaran_input")
-        with col_s4:
-            tanggal_jatuh_tempo = st.date_input("Tanggal Jatuh Tempo", key="tanggal_jatuh_tempo")
-        
-        # Tombol Cari Faktur
-        if btn_cari_faktur and nomor_faktur.strip():
+    col_h1, col_h2 = st.columns([2, 3])
+    
+    with col_h1:
+        nomor_faktur = st.text_input("Nomor Faktur", key="nomor_faktur_input")
+    
+    with col_h2:
+        col_tgl1, col_tgl2 = st.columns(2)
+        with col_tgl1:
+            tanggal_faktur = st.date_input("Tanggal Faktur", key="tanggal_faktur")
+        with col_tgl2:
+            tanggal_retur = st.date_input("Tanggal Retur", value=date.today(), key="tanggal_retur")
+    
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+    with col_s1:
+        supplier = st.text_input("Supplier", key="supplier_input")
+    with col_s2:
+        gudang = st.selectbox("Gudang", ["Gudang Utama", "Gudang Cabang", "Gudang Darurat"], key="gudang_input")
+    with col_s3:
+        jenis_pembayaran = st.selectbox("Jenis Pembayaran", ["Tunai", "Hutang"], key="jenis_pembayaran_input")
+    with col_s4:
+        tanggal_jatuh_tempo = st.date_input("Tanggal Jatuh Tempo", key="tanggal_jatuh_tempo")
+    
+    # Tombol Cari Faktur
+    btn_cari_faktur = st.button("🔍 Cari Faktur", type="primary", use_container_width=True)
+    
+    if btn_cari_faktur and nomor_faktur.strip():
             # Simulasi pencarian faktur (dalam implementasi nyata, ini akan query database)
             # Untuk demo, kita gunakan data dummy jika faktur ditemukan
             st.session_state.retur_form_data = {
@@ -921,9 +921,8 @@ elif menu == "🏥 Retur Pembelian":
                     "Kode Obat": "OBT001",
                     "Nama Obat": "Paracetamol 500mg",
                     "Satuan": "BOX",
-                    "Nomor Batch": "BATCH001",
+                    "Batch": "BATCH001",
                     "Tanggal Expired": pd.Timestamp(date.today() + pd.Timedelta(days=180)),
-                    "Maksimal Bulan Sebelum ED": 6,
                     "Stok Saat Ini": 50,
                     "Jumlah Dibeli": 100,
                     "Sudah Diretur": 20,
@@ -937,9 +936,8 @@ elif menu == "🏥 Retur Pembelian":
                     "Kode Obat": "OBT002",
                     "Nama Obat": "Amoxicillin 250mg",
                     "Satuan": "BOTOL",
-                    "Nomor Batch": "BATCH002",
+                    "Batch": "BATCH002",
                     "Tanggal Expired": pd.Timestamp(date.today() + pd.Timedelta(days=90)),
-                    "Maksimal Bulan Sebelum ED": 3,
                     "Stok Saat Ini": 30,
                     "Jumlah Dibeli": 50,
                     "Sudah Diretur": 10,
@@ -953,9 +951,8 @@ elif menu == "🏥 Retur Pembelian":
                     "Kode Obat": "OBT003",
                     "Nama Obat": "Ciprofloxacin 500mg",
                     "Satuan": "TABLET",
-                    "Nomor Batch": "BATCH003",
+                    "Batch": "BATCH003",
                     "Tanggal Expired": pd.Timestamp(date.today() - pd.Timedelta(days=30)),
-                    "Maksimal Bulan Sebelum ED": 0,
                     "Stok Saat Ini": 0,
                     "Jumlah Dibeli": 200,
                     "Sudah Diretur": 0,
@@ -966,8 +963,6 @@ elif menu == "🏥 Retur Pembelian":
                 }
             ])
             st.success("✅ Data faktur ditemukan!")
-        
-        st.form_submit_button("", use_container_width=True)  # Dummy submit untuk form
     
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1020,9 +1015,8 @@ elif menu == "🏥 Retur Pembelian":
                 "Kode Obat": st.column_config.TextColumn("Kode Obat", disabled=True),
                 "Nama Obat": st.column_config.TextColumn("Nama Obat", disabled=True),
                 "Satuan": st.column_config.TextColumn("Satuan", disabled=True),
-                "Nomor Batch": st.column_config.TextColumn("Nomor Batch", disabled=True),
+                "Batch": st.column_config.TextColumn("Batch", disabled=True),
                 "Tanggal Expired": st.column_config.TextColumn("Tanggal Expired", disabled=True),
-                "Maksimal Bulan Sebelum ED": st.column_config.NumberColumn("Maks. Bulan Sebelum ED", disabled=True),
                 "Stok Saat Ini": st.column_config.NumberColumn("Stok Saat Ini", disabled=True),
                 "Jumlah Dibeli": st.column_config.NumberColumn("Jumlah Dibeli", disabled=True),
                 "Sudah Diretur": st.column_config.NumberColumn("Sudah Diretur", disabled=True),
@@ -1072,14 +1066,14 @@ elif menu == "🏥 Retur Pembelian":
                 if row["Stok Saat Ini"] == 0:
                     validasi_messages.append({
                         "type": "error",
-                        "message": f"❌ {row['Nama Obat']}: Batch {row['Nomor Batch']} sudah tidak tersedia"
+                        "message": f"❌ {row['Nama Obat']}: Batch {row['Batch']} sudah tidak tersedia"
                     })
                 
-                # Validasi 4: Tanggal expired sudah melewati ketentuan retur supplier
-                if row["Maksimal Bulan Sebelum ED"] == 0:
+                # Validasi 4: Tanggal expired sudah melewati masa berlaku
+                if pd.to_datetime(row["Tanggal Expired"]) < pd.Timestamp(date.today()):
                     validasi_messages.append({
                         "type": "error",
-                        "message": f"❌ {row['Nama Obat']}: Batch {row['Nomor Batch']} sudah melewati masa retur supplier"
+                        "message": f"❌ {row['Nama Obat']}: Batch {row['Batch']} sudah kadaluarsa"
                     })
         
         if validasi_messages:
@@ -1153,7 +1147,12 @@ elif menu == "🏥 Retur Pembelian":
         with col_btn3:
             if st.button("⬅️ Kembali", type="secondary", use_container_width=True):
                 st.session_state.retur_form_data = {}
-                st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
+                st.session_state.retur_items = pd.DataFrame(columns=[
+                    "Pilih", "Kode Obat", "Nama Obat", "Satuan", "Batch",
+                    "Tanggal Expired", "Stok Saat Ini", "Jumlah Dibeli",
+                    "Sudah Diretur", "Sisa Bisa Diretur", "Jumlah Retur",
+                    "Harga Pokok (HPP)", "Subtotal Retur"
+                ])
                 st.rerun()
         
         st.markdown("</div>", unsafe_allow_html=True)
