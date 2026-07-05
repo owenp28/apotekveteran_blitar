@@ -1082,7 +1082,7 @@ elif menu == "🏥 Retur Pembelian":
     st.markdown(
         """
         <div class='form-container'>
-            <div class='form-section-title'>📋 Form Pencarian Faktur</div>
+            <div class='form-section-title'>📋 Form Pencarian Faktur & Obat</div>
         """,
         unsafe_allow_html=True
     )
@@ -1121,6 +1121,90 @@ elif menu == "🏥 Retur Pembelian":
     
     st.markdown("</div>", unsafe_allow_html=True)
     
+    # ── Pencarian Obat dari Dataset ────────────────────────────────────────────
+    st.markdown(
+        """
+        <div class='form-container'>
+            <div class='form-section-title'>🔍 Cari Obat dari Dataset Stok</div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    df_stok = load_data()
+    if df_stok is not None:
+        col_cari, col_tambah = st.columns([4, 1])
+        with col_cari:
+            cari_obat = st.text_input(
+                "Cari Nama Obat atau Kode",
+                placeholder="Ketik nama obat untuk mencari...",
+                key="cari_obat_retur"
+            )
+        with col_tambah:
+            btn_tambah_manual = st.button("➕ Tambah Manual", use_container_width=True)
+        
+        if cari_obat.strip():
+            hasil_cari = df_stok[
+                df_stok["Nama Obat"].str.contains(cari_obat.strip(), case=False, na=False)
+            ][["Nama Obat", "Kategori", "Satuan", "Stok Akhir"]].drop_duplicates("Nama Obat")
+            
+            if not hasil_cari.empty:
+                st.success(f"Ditemukan {len(hasil_cari)} obat:")
+                selected_obat = st.dataframe(
+                    hasil_cari,
+                    use_container_width=True,
+                    hide_index=True,
+                    selection_mode="single-row",
+                    key="table_obat_selection"
+                )
+                
+                # Tombol tambahkan ke tabel retur
+                if st.button("➕ Tambah ke Tabel Retur", key="tambah_ke_retur"):
+                    selected_row = hasil_cari.iloc[0]
+                    new_item = {
+                        "Pilih": True,
+                        "Kode": "",
+                        "Nama Obat": selected_row["Nama Obat"],
+                        "Satuan": selected_row["Satuan"],
+                        "No. Batch": "",
+                        "Tanggal Exp": "",
+                        "Ketentuan Retur": "",
+                        "Maks bln sblm ED": 0,
+                        "Tersedia": float(selected_row["Stok Akhir"]),
+                        "Jumlah Retur": 0.00,
+                        "HPP": 0.00
+                    }
+                    st.session_state.retur_items = pd.concat(
+                        [st.session_state.retur_items, pd.DataFrame([new_item])],
+                        ignore_index=True
+                    ).reset_index(drop=True)
+                    st.success(f"{selected_row['Nama Obat']} ditambahkan ke tabel retur!")
+                    st.rerun()
+    else:
+        st.info("Dataset stok belum tersedia. Silakan upload dataset di menu Tampilkan Stok Obat.")
+    
+    if btn_tambah_manual:
+        new_item = {
+            "Pilih": True,
+            "Kode": "",
+            "Nama Obat": "",
+            "Satuan": "",
+            "No. Batch": "",
+            "Tanggal Exp": "",
+            "Ketentuan Retur": "",
+            "Maks bln sblm ED": 0,
+            "Tersedia": 0.00,
+            "Jumlah Retur": 0.00,
+            "HPP": 0.00
+        }
+        st.session_state.retur_items = pd.concat(
+            [st.session_state.retur_items, pd.DataFrame([new_item])],
+            ignore_index=True
+        ).reset_index(drop=True)
+        st.success("Item baru ditambahkan ke tabel retur!")
+        st.rerun()
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
     # ── Detail Supplier & Pembayaran ───────────────────────────────────────────
     if btn_cari or st.session_state.retur_form_data:
         st.markdown(
@@ -1139,7 +1223,7 @@ elif menu == "🏥 Retur Pembelian":
                 "Supplier",
                 value="PDF (PUNDENSEHAT DISTRIBUTOR FARMASI)",
                 key="supplier_input",
-                disabled=True,
+                disabled=False,
                 label_visibility="collapsed"
             )
         
@@ -1149,7 +1233,7 @@ elif menu == "🏥 Retur Pembelian":
                 ["Gudang Utama", "Gudang Cabang", "Gudang Darurat"],
                 index=0,
                 key="gudang_input",
-                disabled=True,
+                disabled=False,
                 label_visibility="collapsed"
             )
         
@@ -1159,7 +1243,7 @@ elif menu == "🏥 Retur Pembelian":
                 ["Hutang", "Tunai"],
                 index=0,
                 key="jenis_pembayaran_input",
-                disabled=True,
+                disabled=False,
                 label_visibility="collapsed"
             )
         
@@ -1168,7 +1252,7 @@ elif menu == "🏥 Retur Pembelian":
                 "Tanggal Jatuh Tempo",
                 value=date(2026, 6, 15),
                 key="tanggal_jatuh_tempo",
-                disabled=True,
+                disabled=False,
                 label_visibility="collapsed"
             )
         
@@ -1185,6 +1269,8 @@ elif menu == "🏥 Retur Pembelian":
                 "jenis_pembayaran": jenis_pembayaran,
                 "tanggal_jatuh_tempo": tanggal_jatuh_tempo
             }
+            st.success("✅ Data faktur berhasil dicari!")
+            st.rerun()
         
         # ── Tampilkan Data Header ──────────────────────────────────────────────
         if st.session_state.retur_form_data:
@@ -1242,50 +1328,94 @@ elif menu == "🏥 Retur Pembelian":
                 unsafe_allow_html=True
             )
             
-            # Data default untuk tabel
+            # Tombol untuk menambah item baru
+            if st.button("➕ Tambah Item Baru", key="tambah_item_baru"):
+                new_item = {
+                    "Pilih": True,
+                    "Kode": "",
+                    "Nama Obat": "",
+                    "Satuan": "",
+                    "No. Batch": "",
+                    "Tanggal Exp": "",
+                    "Ketentuan Retur": "",
+                    "Maks bln sblm ED": 0,
+                    "Tersedia": 0.00,
+                    "Jumlah Retur": 0.00,
+                    "HPP": 0.00
+                }
+                st.session_state.retur_items = pd.concat(
+                    [st.session_state.retur_items, pd.DataFrame([new_item])],
+                    ignore_index=True
+                ).reset_index(drop=True)
+                st.rerun()
+            
+            # Data default untuk tabel - kosong agar admin bisa input manual
             if st.session_state.retur_items.empty:
                 st.session_state.retur_items = pd.DataFrame([
                     {
                         "Pilih": True,
-                        "Kode": "OBT2307310009",
-                        "Nama Obat": "LERZIN SYR",
-                        "Satuan": "BOTOL",
-                        "No. Batch": "TN03H",
-                        "Tanggal Exp": "2030-02-26",
+                        "Kode": "",
+                        "Nama Obat": "",
+                        "Satuan": "",
+                        "No. Batch": "",
+                        "Tanggal Exp": "",
                         "Ketentuan Retur": "",
-                        "Maks bln sblm ED": "",
-                        "Tersedia": 5.00,
+                        "Maks bln sblm ED": 0,
+                        "Tersedia": 0.00,
                         "Jumlah Retur": 0.00,
                         "HPP": 0.00
                     }
                 ])
             
-            # Tampilkan tabel dengan data_editor
+            # Tampilkan tabel dengan data_editor - SEMUA KOLOM BISA DIEDIT
             edited_items = st.data_editor(
                 st.session_state.retur_items,
                 use_container_width=True,
+                num_rows="dynamic",
                 hide_index=True,
                 column_config={
                     "Pilih": st.column_config.CheckboxColumn("Pilih", default=True),
-                    "Kode": st.column_config.TextColumn("Kode", disabled=True),
-                    "Nama Obat": st.column_config.TextColumn("Nama Obat", disabled=True),
-                    "Satuan": st.column_config.TextColumn("Satuan", disabled=True),
-                    "No. Batch": st.column_config.TextColumn("No. Batch", disabled=True),
-                    "Tanggal Exp": st.column_config.TextColumn("Tanggal Exp", disabled=True),
-                    "Ketentuan Retur": st.column_config.TextColumn("Ketentuan Retur"),
-                    "Maks bln sblm ED": st.column_config.NumberColumn("Maks bln sblm ED"),
-                    "Tersedia": st.column_config.NumberColumn("Tersedia", disabled=True),
-                    "Jumlah Retur": st.column_config.NumberColumn("Jumlah Retur", min_value=0.0, format="%.2f"),
-                    "HPP": st.column_config.NumberColumn("HPP", min_value=0.0, format="Rp %.2f")
+                    "Kode": st.column_config.TextColumn("Kode Obat", help="Kode obat atau barcode"),
+                    "Nama Obat": st.column_config.TextColumn("Nama Obat", help="Nama lengkap obat"),
+                    "Satuan": st.column_config.TextColumn("Satuan", help="Contoh: BOX, BOTOL, TABLET"),
+                    "No. Batch": st.column_config.TextColumn("No. Batch", help="Nomor batch produksi"),
+                    "Tanggal Exp": st.column_config.DateColumn("Tanggal Exp", help="Tanggal kadaluarsa"),
+                    "Ketentuan Retur": st.column_config.TextColumn("Ketentuan Retur", help="Alasan retur atau ketentuan"),
+                    "Maks bln sblm ED": st.column_config.NumberColumn("Maks bln sblm ED", min_value=0, help="Maksimal bulan sebelum expired date"),
+                    "Tersedia": st.column_config.NumberColumn("Tersedia", min_value=0.0, format="%.2f", help="Jumlah yang tersedia"),
+                    "Jumlah Retur": st.column_config.NumberColumn("Jumlah Retur", min_value=0.0, format="%.2f", help="Jumlah yang diretur"),
+                    "HPP": st.column_config.NumberColumn("HPP", min_value=0.0, format="Rp %.2f", help="Harga per unit"),
+                    "Subtotal": st.column_config.NumberColumn("Subtotal", disabled=True, format="Rp %.2f")
                 },
                 key="data_editor_key"
             )
+            
+            # Tombol untuk menghapus item yang tidak dipilih
+            if st.button("🗑️ Hapus Item Tidak Dipilih", key="hapus_unchecked"):
+                edited_items = edited_items[edited_items["Pilih"] == True].reset_index(drop=True)
+                st.success("Item yang tidak dipilih telah dihapus")
+                st.rerun()
             
             # Hitung subtotal otomatis
             edited_items["Subtotal"] = edited_items["Jumlah Retur"].fillna(0) * edited_items["HPP"].fillna(0)
             
             # Update session state
             st.session_state.retur_items = edited_items
+            
+            # Tombol untuk mengisi otomatis data obat dari dataset
+            if df_stok is not None:
+                if st.button("🔄 Isi Otomatis Data Obat dari Dataset", key="isi_automatis"):
+                    for idx, row in edited_items.iterrows():
+                        nama_obat = str(row["Nama Obat"]).strip()
+                        if nama_obat and nama_obat != "":
+                            matching = df_stok[df_stok["Nama Obat"].str.contains(nama_obat, case=False, na=False)]
+                            if not matching.empty:
+                                # Isi data obat dari dataset
+                                edited_items.at[idx, "Kode"] = matching.iloc[0].get("Kode Obat", "")
+                                edited_items.at[idx, "Satuan"] = matching.iloc[0].get("Satuan", "")
+                                edited_items.at[idx, "Tersedia"] = float(matching.iloc[0].get("Stok Akhir", 0))
+                    st.success("Data obat diisi otomatis dari dataset!")
+                    st.rerun()
             
             st.markdown("</div>", unsafe_allow_html=True)
             
