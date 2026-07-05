@@ -1369,39 +1369,52 @@ elif menu == "🏥 Retur Pembelian":
 # FITUR 5 — ENTRI PEMBELIAN
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🛍️ Entri Pembelian":
-    st.title("🛍️ Entri Pembelian Obat")
-    st.markdown("Formulir pencatatan pembelian obat dari supplier.")
-    st.markdown("---")
+    st.markdown(
+        """
+        <div class='app-header'>
+            <div class='app-title'>🛍️ Entri Pembelian Obat</div>
+            <div class='app-subtitle'>Formulir pencatatan pembelian obat dari supplier</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     # ── Session state untuk tabel pembelian ──────────────────────────────────
     if "df_beli" not in st.session_state:
         st.session_state.df_beli = pd.DataFrame([
             {
                 "No.": 1,
-                "Kode Obat": "OBT2308190010",
-                "Nama Obat": "ANTASIDA DOEN TRIM",
-                "Jumlah": 2.00,
+                "Kode Obat": "",
+                "Nama Obat": "",
+                "Jumlah": 0.0,
                 "Satuan": "BOX",
-                "Harga Beli": 5000.00,
-                "Harga Jual": 6000.00,
-                "Subtotal": 10000.00,
-                "Batch": "BATCH001",
-                "Tanggal Expired": pd.Timestamp(date.today() + pd.Timedelta(days=180))
+                "Harga Beli": 0.0,
+                "Harga Jual": 0.0,
+                "Subtotal": 0.0,
+                "Batch": "",
+                "Tanggal Expired": pd.Timestamp(date.today())
             }
         ])
 
     # ── Baris 1: Pencarian obat ───────────────────────────────────────────────
-    st.subheader("🔍 Cari Obat")
+    st.markdown(
+        """
+        <div class='form-container'>
+            <div class='form-section-title'>🔍 Cari Obat</div>
+        """,
+        unsafe_allow_html=True
+    )
     st.caption("Ketik Kode Obat, Nama Obat / Scan Barcode Obat...")
     col_cari, col_btn_cari = st.columns([5, 1])
     with col_cari:
         cari_obat = st.text_input(
             label="Pencarian Obat",
             placeholder="Ketik Kode Obat, Nama Obat / Scan Barcode Obat...",
-            label_visibility="collapsed"
+            label_visibility="collapsed",
+            key="cari_obat_input"
         )
     with col_btn_cari:
-        btn_cari = st.button("🔍 Cari", use_container_width=True)
+        btn_cari = st.button("🔍 Cari", use_container_width=True, key="btn_cari_pembelian")
 
     # Hasil pencarian — cocokkan dengan dataset stok jika tersedia
     if btn_cari and cari_obat.strip():
@@ -1418,11 +1431,17 @@ elif menu == "🛍️ Entri Pembelian":
         else:
             st.info("Dataset stok belum tersedia.")
 
-    st.markdown("---")
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Tabel rincian item pembelian ──────────────────────────────────────────
-    st.subheader("📦 Rincian Item Pembelian")
-    st.caption("Klik baris untuk mengedit. Kolom Jumlah, Satuan, Harga Beli, Harga Jual, Batch, dan Tanggal Expired dapat diedit.")
+    st.markdown(
+        """
+        <div class='table-container'>
+            <div class='table-title'>📦 Rincian Item Pembelian</div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.caption("Isi data pembelian. Kolom Jumlah, Satuan, Harga Beli, Harga Jual, Batch, dan Tanggal Expired dapat diedit.")
 
     SATUAN_OPTIONS = ["BOX", "BOTOL", "TABLET", "KAPSUL", "AMPUL", "SACHET", "STRIP", "TUBE", "LAINNYA"]
 
@@ -1436,10 +1455,10 @@ elif menu == "🛍️ Entri Pembelian":
                 "No.", disabled=True, width="small"
             ),
             "Kode Obat": st.column_config.TextColumn(
-                "Kode Obat", disabled=True, width="medium"
+                "Kode Obat", width="medium"
             ),
             "Nama Obat": st.column_config.TextColumn(
-                "Nama Obat", disabled=True, width="large"
+                "Nama Obat", width="large"
             ),
             "Jumlah": st.column_config.NumberColumn(
                 "Jumlah", min_value=0.0, format="%.2f", width="small"
@@ -1462,7 +1481,8 @@ elif menu == "🛍️ Entri Pembelian":
             "Tanggal Expired": st.column_config.DateColumn(
                 "Tanggal Expired", min_value=date.today(), format="DD-MM-YYYY"
             ),
-        }
+        },
+        key="df_beli_editor"
     )
 
     # Hitung ulang Subtotal otomatis
@@ -1471,13 +1491,34 @@ elif menu == "🛍️ Entri Pembelian":
     edited_df["No."] = range(1, len(edited_df) + 1)
     st.session_state.df_beli = edited_df
 
-    # ── Ringkasan total ───────────────────────────────────────────────────────
-    st.markdown("---")
-    total_subtotal   = edited_df["Subtotal"].sum()
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    col_s1, col_s2 = st.columns(2)
-    col_s1.metric("Total Subtotal", f"Rp {total_subtotal:,.2f}".replace(",", "."))
-    col_s2.metric("Total Bayar",    f"Rp {total_subtotal:,.2f}".replace(",", "."))
+    # ── Ringkasan total ───────────────────────────────────────────────────────
+    st.markdown(
+        """
+        <div class='total-container'>
+            <div class='action-buttons'>
+                <button class='btn-custom btn-save' id='btn_simpan_beli'>
+                    ✓ Simpan
+                </button>
+                <button class='btn-custom btn-reset' id='btn_reset_beli'>
+                    ⟲ Reset
+                </button>
+            </div>
+            <div>
+                <div class='total-label'>Total Subtotal</div>
+                <div class='total-value' id='total-subtotal-value'>Rp 0,00</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    total_subtotal = edited_df["Subtotal"].sum()
+    st.markdown(
+        f"<script>document.getElementById('total-subtotal-value').textContent = 'Rp {total_subtotal:,.2f}'.replace(',', '.');</script>",
+        unsafe_allow_html=True
+    )
 
     st.markdown("---")
 
@@ -1515,7 +1556,14 @@ elif menu == "🛍️ Entri Pembelian":
                 if new_rows:
                     df_stok = pd.concat([df_stok, pd.DataFrame(new_rows)], ignore_index=True)
                     save_data(df_stok)
-                    st.session_state.df_beli = pd.DataFrame(columns=st.session_state.df_beli.columns)
+                    st.session_state.df_beli = pd.DataFrame([
+                        {
+                            "No.": 1, "Kode Obat": "", "Nama Obat": "",
+                            "Jumlah": 0.0, "Satuan": "BOX", "Harga Beli": 0.0,
+                            "Harga Jual": 0.0, "Subtotal": 0.0,
+                            "Batch": "", "Tanggal Expired": pd.Timestamp(date.today())
+                        }
+                    ])
                     st.success(f"✅ {len(new_rows)} item berhasil disimpan ke stok!")
                     st.rerun()
     with col_reset_beli:
@@ -1531,12 +1579,11 @@ elif menu == "🛍️ Entri Pembelian":
             st.rerun()
 
     # ── Footer ────────────────────────────────────────────────────────────────
-    st.markdown("---")
     st.markdown(
         """
-        <div class='retur-card' style='text-align: center; padding: 20px;'>
-            <p style='margin: 0; color: #6b7280;'>All Rights Reserved</p>
-            <p style='margin: 5px 0 0 0; color: #10b981; font-weight: 500;'>Apotek Veteran Sehat Blitar</p>
+        <div class='app-footer'>
+            <p>All Rights Reserved</p>
+            <p style='color: #e94560; font-weight: 600;'>Vmedis 1.8.0</p>
         </div>
         """,
         unsafe_allow_html=True
