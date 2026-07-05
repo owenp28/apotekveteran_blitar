@@ -6,194 +6,255 @@ import os
 
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
 
-# ── CSS Custom untuk Menyesuaikan Tampilan ───────────────────────────────────
+# ── CSS Custom untuk Menyesuaikan Tampilan ERP ─────────────────────────────────
 # Perubahan ini dilakukan untuk:
-# 1. Menghilangkan margin dan padding default di bagian atas sidebar dan main.
-# 2. Mengatur elemen agar rapat ke sisi kiri.
-# 3. Memberikan kontrol penuh atas penempatan logo dan teks agar sesuai dengan mockup.
-# 4. Menambahkan styling modern untuk fitur Retur Pembelian dengan warna hijau.
+# 1. Mengatur navbar maroon di bagian atas
+# 2. Mengatur layout desktop dengan background putih
+# 3. Menyesuaikan styling form, tombol, dan tabel sesuai referensi ERP
+# 4. Menggunakan font Arial/Helvetica dengan ukuran yang tepat
 st.markdown(
     """
     <style>
-    /* Mengurangi padding di bagian atas sidebar agar elemen lebih rapat ke atas */
-    [data-testid="stSidebar"] > div:first-child {
-        padding-top: 2rem !important; 
+    /* Reset default margin dan padding */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
     }
-    /* Mengurangi margin di bagian atas konten utama agar header rapat ke atas */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 0rem !important;
-        margin-top: 0rem !important;
-    }
-    /* Memastikan teks "Apotek Veteran Blitar" di sidebar sejajar kiri */
-    [data-testid="stMarkdownContainer"] {
-        text-align: left !important;
-    }
-    /* Memastikan teks title "Dashboard..." di konten utama sejajar kiri */
-    h1 {
-        text-align: left !important;
-    }
-    /* Navbar Maroon - Styling untuk navbar aplikasi ERP */
-    .erp-navbar {
-        background: #500000;
-        color: white;
-        padding: 10px 20px;
-        border-radius: 0;
-        margin-bottom: 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+    
+    /* Background putih 100% */
+    body {
+        background: #ffffff;
         font-family: Arial, Helvetica, sans-serif;
     }
-    .erp-menu {
+    
+    /* Mengurangi padding di bagian atas sidebar */
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 2rem !important;
+    }
+    
+    /* Mengurangi margin di bagian atas konten utama */
+    .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        margin-top: 0rem !important;
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+    }
+    
+    /* ── Navbar ERP Maroon (#8d1d1d) ─────────────────────────────────────────── */
+    .erp-navbar {
+        background: #8d1d1d;
+        color: white;
+        padding: 12px 20px;
+        height: 55px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: Arial, Helvetica, sans-serif;
+        border-radius: 0;
+    }
+    
+    .erp-menu-left {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    
+    .erp-hamburger {
+        font-size: 20px;
+        cursor: pointer;
+        padding: 5px 10px;
+    }
+    
+    .erp-status-container {
         display: flex;
         align-items: center;
         gap: 15px;
     }
-    .erp-status {
+    
+    .erp-status-label {
+        font-size: 13px;
+        color: white;
+    }
+    
+    .erp-status-value {
         font-size: 13px;
         color: #ffcc00;
+        font-weight: 500;
     }
+    
     .erp-promo {
         background: #ffcc00;
         color: #333;
-        padding: 5px 12px;
+        padding: 5px 15px;
         border-radius: 4px;
         font-size: 13px;
         font-weight: 500;
     }
-    .erp-icons {
+    
+    .erp-menu-right {
         display: flex;
         align-items: center;
         gap: 15px;
     }
+    
     .erp-icon {
         font-size: 18px;
         cursor: pointer;
         color: white;
+        padding: 5px 10px;
     }
+    
     .erp-icon:hover {
         opacity: 0.8;
     }
+    
     .erp-avatar {
         width: 32px;
         height: 32px;
         border-radius: 50%;
-        background: #707070;
+        background: #a0a0a0;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 14px;
         font-weight: bold;
+        cursor: pointer;
     }
+    
     .erp-logout {
-        background: #707070;
+        background: #606060;
         color: white;
         border: none;
         padding: 5px 12px;
         border-radius: 4px;
         cursor: pointer;
         font-size: 13px;
-    }
-    .erp-logout:hover {
-        background: #505050;
-    }
-    /* Title Retur Pembelian */
-    .retur-title {
-        font-size: 36px;
-        font-weight: bold;
-        color: #000;
-        margin-bottom: 10px;
         font-family: Arial, Helvetica, sans-serif;
     }
-    .retur-ref {
-        font-size: 14px;
-        color: #666;
-        margin-bottom: 20px;
+    
+    .erp-logout:hover {
+        background: #404040;
     }
-    /* Form Transaksi - Dua Kolom Simetris */
+    
+    /* ── Title Transaksi di Tengah ───────────────────────────────────────────── */
+    .transaction-title {
+        font-size: 36px;
+        font-weight: 500;
+        color: #000;
+        text-align: center;
+        margin: 20px 0 15px 0;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    
+    /* ── Form Transaksi Dua Kolom ────────────────────────────────────────────── */
     .retur-form {
         background: white;
-        padding: 20px;
-        border-radius: 0;
-        margin-bottom: 20px;
+        padding: 15px;
+        margin-bottom: 15px;
         border: 1px solid #ddd;
+        border-radius: 0;
     }
+    
     .retur-form h3 {
         color: #333;
         margin-top: 0;
-        margin-bottom: 15px;
-        font-size: 16px;
+        margin-bottom: 12px;
+        font-size: 14px;
         font-weight: 600;
         font-family: Arial, Helvetica, sans-serif;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 8px;
     }
+    
     .form-row {
         display: flex;
-        gap: 20px;
-        margin-bottom: 15px;
+        gap: 15px;
+        margin-bottom: 10px;
     }
+    
     .form-col {
         flex: 1;
     }
+    
     .form-label {
         font-size: 13px;
         color: #333;
-        margin-bottom: 5px;
+        margin-bottom: 4px;
         font-weight: 500;
         font-family: Arial, Helvetica, sans-serif;
     }
+    
     .form-input {
         width: 100%;
         padding: 8px 12px;
         border: 1px solid #ccc;
         border-radius: 4px;
-        font-size: 13px;
+        font-size: 14px;
         font-family: Arial, Helvetica, sans-serif;
         background: #f5f5f5;
     }
-    .form-input[readonly] {
+    
+    .form-input[readonly], .form-input:disabled {
         background: #e8e8e8;
+        color: #555;
     }
+    
     .form-input:focus {
         outline: none;
         border-color: #28a745;
     }
+    
     .form-select {
         width: 100%;
         padding: 8px 12px;
         border: 1px solid #ccc;
         border-radius: 4px;
-        font-size: 13px;
+        font-size: 14px;
         font-family: Arial, Helvetica, sans-serif;
         background: #f5f5f5;
     }
+    
     .form-select[disabled] {
         background: #e8e8e8;
     }
+    
     .form-date {
         width: 100%;
         padding: 8px 12px;
         border: 1px solid #ccc;
         border-radius: 4px;
-        font-size: 13px;
+        font-size: 14px;
         font-family: Arial, Helvetica, sans-serif;
         background: white;
     }
-    .form-date::before {
-        content: "📅 ";
+    
+    /* Tombol Cari Cyan (#3dc7e8) */
+    .btn-cari {
+        background: #3dc7e8;
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: Arial, Helvetica, sans-serif;
+        width: 80px;
     }
-    /* Tombol Aksi */
-    .action-buttons {
-        display: flex;
-        gap: 15px;
-        margin-bottom: 20px;
+    
+    .btn-cari:hover {
+        background: #30b5d5;
     }
+    
+    /* Tombol Simpan Hijau (#28a745) */
     .btn-save {
         background: #28a745;
         color: white;
         border: none;
         padding: 10px 24px;
-        border-radius: 6px;
+        border-radius: 4px;
         font-size: 14px;
         font-weight: 500;
         cursor: pointer;
@@ -202,15 +263,18 @@ st.markdown(
         gap: 8px;
         font-family: Arial, Helvetica, sans-serif;
     }
+    
     .btn-save:hover {
         background: #218838;
     }
+    
+    /* Tombol Reset Flat */
     .btn-reset {
         background: transparent;
         color: #666;
         border: 1px solid #ccc;
         padding: 10px 24px;
-        border-radius: 6px;
+        border-radius: 4px;
         font-size: 14px;
         font-weight: 500;
         cursor: pointer;
@@ -219,145 +283,169 @@ st.markdown(
         gap: 8px;
         font-family: Arial, Helvetica, sans-serif;
     }
+    
     .btn-reset:hover {
         background: #f5f5f5;
         border-color: #bbb;
     }
-    /* Total Retur */
-    .total-retur {
-        text-align: right;
-        margin-bottom: 20px;
+    
+    /* Total Nilai Retur di Kanan Atas */
+    .total-retur-container {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 15px;
     }
+    
     .total-label {
         font-size: 14px;
         color: #666;
-        margin-bottom: 5px;
         font-family: Arial, Helvetica, sans-serif;
     }
+    
     .total-value {
-        font-size: 32px;
+        font-size: 28px;
         font-weight: bold;
         color: #333;
         font-family: Arial, Helvetica, sans-serif;
     }
-    /* Separator */
+    
+    /* Separator Garis Horizontal Turquoise */
     .separator {
         height: 2px;
         background: #40e0d0;
-        margin: 20px 0;
+        margin: 15px 0;
         border-radius: 0;
     }
-    /* Tabel Detail Item */
+    
+    /* ── Tabel Detail Item ───────────────────────────────────────────────────── */
     .retur-table {
         background: white;
-        padding: 20px;
-        border-radius: 0;
+        padding: 15px;
+        margin-bottom: 15px;
         border: 1px solid #ddd;
+        border-radius: 0;
     }
+    
     .retur-table h3 {
         color: #333;
         margin-top: 0;
-        margin-bottom: 15px;
-        font-size: 16px;
+        margin-bottom: 12px;
+        font-size: 14px;
         font-weight: 600;
         font-family: Arial, Helvetica, sans-serif;
-    }
-    .table-header {
-        font-weight: 600;
-        color: #333;
-        font-size: 13px;
         border-bottom: 1px solid #ddd;
-        padding: 10px 8px;
-        font-family: Arial, Helvetica, sans-serif;
+        padding-bottom: 8px;
     }
-    .table-row {
-        height: 38px;
-        border-bottom: 1px solid #eee;
-    }
-    .table-cell {
-        padding: 8px;
-        font-size: 13px;
-        color: #333;
-        font-family: Arial, Helvetica, sans-serif;
-    }
-    .table-checkbox {
-        width: 20px;
-        height: 20px;
-        cursor: pointer;
-    }
-    /* Scrollbar untuk tabel */
+    
+    /* Scrollbar horizontal untuk tabel */
     .table-container {
         overflow-x: auto;
         max-height: 400px;
     }
+    
     .table-container::-webkit-scrollbar {
-        height: 12px;
+        height: 10px;
     }
+    
     .table-container::-webkit-scrollbar-track {
         background: #f1f1f1;
-        border-radius: 6px;
+        border-radius: 5px;
     }
+    
     .table-container::-webkit-scrollbar-thumb {
         background: #888;
-        border-radius: 6px;
+        border-radius: 5px;
     }
+    
     .table-container::-webkit-scrollbar-thumb:hover {
         background: #555;
     }
-    /* Card tanpa shadow */
+    
+    /* ── Card tanpa shadow ───────────────────────────────────────────────────── */
     .retur-card {
         background: white;
         border: 1px solid #e5e7eb;
         border-radius: 0;
-        padding: 20px;
-        margin-bottom: 20px;
+        padding: 15px;
+        margin-bottom: 15px;
     }
+    
     .retur-card h3 {
         color: #333;
         margin-top: 0;
         border-bottom: 1px solid #ddd;
-        padding-bottom: 10px;
-        font-size: 16px;
+        padding-bottom: 8px;
+        font-size: 14px;
         font-weight: 600;
         font-family: Arial, Helvetica, sans-serif;
     }
+    
     /* Info boxes */
     .stInfo {
         background: #f8f9fa;
         border-left: 4px solid #28a745;
-        padding: 12px 16px;
+        padding: 10px 12px;
         border-radius: 0;
     }
+    
     /* Metric */
     [data-testid="stMetric"] {
         background: white;
         border: 1px solid #e5e7eb;
         border-radius: 0;
-        padding: 15px;
+        padding: 12px;
     }
+    
     [data-testid="stMetric"] [data-testid="stMetricValue"] {
         color: #333;
-        font-size: 28px;
+        font-size: 24px;
         font-weight: bold;
     }
+    
     [data-testid="stMetric"] [data-testid="stMetricLabel"] {
         color: #666;
-        font-size: 14px;
+        font-size: 13px;
     }
+    
     /* Button */
     .stButton>button {
-        border-radius: 6px;
+        border-radius: 4px;
         font-weight: 500;
         font-family: Arial, Helvetica, sans-serif;
     }
+    
     .stButton>button:hover {
         transform: none;
         box-shadow: none;
     }
-    /* Data Editor */
+    
+    /* Data Editor - Tabel */
     .stDataFrame {
         border: 1px solid #ddd;
         border-radius: 0;
+    }
+    
+    .stDataFrame th {
+        background: #f5f5f5;
+        font-weight: 600;
+        color: #333;
+        font-size: 13px;
+    }
+    
+    .stDataFrame td {
+        font-size: 13px;
+        color: #333;
+    }
+    
+    /* Footer */
+    .erp-footer {
+        text-align: center;
+        padding: 15px;
+        color: #666;
+        font-size: 12px;
+        font-family: Arial, Helvetica, sans-serif;
     }
     </style>
     """,
