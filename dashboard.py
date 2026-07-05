@@ -867,6 +867,11 @@ elif menu == "🏥 Retur Pembelian":
             "Sudah Diretur", "Sisa Bisa Diretur", "Jumlah Retur",
             "Harga Pokok (HPP)", "Subtotal Retur"
         ])
+    if "retur_history" not in st.session_state:
+        st.session_state.retur_history = pd.DataFrame(columns=[
+            "Nomor Faktur", "Tanggal Retur", "Supplier", "Gudang",
+            "Jumlah Item", "Total Nilai Retur", "Tanggal Disimpan"
+        ])
 
     # ── Form Header ───────────────────────────────────────────────────────────
     st.markdown(
