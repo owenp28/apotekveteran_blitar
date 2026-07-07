@@ -1206,97 +1206,96 @@ elif menu == "🏥 Retur Pembelian":
     st.markdown("</div>", unsafe_allow_html=True)
     
     # ── Detail Supplier & Pembayaran ───────────────────────────────────────────
-    if btn_cari or st.session_state.retur_form_data:
+    st.markdown(
+        """
+        <div class='form-container'>
+            <div class='form-section-title'>📦 Detail Supplier & Pembayaran</div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Baris 2-4: 4 Kolom
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+    
+    with col_s1:
+        supplier = st.text_input(
+            "Supplier",
+            value="",
+            key="supplier_input",
+            disabled=False,
+            label_visibility="collapsed"
+        )
+    
+    with col_s2:
+        gudang = st.selectbox(
+            "Gudang",
+            ["Gudang Utama", "Gudang Cabang", "Gudang Darurat"],
+            index=0,
+            key="gudang_input",
+            disabled=False,
+            label_visibility="collapsed"
+        )
+    
+    with col_s3:
+        jenis_pembayaran = st.selectbox(
+            "Jenis Pembayaran",
+            ["Hutang", "Tunai"],
+            index=0,
+            key="jenis_pembayaran_input",
+            disabled=False,
+            label_visibility="collapsed"
+        )
+    
+    with col_s4:
+        tanggal_jatuh_tempo = st.date_input(
+            "Tanggal Jatuh Tempo",
+            value=date.today(),
+            key="tanggal_jatuh_tempo",
+            disabled=False,
+            label_visibility="collapsed"
+        )
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # ── Simpan Data Faktur ke Session State ────────────────────────────────
+    if btn_cari:
+        st.session_state.retur_form_data = {
+            "nomor_faktur": nomor_faktur,
+            "tanggal_faktur": tanggal_faktur,
+            "tanggal_retur": tanggal_retur,
+            "supplier": supplier,
+            "gudang": gudang,
+            "jenis_pembayaran": jenis_pembayaran,
+            "tanggal_jatuh_tempo": tanggal_jatuh_tempo
+        }
+        st.success("✅ Data faktur berhasil dicari!")
+        st.rerun()
+    
+    # ── Tampilkan Data Header ──────────────────────────────────────────────
+    if st.session_state.retur_form_data:
         st.markdown(
             """
             <div class='form-container'>
-                <div class='form-section-title'>📦 Detail Supplier & Pembayaran</div>
+                <div class='form-section-title'>📋 Informasi Transaksi</div>
             """,
             unsafe_allow_html=True
         )
         
-        # Baris 2-4: 4 Kolom
-        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+        col_d1, col_d2, col_d3, col_d4 = st.columns(4)
         
-        with col_s1:
-            supplier = st.text_input(
-                "Supplier",
-                value="PDF (PUNDENSEHAT DISTRIBUTOR FARMASI)",
-                key="supplier_input",
-                disabled=False,
-                label_visibility="collapsed"
-            )
+        with col_d1:
+            st.info(f"**Nomor Faktur:** {st.session_state.retur_form_data['nomor_faktur']}")
         
-        with col_s2:
-            gudang = st.selectbox(
-                "Gudang",
-                ["Gudang Utama", "Gudang Cabang", "Gudang Darurat"],
-                index=0,
-                key="gudang_input",
-                disabled=False,
-                label_visibility="collapsed"
-            )
+        with col_d2:
+            st.info(f"**Supplier:** {st.session_state.retur_form_data['supplier']}")
         
-        with col_s3:
-            jenis_pembayaran = st.selectbox(
-                "Jenis Pembayaran",
-                ["Hutang", "Tunai"],
-                index=0,
-                key="jenis_pembayaran_input",
-                disabled=False,
-                label_visibility="collapsed"
-            )
+        with col_d3:
+            st.info(f"**Gudang:** {st.session_state.retur_form_data['gudang']}")
         
-        with col_s4:
-            tanggal_jatuh_tempo = st.date_input(
-                "Tanggal Jatuh Tempo",
-                value=date(2026, 6, 15),
-                key="tanggal_jatuh_tempo",
-                disabled=False,
-                label_visibility="collapsed"
-            )
+        with col_d4:
+            st.info(f"**Jenis Pembayaran:** {st.session_state.retur_form_data['jenis_pembayaran']}")
         
         st.markdown("</div>", unsafe_allow_html=True)
-        
-        # ── Simpan Data Faktur ke Session State ────────────────────────────────
-        if btn_cari:
-            st.session_state.retur_form_data = {
-                "nomor_faktur": nomor_faktur,
-                "tanggal_faktur": tanggal_faktur,
-                "tanggal_retur": tanggal_retur,
-                "supplier": supplier,
-                "gudang": gudang,
-                "jenis_pembayaran": jenis_pembayaran,
-                "tanggal_jatuh_tempo": tanggal_jatuh_tempo
-            }
-            st.success("✅ Data faktur berhasil dicari!")
-            st.rerun()
-        
-        # ── Tampilkan Data Header ──────────────────────────────────────────────
-        if st.session_state.retur_form_data:
-            st.markdown(
-                """
-                <div class='form-container'>
-                    <div class='form-section-title'>📋 Informasi Transaksi</div>
-                """,
-                unsafe_allow_html=True
-            )
-            
-            col_d1, col_d2, col_d3, col_d4 = st.columns(4)
-            
-            with col_d1:
-                st.info(f"**Nomor Faktur:** {st.session_state.retur_form_data['nomor_faktur']}")
-            
-            with col_d2:
-                st.info(f"**Supplier:** {st.session_state.retur_form_data['supplier']}")
-            
-            with col_d3:
-                st.info(f"**Gudang:** {st.session_state.retur_form_data['gudang']}")
-            
-            with col_d4:
-                st.info(f"**Jenis Pembayaran:** {st.session_state.retur_form_data['jenis_pembayaran']}")
-            
-            st.markdown("</div>", unsafe_allow_html=True)
             
             # ── Baris Aksi & Total Nominal ─────────────────────────────────────
             st.markdown(
