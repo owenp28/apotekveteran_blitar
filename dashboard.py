@@ -1067,59 +1067,38 @@ elif menu == "🛒 Update Stok & Kasir":
 # FITUR 5 — RETUR PEMBELIAN
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🏥 Retur Pembelian":
-    # ── Header Aplikasi ──────────────────────────────────────────────────────
+    # ── Header Utama ─────────────────────────────────────────────────────────
     st.markdown(
-        """
-        <div class='app-header'>
-            <div class='app-title'>💊 Retur Pembelian Obat</div>
-            <div class='app-subtitle'>Formulir pencatatan retur pembelian obat ke supplier</div>
-        </div>
-        """,
+        "<h2 style='text-align: center; color: #333333;'>Retur Pembelian Obat : 2605/PDF.CC/1501</h2>",
         unsafe_allow_html=True
     )
+    st.write("---")
     
-    # ── Form Pencarian Faktur ─────────────────────────────────────────────────
-    st.markdown(
-        """
-        <div class='form-container'>
-            <div class='form-section-title'>📋 Form Pencarian Faktur & Obat</div>
-        """,
-        unsafe_allow_html=True
-    )
+    # ── Form Input Utama (Menggunakan Kolom) ──────────────────────────────────
+    col1, col2 = st.columns(2)
     
-    # Baris 1: 3 Kolom
-    col_h1, col_h2, col_h3 = st.columns(3)
+    with col1:
+        # Baris No. Faktur dengan Tombol Cari bersebelahan
+        faktur_col, cari_col = st.columns([3, 1])
+        with faktur_col:
+            no_faktur = st.text_input("No. Faktur", value="2605/PDF.CC/1501")
+        with cari_col:
+            st.write("##")  # Memberikan ruang vertikal agar sejajar dengan input
+            st.button("🔍 Cari", type="primary", use_container_width=True)
+        
+        st.text_input("Tanggal Faktur", value="15 May 2026", disabled=True)
+        tgl_retur = st.date_input("Tanggal Retur", value=date(2026, 7, 5))
     
-    with col_h1:
-        nomor_faktur = st.text_input(
-            "Nomor Faktur",
-            value="2605/PDF.CC/1501",
-            key="nomor_faktur_input",
-            label_visibility="collapsed"
-        )
-    
-    with col_h2:
-        tanggal_faktur = st.date_input(
-            "Tanggal Faktur",
-            value=date(2026, 5, 15),
-            key="tanggal_faktur",
-            label_visibility="collapsed"
-        )
-    
-    with col_h3:
-        tanggal_retur = st.date_input(
-            "Tanggal Retur",
-            value=date(2026, 7, 5),
-            key="tanggal_retur",
-            label_visibility="collapsed"
-        )
-    
-    # Tombol Cari
-    col_btn_cari, col_spacer = st.columns([1, 3])
-    with col_btn_cari:
-        btn_cari = st.button("🔍 Cari", key="btn_cari", use_container_width=True)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
+    with col2:
+        st.text_input("Supplier", value="PDF (PUNDENSEHAT DISTRIBUTOR FARMASI)", disabled=True)
+        st.text_input("Gudang", value="GUDANG UTAMA", disabled=True)
+        
+        # Baris Jenis (Hutang/Tunai) dan Tanggal Tempo/Bayar
+        jenis_col, tgl_jenis_col = st.columns(2)
+        with jenis_col:
+            jenis = st.selectbox("Jenis", ["HUTANG", "TUNAI"])
+        with tgl_jenis_col:
+            tgl_jenis = st.date_input("", value=date(2026, 6, 15), label_visibility="collapsed")
     
     # ── Pencarian Obat dari Dataset ────────────────────────────────────────────
     st.markdown(
@@ -1205,252 +1184,92 @@ elif menu == "🏥 Retur Pembelian":
     
     st.markdown("</div>", unsafe_allow_html=True)
     
-    # ── Detail Supplier & Pembayaran ───────────────────────────────────────────
-    st.markdown(
-        """
-        <div class='form-container'>
-            <div class='form-section-title'>📦 Detail Supplier & Pembayaran</div>
-        """,
-        unsafe_allow_html=True
-    )
+    # ── Tombol Aksi & Total ──────────────────────────────────────────────────
+    st.write("##")
+    action_col, total_col = st.columns([3, 1])
     
-    # Baris 2-4: 4 Kolom
-    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+    with action_col:
+        # Menampilkan tombol simpan dan reset secara berdampingan
+        btn_simpan, btn_reset, _ = st.columns([1, 1, 5])
+        with btn_simpan:
+            st.button("💾 Simpan", type="primary", use_container_width=True)
+        with btn_reset:
+            st.button("🔄 Reset", use_container_width=True)
     
-    with col_s1:
-        supplier = st.text_input(
-            "Supplier",
-            value="",
-            key="supplier_input",
-            disabled=False,
-            label_visibility="collapsed"
-        )
-    
-    with col_s2:
-        gudang = st.selectbox(
-            "Gudang",
-            ["Gudang Utama", "Gudang Cabang", "Gudang Darurat"],
-            index=0,
-            key="gudang_input",
-            disabled=False,
-            label_visibility="collapsed"
-        )
-    
-    with col_s3:
-        jenis_pembayaran = st.selectbox(
-            "Jenis Pembayaran",
-            ["Hutang", "Tunai"],
-            index=0,
-            key="jenis_pembayaran_input",
-            disabled=False,
-            label_visibility="collapsed"
-        )
-    
-    with col_s4:
-        tanggal_jatuh_tempo = st.date_input(
-            "Tanggal Jatuh Tempo",
-            value=date.today(),
-            key="tanggal_jatuh_tempo",
-            disabled=False,
-            label_visibility="collapsed"
-        )
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    # ── Simpan Data Faktur ke Session State ────────────────────────────────
-    if btn_cari:
-        st.session_state.retur_form_data = {
-            "nomor_faktur": nomor_faktur,
-            "tanggal_faktur": tanggal_faktur,
-            "tanggal_retur": tanggal_retur,
-            "supplier": supplier,
-            "gudang": gudang,
-            "jenis_pembayaran": jenis_pembayaran,
-            "tanggal_jatuh_tempo": tanggal_jatuh_tempo
-        }
-        st.success("✅ Data faktur berhasil dicari!")
-        st.rerun()
-    
-    # ── Tampilkan Data Header ──────────────────────────────────────────────
-    if st.session_state.retur_form_data:
+    with total_col:
+        # Menampilkan total bayar/retur di sebelah kanan
         st.markdown(
-            """
-            <div class='form-container'>
-                <div class='form-section-title'>📋 Informasi Transaksi</div>
-            """,
+            "<h1 style='text-align: right; margin: 0; color: #4F4F4F;'>0,00</h1>",
             unsafe_allow_html=True
         )
-        
-        col_d1, col_d2, col_d3, col_d4 = st.columns(4)
-        
-        with col_d1:
-            st.info(f"**Nomor Faktur:** {st.session_state.retur_form_data['nomor_faktur']}")
-        
-        with col_d2:
-            st.info(f"**Supplier:** {st.session_state.retur_form_data['supplier']}")
-        
-        with col_d3:
-            st.info(f"**Gudang:** {st.session_state.retur_form_data['gudang']}")
-        
-        with col_d4:
-            st.info(f"**Jenis Pembayaran:** {st.session_state.retur_form_data['jenis_pembayaran']}")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
     
-    # ── Baris Aksi & Total Nominal ─────────────────────────────────────
-    st.markdown(
-        """
-        <div class='total-container'>
-            <div class='action-buttons'>
-                <button class='btn-custom btn-save' id='btn_simpan'>
-                    ✓ Simpan
-                </button>
-                <button class='btn-custom btn-reset' id='btn_reset'>
-                    ⟲ Reset
-                </button>
-            </div>
-            <div>
-                <div class='total-label'>Total Nilai Retur</div>
-                <div class='total-value' id='total-retur-value'>Rp 0,00</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.write("---")
     
-    # ── Tabel Item Obat ────────────────────────────────────────────────
-    st.markdown(
-        """
-        <div class='table-container'>
-            <div class='table-title'>📝 Detail Item Obat</div>
-        """,
-        unsafe_allow_html=True
-    )
+    # ── Tabel Item Obat (Data Editor) ────────────────────────────────────────
+    # Menyiapkan data dummy sesuai kolom di gambar
+    data_obat = {
+        "Pilih": [False],
+        "Kode": ["OBT2307310009"],
+        "Nama Obat": ["LERZIN SYR"],
+        "Satuan": ["BOTOL"],
+        "No. Batch": ["TN03H"],
+        "Tanggal Exp": ["2030-02-26"],
+        "Ketentuan Retur": ["None"],
+        "Maks bln sblm ED": [0],
+        "Tersedia": [5.00],
+        "Jumlah Retur": [0.00],
+        "HPP": [0.00]
+    }
     
-    # Tombol untuk menambah item baru
-    if st.button("➕ Tambah Item Baru", key="tambah_item_baru"):
-        new_item = {
-            "Pilih": True,
-            "Kode": "",
-            "Nama Obat": "",
-            "Satuan": "",
-            "No. Batch": "",
-            "Tanggal Exp": "",
-            "Ketentuan Retur": "",
-            "Maks bln sblm ED": 0,
-            "Tersedia": 0.00,
-            "Jumlah Retur": 0.00,
-            "HPP": 0.00
-        }
-        st.session_state.retur_items = pd.concat(
-            [st.session_state.retur_items, pd.DataFrame([new_item])],
-            ignore_index=True
-        ).reset_index(drop=True)
-        st.rerun()
+    df = pd.DataFrame(data_obat)
     
-    # Data default untuk tabel - kosong agar admin bisa input manual
-    if st.session_state.retur_items.empty:
-        st.session_state.retur_items = pd.DataFrame([
-            {
-                "Pilih": True,
-                "Kode": "",
-                "Nama Obat": "",
-                "Satuan": "",
-                "No. Batch": "",
-                "Tanggal Exp": "",
-                "Ketentuan Retur": "",
-                "Maks bln sblm ED": 0,
-                "Tersedia": 0.00,
-                "Jumlah Retur": 0.00,
-                "HPP": 0.00
-            }
-        ])
-    
-    # Tampilkan tabel dengan data_editor - SEMUA KOLOM BISA DIEDIT
-    # Pastikan semua kolom memiliki tipe data yang konsisten
-    items_for_editor = st.session_state.retur_items.copy()
-    
-    # Konversi kolom numerik ke float
-    numeric_cols = ["Maks bln sblm ED", "Tersedia", "Jumlah Retur", "HPP", "Subtotal"]
-    for col in numeric_cols:
-        if col in items_for_editor.columns:
-            items_for_editor[col] = pd.to_numeric(items_for_editor[col], errors='coerce').fillna(0.0)
-    
-    # Konversi kolom date
-    if "Tanggal Exp" in items_for_editor.columns:
-        items_for_editor["Tanggal Exp"] = pd.to_datetime(items_for_editor["Tanggal Exp"], errors='coerce').dt.date
-    
-    edited_items = st.data_editor(
-        items_for_editor,
-        use_container_width=True,
-        num_rows="dynamic",
-        hide_index=True,
+    # Menggunakan st.data_editor agar kolom 'Pilih' dan 'Jumlah Retur' bisa diubah oleh user
+    st.markdown("### Daftar Item Obat")
+    edited_df = st.data_editor(
+        df,
         column_config={
-            "Pilih": st.column_config.CheckboxColumn("Pilih", default=True),
-            "Kode": st.column_config.TextColumn("Kode Obat", help="Kode obat atau barcode"),
-            "Nama Obat": st.column_config.TextColumn("Nama Obat", help="Nama lengkap obat"),
-            "Satuan": st.column_config.TextColumn("Satuan", help="Contoh: BOX, BOTOL, TABLET"),
-            "No. Batch": st.column_config.TextColumn("No. Batch", help="Nomor batch produksi"),
-            "Tanggal Exp": st.column_config.DateColumn("Tanggal Exp", help="Tanggal kadaluarsa"),
-            "Ketentuan Retur": st.column_config.TextColumn("Ketentuan Retur", help="Alasan retur atau ketentuan"),
-            "Maks bln sblm ED": st.column_config.NumberColumn("Maks bln sblm ED", min_value=0, help="Maksimal bulan sebelum expired date"),
-            "Tersedia": st.column_config.NumberColumn("Tersedia", min_value=0.0, format="%.2f", help="Jumlah yang tersedia"),
-            "Jumlah Retur": st.column_config.NumberColumn("Jumlah Retur", min_value=0.0, format="%.2f", help="Jumlah yang diretur"),
-            "HPP": st.column_config.NumberColumn("HPP", min_value=0.0, format="Rp %.2f", help="Harga per unit"),
-            "Subtotal": st.column_config.NumberColumn("Subtotal", disabled=True, format="Rp %.2f")
+            "Pilih": st.column_config.CheckboxColumn(
+                "Pilih",
+                help="Centang untuk memilih obat yang akan diretur",
+                default=False,
+            ),
+            "Jumlah Retur": st.column_config.NumberColumn(
+                "Jumlah Retur",
+                min_value=0.0,
+                max_value=5.0,  # Maksimal sejumlah yang tersedia
+                step=1.0,
+                format="%.2f",
+            ),
+            # Kolom lainnya dikunci agar tidak bisa diedit sembarangan
+            "Kode": st.column_config.TextColumn(disabled=True),
+            "Nama Obat": st.column_config.TextColumn(disabled=True),
+            "Satuan": st.column_config.TextColumn(disabled=True),
+            "No. Batch": st.column_config.TextColumn(disabled=True),
+            "Tanggal Exp": st.column_config.TextColumn(disabled=True),
+            "Tersedia": st.column_config.NumberColumn(disabled=True, format="%.2f"),
+            "HPP": st.column_config.NumberColumn(disabled=True, format="%.2f"),
         },
-        key="data_editor_key"
+        disabled=["Kode", "Nama Obat", "Satuan", "No. Batch", "Tanggal Exp", "Ketentuan Retur", "Maks bln sblm ED", "Tersedia", "HPP"],
+        hide_index=True,
+        use_container_width=True
     )
     
-    # Tombol untuk menghapus item yang tidak dipilih
-    if st.button("🗑️ Hapus Item Tidak Dipilih", key="hapus_unchecked"):
-        edited_items = edited_items[edited_items["Pilih"] == True].reset_index(drop=True)
-        st.success("Item yang tidak dipilih telah dihapus")
-        st.rerun()
-    
-    # Hitung subtotal otomatis - pastikan tipe data float
-    edited_items["Jumlah Retur"] = pd.to_numeric(edited_items["Jumlah Retur"], errors='coerce').fillna(0.0)
-    edited_items["HPP"] = pd.to_numeric(edited_items["HPP"], errors='coerce').fillna(0.0)
-    edited_items["Subtotal"] = edited_items["Jumlah Retur"] * edited_items["HPP"]
-    
-    # Update session state
-    st.session_state.retur_items = edited_items
-    
-    # Tombol untuk mengisi otomatis data obat dari dataset
-    if df_stok is not None:
-        if st.button("🔄 Isi Otomatis Data Obat dari Dataset", key="isi_automatis"):
-            for idx, row in edited_items.iterrows():
-                nama_obat = str(row["Nama Obat"]).strip()
-                if nama_obat and nama_obat != "":
-                    matching = df_stok[df_stok["Nama Obat"].str.contains(nama_obat, case=False, na=False)]
-                    if not matching.empty:
-                        # Isi data obat dari dataset
-                        edited_items.at[idx, "Kode"] = matching.iloc[0].get("Kode Obat", "")
-                        edited_items.at[idx, "Satuan"] = matching.iloc[0].get("Satuan", "")
-                        edited_items.at[idx, "Tersedia"] = float(matching.iloc[0].get("Stok Akhir", 0))
-            st.success("Data obat diisi otomatis dari dataset!")
-            st.rerun()
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    # ── Tombol Aksi (Simpan dan Reset) ─────────────────────────────────
+    # ── Tombol Aksi (Simpan dan Reset) ───────────────────────────────────────
     col_btn1, col_btn2 = st.columns(2)
     
     with col_btn1:
         if st.button("💾 Simpan", type="primary", use_container_width=True):
-            # Isi HPP dengan 0.00 jika kosong
-            edited_items["HPP"] = edited_items["HPP"].fillna(0.00)
-            total_retur = edited_items["Subtotal"].sum()
+            total_retur = edited_df["Jumlah Retur"].sum() * edited_df["HPP"].sum()
             if total_retur == 0:
                 st.warning("⚠️ Belum ada item yang dipilih untuk diretur!")
             else:
                 # Simpan ke riwayat retur
                 new_history = pd.DataFrame([{
-                    "Nomor Faktur": st.session_state.retur_form_data.get('nomor_faktur', nomor_faktur),
-                    "Tanggal Retur": st.session_state.retur_form_data.get('tanggal_retur', tanggal_retur),
-                    "Supplier": st.session_state.retur_form_data.get('supplier', supplier),
-                    "Gudang": st.session_state.retur_form_data.get('gudang', gudang),
-                    "Jumlah Item": len(edited_items[edited_items["Jumlah Retur"] > 0]),
+                    "Nomor Faktur": no_faktur,
+                    "Tanggal Retur": tgl_retur,
+                    "Supplier": "PDF (PUNDENSEHAT DISTRIBUTOR FARMASI)",
+                    "Gudang": "GUDANG UTAMA",
+                    "Jumlah Item": len(edited_df[edited_df["Jumlah Retur"] > 0]),
                     "Total Nilai Retur": total_retur,
                     "Tanggal Disimpan": datetime.now()
                 }])
@@ -1466,7 +1285,6 @@ elif menu == "🏥 Retur Pembelian":
                 st.success(f"✅ Retur pembelian berhasil disimpan! Total retur: Rp {total_retur:,.2f}".replace(",", "."))
                 
                 # Reset form
-                st.session_state.retur_form_data = {}
                 st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
                 st.rerun()
     
@@ -1477,7 +1295,7 @@ elif menu == "🏥 Retur Pembelian":
             st.session_state.retur_items["HPP"] = 0.00
             st.rerun()
     
-    # ── Tabel Riwayat Retur ────────────────────────────────────────────
+    # ── Tabel Riwayat Retur ──────────────────────────────────────────────────
     if not st.session_state.retur_history.empty:
         st.markdown(
             """
@@ -1498,7 +1316,7 @@ elif menu == "🏥 Retur Pembelian":
         
         st.markdown("</div>", unsafe_allow_html=True)
     
-    # ── Footer ─────────────────────────────────────────────────────────
+    # ── Footer ───────────────────────────────────────────────────────────────
     st.markdown(
         """
         <div class='app-footer'>
