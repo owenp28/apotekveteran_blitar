@@ -1081,24 +1081,25 @@ elif menu == "🏥 Retur Pembelian":
         # Baris No. Faktur dengan Tombol Cari bersebelahan
         faktur_col, cari_col = st.columns([3, 1])
         with faktur_col:
-            no_faktur = st.text_input("No. Faktur", value="2605/PDF.CC/1501")
+            no_faktur = st.text_input("No. Faktur", value="2605/PDF.CC/1501", key="no_faktur_input")
         with cari_col:
             st.write("##")  # Memberikan ruang vertikal agar sejajar dengan input
-            st.button("🔍 Cari", type="primary", use_container_width=True)
+            if st.button("🔍 Cari", key="btn_cari_form"):
+                st.session_state.cari_faktur = True
         
-        st.text_input("Tanggal Faktur", value="15 May 2026", disabled=True)
-        tgl_retur = st.date_input("Tanggal Retur", value=date(2026, 7, 5))
+        tgl_faktur = st.text_input("Tanggal Faktur", value="15 May 2026", key="tgl_faktur_input")
+        tgl_retur = st.date_input("Tanggal Retur", value=date(2026, 7, 5), key="tgl_retur_input")
     
     with col2:
-        st.text_input("Supplier", value="PDF (PUNDENSEHAT DISTRIBUTOR FARMASI)", disabled=True)
-        st.text_input("Gudang", value="GUDANG UTAMA", disabled=True)
+        supplier = st.text_input("Supplier", value="PDF (PUNDENSEHAT DISTRIBUTOR FARMASI)", key="supplier_input")
+        gudang = st.text_input("Gudang", value="GUDANG UTAMA", key="gudang_input")
         
         # Baris Jenis (Hutang/Tunai) dan Tanggal Tempo/Bayar
         jenis_col, tgl_jenis_col = st.columns(2)
         with jenis_col:
-            jenis = st.selectbox("Jenis", ["HUTANG", "TUNAI"])
+            jenis = st.selectbox("Jenis", ["HUTANG", "TUNAI"], key="jenis_input")
         with tgl_jenis_col:
-            tgl_jenis = st.date_input("", value=date(2026, 6, 15), label_visibility="collapsed")
+            tgl_jenis = st.date_input("", value=date(2026, 6, 15), label_visibility="collapsed", key="tgl_jenis_input")
     
     # ── Pencarian Obat dari Dataset ────────────────────────────────────────────
     st.markdown(
@@ -1192,9 +1193,41 @@ elif menu == "🏥 Retur Pembelian":
         # Menampilkan tombol simpan dan reset secara berdampingan
         btn_simpan, btn_reset, _ = st.columns([1, 1, 5])
         with btn_simpan:
-            st.button("💾 Simpan", type="primary", use_container_width=True)
+            if st.button("💾 Simpan", type="primary", use_container_width=True, key="btn_simpan_form"):
+                total_retur = edited_df["Jumlah Retur"].sum() * edited_df["HPP"].sum()
+                if total_retur == 0:
+                    st.warning("⚠️ Belum ada item yang dipilih untuk diretur!")
+                else:
+                    # Simpan ke riwayat retur
+                    new_history = pd.DataFrame([{
+                        "Nomor Faktur": no_faktur,
+                        "Tanggal Retur": tgl_retur,
+                        "Supplier": supplier,
+                        "Gudang": gudang,
+                        "Jumlah Item": len(edited_df[edited_df["Jumlah Retur"] > 0]),
+                        "Total Nilai Retur": total_retur,
+                        "Tanggal Disimpan": datetime.now()
+                    }])
+                    
+                    st.session_state.retur_history = pd.concat(
+                        [st.session_state.retur_history, new_history], 
+                        ignore_index=True
+                    )
+                    
+                    # Simpan ke file CSV
+                    save_retur_history(st.session_state.retur_history)
+                    
+                    st.success(f"✅ Retur pembelian berhasil disimpan! Total retur: Rp {total_retur:,.2f}".replace(",", "."))
+                    
+                    # Reset form
+                    st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
+                    st.rerun()
         with btn_reset:
-            st.button("🔄 Reset", use_container_width=True)
+            if st.button("🔄 Reset", key="btn_reset_form", use_container_width=True):
+                st.session_state.retur_items["Jumlah Retur"] = 0.00
+                st.session_state.retur_items["Subtotal"] = 0.00
+                st.session_state.retur_items["HPP"] = 0.00
+                st.rerun()
     
     with total_col:
         # Menampilkan total bayar/retur di sebelah kanan
@@ -1251,49 +1284,17 @@ elif menu == "🏥 Retur Pembelian":
         },
         disabled=["Kode", "Nama Obat", "Satuan", "No. Batch", "Tanggal Exp", "Ketentuan Retur", "Maks bln sblm ED", "Tersedia", "HPP"],
         hide_index=True,
-        use_container_width=True
+        use_container_width=True,
+        key="data_editor_key"
     )
     
     # ── Tombol Aksi (Simpan dan Reset) ───────────────────────────────────────
-    col_btn1, col_btn2 = st.columns(2)
+    # Tombol simpan dan reset sudah ada di atas (action_col, total_col)
+    # Jadi tidak perlu duplikat di sini
     
-    with col_btn1:
-        if st.button("💾 Simpan", type="primary", use_container_width=True):
-            total_retur = edited_df["Jumlah Retur"].sum() * edited_df["HPP"].sum()
-            if total_retur == 0:
-                st.warning("⚠️ Belum ada item yang dipilih untuk diretur!")
-            else:
-                # Simpan ke riwayat retur
-                new_history = pd.DataFrame([{
-                    "Nomor Faktur": no_faktur,
-                    "Tanggal Retur": tgl_retur,
-                    "Supplier": "PDF (PUNDENSEHAT DISTRIBUTOR FARMASI)",
-                    "Gudang": "GUDANG UTAMA",
-                    "Jumlah Item": len(edited_df[edited_df["Jumlah Retur"] > 0]),
-                    "Total Nilai Retur": total_retur,
-                    "Tanggal Disimpan": datetime.now()
-                }])
-                
-                st.session_state.retur_history = pd.concat(
-                    [st.session_state.retur_history, new_history], 
-                    ignore_index=True
-                )
-                
-                # Simpan ke file CSV
-                save_retur_history(st.session_state.retur_history)
-                
-                st.success(f"✅ Retur pembelian berhasil disimpan! Total retur: Rp {total_retur:,.2f}".replace(",", "."))
-                
-                # Reset form
-                st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
-                st.rerun()
-    
-    with col_btn2:
-        if st.button("↻ Reset", type="secondary", use_container_width=True):
-            st.session_state.retur_items["Jumlah Retur"] = 0.00
-            st.session_state.retur_items["Subtotal"] = 0.00
-            st.session_state.retur_items["HPP"] = 0.00
-            st.rerun()
+    # ── Tombol Aksi (Simpan dan Reset) ───────────────────────────────────────
+    # Tombol simpan dan reset sudah ada di atas (action_col, total_col)
+    # Jadi tidak perlu duplikat di sini
     
     # ── Tabel Riwayat Retur ──────────────────────────────────────────────────
     if not st.session_state.retur_history.empty:
