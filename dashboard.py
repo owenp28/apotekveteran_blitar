@@ -1367,8 +1367,21 @@ elif menu == "🏥 Retur Pembelian":
         ])
     
     # Tampilkan tabel dengan data_editor - SEMUA KOLOM BISA DIEDIT
+    # Pastikan semua kolom memiliki tipe data yang konsisten
+    items_for_editor = st.session_state.retur_items.copy()
+    
+    # Konversi kolom numerik ke float
+    numeric_cols = ["Maks bln sblm ED", "Tersedia", "Jumlah Retur", "HPP", "Subtotal"]
+    for col in numeric_cols:
+        if col in items_for_editor.columns:
+            items_for_editor[col] = pd.to_numeric(items_for_editor[col], errors='coerce').fillna(0.0)
+    
+    # Konversi kolom date
+    if "Tanggal Exp" in items_for_editor.columns:
+        items_for_editor["Tanggal Exp"] = pd.to_datetime(items_for_editor["Tanggal Exp"], errors='coerce').dt.date
+    
     edited_items = st.data_editor(
-        st.session_state.retur_items,
+        items_for_editor,
         use_container_width=True,
         num_rows="dynamic",
         hide_index=True,
@@ -1395,8 +1408,10 @@ elif menu == "🏥 Retur Pembelian":
         st.success("Item yang tidak dipilih telah dihapus")
         st.rerun()
     
-    # Hitung subtotal otomatis
-    edited_items["Subtotal"] = edited_items["Jumlah Retur"].fillna(0) * edited_items["HPP"].fillna(0)
+    # Hitung subtotal otomatis - pastikan tipe data float
+    edited_items["Jumlah Retur"] = pd.to_numeric(edited_items["Jumlah Retur"], errors='coerce').fillna(0.0)
+    edited_items["HPP"] = pd.to_numeric(edited_items["HPP"], errors='coerce').fillna(0.0)
+    edited_items["Subtotal"] = edited_items["Jumlah Retur"] * edited_items["HPP"]
     
     # Update session state
     st.session_state.retur_items = edited_items
