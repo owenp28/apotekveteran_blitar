@@ -1189,6 +1189,56 @@ elif menu == "🏥 Retur Pembelian":
     
     st.markdown("</div>", unsafe_allow_html=True)
     
+    # ── Tabel Item Obat (Data Editor) ────────────────────────────────────────
+    # Menyiapkan data dummy sesuai kolom di gambar
+    data_obat = {
+        "Pilih": [False],
+        "Kode": ["OBT2307310009"],
+        "Nama Obat": ["LERZIN SYR"],
+        "Satuan": ["BOTOL"],
+        "No. Batch": ["TN03H"],
+        "Tanggal Exp": ["2030-02-26"],
+        "Ketentuan Retur": ["None"],
+        "Maks bln sblm ED": [0],
+        "Tersedia": [5.00],
+        "Jumlah Retur": [0.00],
+        "HPP": [0.00]
+    }
+    
+    df = pd.DataFrame(data_obat)
+    
+    # Menggunakan st.data_editor agar kolom 'Pilih' dan 'Jumlah Retur' bisa diubah oleh user
+    st.markdown("### Daftar Item Obat")
+    edited_df = st.data_editor(
+        df,
+        column_config={
+            "Pilih": st.column_config.CheckboxColumn(
+                "Pilih",
+                help="Centang untuk memilih obat yang akan diretur",
+                default=False,
+            ),
+            "Jumlah Retur": st.column_config.NumberColumn(
+                "Jumlah Retur",
+                min_value=0.0,
+                max_value=5.0,  # Maksimal sejumlah yang tersedia
+                step=1.0,
+                format="%.2f",
+            ),
+            # Kolom lainnya dikunci agar tidak bisa diedit sembarangan
+            "Kode": st.column_config.TextColumn(disabled=True),
+            "Nama Obat": st.column_config.TextColumn(disabled=True),
+            "Satuan": st.column_config.TextColumn(disabled=True),
+            "No. Batch": st.column_config.TextColumn(disabled=True),
+            "Tanggal Exp": st.column_config.TextColumn(disabled=True),
+            "Tersedia": st.column_config.NumberColumn(disabled=True, format="%.2f"),
+            "HPP": st.column_config.NumberColumn(disabled=True, format="%.2f"),
+        },
+        disabled=["Kode", "Nama Obat", "Satuan", "No. Batch", "Tanggal Exp", "Ketentuan Retur", "Maks bln sblm ED", "Tersedia", "HPP"],
+        hide_index=True,
+        use_container_width=True,
+        key="data_editor_key"
+    )
+    
     # ── Tombol Aksi & Total ──────────────────────────────────────────────────
     st.write("##")
     action_col, total_col = st.columns([3, 1])
@@ -1241,56 +1291,6 @@ elif menu == "🏥 Retur Pembelian":
         )
     
     st.write("---")
-    
-    # ── Tabel Item Obat (Data Editor) ────────────────────────────────────────
-    # Menyiapkan data dummy sesuai kolom di gambar
-    data_obat = {
-        "Pilih": [False],
-        "Kode": ["OBT2307310009"],
-        "Nama Obat": ["LERZIN SYR"],
-        "Satuan": ["BOTOL"],
-        "No. Batch": ["TN03H"],
-        "Tanggal Exp": ["2030-02-26"],
-        "Ketentuan Retur": ["None"],
-        "Maks bln sblm ED": [0],
-        "Tersedia": [5.00],
-        "Jumlah Retur": [0.00],
-        "HPP": [0.00]
-    }
-    
-    df = pd.DataFrame(data_obat)
-    
-    # Menggunakan st.data_editor agar kolom 'Pilih' dan 'Jumlah Retur' bisa diubah oleh user
-    st.markdown("### Daftar Item Obat")
-    edited_df = st.data_editor(
-        df,
-        column_config={
-            "Pilih": st.column_config.CheckboxColumn(
-                "Pilih",
-                help="Centang untuk memilih obat yang akan diretur",
-                default=False,
-            ),
-            "Jumlah Retur": st.column_config.NumberColumn(
-                "Jumlah Retur",
-                min_value=0.0,
-                max_value=5.0,  # Maksimal sejumlah yang tersedia
-                step=1.0,
-                format="%.2f",
-            ),
-            # Kolom lainnya dikunci agar tidak bisa diedit sembarangan
-            "Kode": st.column_config.TextColumn(disabled=True),
-            "Nama Obat": st.column_config.TextColumn(disabled=True),
-            "Satuan": st.column_config.TextColumn(disabled=True),
-            "No. Batch": st.column_config.TextColumn(disabled=True),
-            "Tanggal Exp": st.column_config.TextColumn(disabled=True),
-            "Tersedia": st.column_config.NumberColumn(disabled=True, format="%.2f"),
-            "HPP": st.column_config.NumberColumn(disabled=True, format="%.2f"),
-        },
-        disabled=["Kode", "Nama Obat", "Satuan", "No. Batch", "Tanggal Exp", "Ketentuan Retur", "Maks bln sblm ED", "Tersedia", "HPP"],
-        hide_index=True,
-        use_container_width=True,
-        key="data_editor_key"
-    )
     
     # ── Tabel Riwayat Retur ──────────────────────────────────────────────────
     if not st.session_state.retur_history.empty:
