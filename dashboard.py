@@ -1276,7 +1276,8 @@ elif menu == "🏥 Retur Pembelian":
         btn_simpan, btn_reset, _ = st.columns([1, 1, 5])
         with btn_simpan:
             # Definisikan edited_df terlebih dahulu jika belum ada di session state
-            if "data_editor_key" not in st.session_state:
+            # Gunakan key berbeda untuk editor dummy agar tidak konflik dengan editor utama
+            if "data_editor_dummy_retur" not in st.session_state:
                 # Buat dataframe dummy untuk data editor
                 data_obat = {
                     "Pilih": [False],
@@ -1321,7 +1322,7 @@ elif menu == "🏥 Retur Pembelian":
                     disabled=["Kode", "Nama Obat", "Satuan", "No. Batch", "Tanggal Exp", "Ketentuan Retur", "Maks bln sblm ED", "Tersedia", "HPP"],
                     hide_index=True,
                     use_container_width=True,
-                    key="data_editor_key"
+                    key="data_editor_dummy_retur"
                 )
                 # Simpan edited_df ke session state
                 st.session_state.edited_df_data = edited_df
@@ -1424,7 +1425,7 @@ elif menu == "🏥 Retur Pembelian":
         disabled=["Kode", "Nama Obat", "Satuan", "No. Batch", "Tanggal Exp", "Ketentuan Retur", "Maks bln sblm ED", "Tersedia", "HPP"],
         hide_index=True,
         use_container_width=True,
-        key="data_editor_key"
+        key="data_editor_retur"
     )
     
     # Simpan edited_df ke session state
