@@ -415,6 +415,14 @@ if "retur_history" not in st.session_state:
     st.session_state.retur_history = load_retur_history()
     if st.session_state.retur_history is None:
         st.session_state.retur_history = pd.DataFrame(columns=RETUR_HISTORY_COLUMNS)
+if "edited_df_data" not in st.session_state:
+    st.session_state.edited_df_data = pd.DataFrame(columns=[
+        "Pilih", "Kode", "Nama Obat", "Satuan", "No. Batch",
+        "Tanggal Exp", "Ketentuan Retur", "Maks bln sblm ED",
+        "Tersedia", "Jumlah Retur", "HPP"
+    ])
+if "cari_faktur" not in st.session_state:
+    st.session_state.cari_faktur = False
 
 # ── Sidebar navigasi ──────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
@@ -1189,6 +1197,116 @@ elif menu == "🏥 Retur Pembelian":
     
     st.markdown("</div>", unsafe_allow_html=True)
     
+    # ── Tombol Aksi & Total ──────────────────────────────────────────────────
+    st.write("##")
+    action_col, total_col = st.columns([3, 1])
+    
+    with action_col:
+        # Menampilkan tombol simpan dan reset secara berdampingan
+        btn_simpan, btn_reset, _ = st.columns([1, 1, 5])
+        with btn_simpan:
+            # Definisikan edited_df terlebih dahulu jika belum ada di session state
+            if "data_editor_key" not in st.session_state:
+                # Buat dataframe dummy untuk data editor
+                data_obat = {
+                    "Pilih": [False],
+                    "Kode": ["OBT2307310009"],
+                    "Nama Obat": ["LERZIN SYR"],
+                    "Satuan": ["BOTOL"],
+                    "No. Batch": ["TN03H"],
+                    "Tanggal Exp": ["2030-02-26"],
+                    "Ketentuan Retur": ["None"],
+                    "Maks bln sblm ED": [0],
+                    "Tersedia": [5.00],
+                    "Jumlah Retur": [0.00],
+                    "HPP": [0.00]
+                }
+                df_dummy = pd.DataFrame(data_obat)
+                
+                # Menggunakan st.data_editor agar kolom 'Pilih' dan 'Jumlah Retur' bisa diubah oleh user
+                st.markdown("### Daftar Item Obat")
+                edited_df = st.data_editor(
+                    df_dummy,
+                    column_config={
+                        "Pilih": st.column_config.CheckboxColumn(
+                            "Pilih",
+                            help="Centang untuk memilih obat yang akan diretur",
+                            default=False,
+                        ),
+                        "Jumlah Retur": st.column_config.NumberColumn(
+                            "Jumlah Retur",
+                            min_value=0.0,
+                            max_value=5.0,
+                            step=1.0,
+                            format="%.2f",
+                        ),
+                        "Kode": st.column_config.TextColumn(disabled=True),
+                        "Nama Obat": st.column_config.TextColumn(disabled=True),
+                        "Satuan": st.column_config.TextColumn(disabled=True),
+                        "No. Batch": st.column_config.TextColumn(disabled=True),
+                        "Tanggal Exp": st.column_config.TextColumn(disabled=True),
+                        "Tersedia": st.column_config.NumberColumn(disabled=True, format="%.2f"),
+                        "HPP": st.column_config.NumberColumn(disabled=True, format="%.2f"),
+                    },
+                    disabled=["Kode", "Nama Obat", "Satuan", "No. Batch", "Tanggal Exp", "Ketentuan Retur", "Maks bln sblm ED", "Tersedia", "HPP"],
+                    hide_index=True,
+                    use_container_width=True,
+                    key="data_editor_key"
+                )
+                # Simpan edited_df ke session state
+                st.session_state.edited_df_data = edited_df
+            else:
+                # Ambil edited_df dari session state jika sudah ada
+                edited_df = st.session_state.get("edited_df_data", pd.DataFrame())
+            
+            if st.button("💾 Simpan", type="primary", use_container_width=True, key="btn_simpan_form"):
+                if edited_df.empty:
+                    st.warning("⚠️ Belum ada item yang dipilih untuk diretur!")
+                else:
+                    total_retur = edited_df["Jumlah Retur"].sum() * edited_df["HPP"].sum()
+                    if total_retur == 0:
+                        st.warning("⚠️ Belum ada item yang dipilih untuk diretur!")
+                    else:
+                        # Simpan ke riwayat retur
+                        new_history = pd.DataFrame([{
+                            "Nomor Faktur": no_faktur,
+                            "Tanggal Retur": tgl_retur,
+                            "Supplier": supplier,
+                            "Gudang": gudang,
+                            "Jumlah Item": len(edited_df[edited_df["Jumlah Retur"] > 0]),
+                            "Total Nilai Retur": total_retur,
+                            "Tanggal Disimpan": datetime.now()
+                        }])
+                        
+                        st.session_state.retur_history = pd.concat(
+                            [st.session_state.retur_history, new_history], 
+                            ignore_index=True
+                        )
+                        
+                        # Simpan ke file CSV
+                        save_retur_history(st.session_state.retur_history)
+                        
+                        st.success(f"✅ Retur pembelian berhasil disimpan! Total retur: Rp {total_retur:,.2f}".replace(",", "."))
+                        
+                        # Reset form
+                        st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
+                        st.rerun()
+        with btn_reset:
+            if st.button("🔄 Reset", key="btn_reset_form", use_container_width=True):
+                st.session_state.retur_items["Jumlah Retur"] = 0.00
+                st.session_state.retur_items["Subtotal"] = 0.00
+                st.session_state.retur_items["HPP"] = 0.00
+                st.rerun()
+    
+    with total_col:
+        # Menampilkan total bayar/retur di sebelah kanan
+        st.markdown(
+            "<h1 style='text-align: right; margin: 0; color: #4F4F4F;'>0,00</h1>",
+            unsafe_allow_html=True
+        )
+    
+    st.write("---")
+    
     # ── Tabel Item Obat (Data Editor) ────────────────────────────────────────
     # Menyiapkan data dummy sesuai kolom di gambar
     data_obat = {
@@ -1239,58 +1357,8 @@ elif menu == "🏥 Retur Pembelian":
         key="data_editor_key"
     )
     
-    # ── Tombol Aksi & Total ──────────────────────────────────────────────────
-    st.write("##")
-    action_col, total_col = st.columns([3, 1])
-    
-    with action_col:
-        # Menampilkan tombol simpan dan reset secara berdampingan
-        btn_simpan, btn_reset, _ = st.columns([1, 1, 5])
-        with btn_simpan:
-            if st.button("💾 Simpan", type="primary", use_container_width=True, key="btn_simpan_form"):
-                total_retur = edited_df["Jumlah Retur"].sum() * edited_df["HPP"].sum()
-                if total_retur == 0:
-                    st.warning("⚠️ Belum ada item yang dipilih untuk diretur!")
-                else:
-                    # Simpan ke riwayat retur
-                    new_history = pd.DataFrame([{
-                        "Nomor Faktur": no_faktur,
-                        "Tanggal Retur": tgl_retur,
-                        "Supplier": supplier,
-                        "Gudang": gudang,
-                        "Jumlah Item": len(edited_df[edited_df["Jumlah Retur"] > 0]),
-                        "Total Nilai Retur": total_retur,
-                        "Tanggal Disimpan": datetime.now()
-                    }])
-                    
-                    st.session_state.retur_history = pd.concat(
-                        [st.session_state.retur_history, new_history], 
-                        ignore_index=True
-                    )
-                    
-                    # Simpan ke file CSV
-                    save_retur_history(st.session_state.retur_history)
-                    
-                    st.success(f"✅ Retur pembelian berhasil disimpan! Total retur: Rp {total_retur:,.2f}".replace(",", "."))
-                    
-                    # Reset form
-                    st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
-                    st.rerun()
-        with btn_reset:
-            if st.button("🔄 Reset", key="btn_reset_form", use_container_width=True):
-                st.session_state.retur_items["Jumlah Retur"] = 0.00
-                st.session_state.retur_items["Subtotal"] = 0.00
-                st.session_state.retur_items["HPP"] = 0.00
-                st.rerun()
-    
-    with total_col:
-        # Menampilkan total bayar/retur di sebelah kanan
-        st.markdown(
-            "<h1 style='text-align: right; margin: 0; color: #4F4F4F;'>0,00</h1>",
-            unsafe_allow_html=True
-        )
-    
-    st.write("---")
+    # Simpan edited_df ke session state
+    st.session_state.edited_df_data = edited_df
     
     # ── Tabel Riwayat Retur ──────────────────────────────────────────────────
     if not st.session_state.retur_history.empty:
