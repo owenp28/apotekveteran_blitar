@@ -317,11 +317,22 @@ st.markdown(
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
 
-# Kolom untuk database obat dengan sistem tingkatan harga
+# Database Master Obat
+# Kolom untuk database obat dengan sistem multi harga (Harga Beli -> Harga Jual 1/2/3)
 KOLOM_DATABASE_OBAT = [
-    "id_obat", "nama_obat", "kategori", "satuan",
-    "harga_1", "harga_2", "harga_3",
-    "stok_akhir", "supplier", "tanggal_kadaluarsa"
+    "id_obat",
+    "nama_obat",
+    "kategori",
+    "satuan",
+
+    # Multi Harga
+    "harga_beli",
+    "harga_1",
+    "harga_2",
+    "harga_3",
+
+    "stok_akhir",
+    "tanggal_kadaluarsa"
 ]
 
 KOLOM_WAJIB = [
@@ -360,6 +371,23 @@ def format_rupiah(val):
     except:
         return val
 
+def cari_obat(keyword):
+    """
+    Mencari obat berdasarkan kode maupun nama.
+    """
+
+    if keyword.strip() == "":
+        return pd.DataFrame()
+
+    df = st.session_state.database_obat.copy()
+
+    hasil = df[
+        df["id_obat"].str.contains(keyword, case=False, na=False) |
+        df["nama_obat"].str.contains(keyword, case=False, na=False)
+    ]
+
+    return hasil.reset_index(drop=True)
+
 # ══════════════════════════════════════════════════════════════════════════════
 # UTILITY: DIALOG TAMBAH OBAT BARU
 # ══════════════════════════════════════════════════════════════════════════════
@@ -374,18 +402,38 @@ def tambah_obat_baru():
         new_kategori = st.text_input("Kategori", placeholder="Contoh: Analgesik")
     with col2:
         new_satuan = st.text_input("Satuan", placeholder="Contoh: Tablet")
-        new_supplier = st.selectbox("Supplier", options=st.session_state.database_supplier)
-        new_tgl_exp = st.date_input("Tanggal Kadaluarsa", value=date.today())
+        new_tgl_exp = st.date_input(
+            "Tanggal Kadaluarsa",
+            value=date.today()
+        )
     
     st.write("---")
-    st.write("### Tingkatan Harga")
-    col_h1, col_h2, col_h3 = st.columns(3)
+    st.write("### Harga Obat")
+    col_h0, col_h1, col_h2, col_h3 = st.columns(4)
+    with col_h0:
+        harga_beli = st.number_input(
+            "Harga Beli",
+            min_value=0,
+            value=0
+        )
     with col_h1:
-        h1 = st.number_input("Harga 1 (Retail)", min_value=0, value=0, help="Harga untuk pembelian eceran")
+        harga_1 = st.number_input(
+            "Harga Jual 1",
+            min_value=0,
+            value=0
+        )
     with col_h2:
-        h2 = st.number_input("Harga 2 (Grosir)", min_value=0, value=0, help="Harga untuk pembelian grosir")
+        harga_2 = st.number_input(
+            "Harga Jual 2",
+            min_value=0,
+            value=0
+        )
     with col_h3:
-        h3 = st.number_input("Harga 3 (Distributor)", min_value=0, value=0, help="Harga untuk pembelian distributor")
+        harga_3 = st.number_input(
+            "Harga Jual 3",
+            min_value=0,
+            value=0
+        )
     
     if st.button("💾 Simpan ke Database", type="primary", use_container_width=True):
         if new_id and new_name:
@@ -394,12 +442,14 @@ def tambah_obat_baru():
                 "nama_obat": new_name,
                 "kategori": new_kategori if new_kategori else "Lainnya",
                 "satuan": new_satuan if new_satuan else "Lainnya",
-                "harga_1": h1,
-                "harga_2": h2,
-                "harga_3": h3,
+
+                "harga_beli": harga_beli,
+                "harga_1": harga_1,
+                "harga_2": harga_2,
+                "harga_3": harga_3,
+
                 "stok_akhir": 0,
-                "supplier": new_supplier,
-                "tanggal_kadaluarsa": pd.Timestamp(new_tgl_exp).strftime("%Y-%m-%d")
+                "tanggal_kadaluarsa": pd.Timestamp(new_tgl_exp)
             }
             st.session_state.database_obat = pd.concat(
                 [st.session_state.database_obat, pd.DataFrame([new_data])],
@@ -481,18 +531,57 @@ if "edited_df_data" not in st.session_state:
 if "cari_faktur" not in st.session_state:
     st.session_state.cari_faktur = False
 
-# ── Session State untuk Database Obat (dengan sistem tingkatan harga) ────────
+# ── Session State untuk Database Obat (Database Master Obat, multi harga) ───
 if "database_obat" not in st.session_state:
     st.session_state.database_obat = pd.DataFrame([
-        {"id_obat": "OB001", "nama_obat": "Paracetamol 500mg", "kategori": "Analgesik", "satuan": "Tablet",
-         "harga_1": 5000, "harga_2": 4800, "harga_3": 4500, "stok_akhir": 100, "supplier": "PT. Sanbe Farma", "tanggal_kadaluarsa": "2025-12-31"},
-        {"id_obat": "OB002", "nama_obat": "Amoxicillin 500mg", "kategori": "Antibiotik", "satuan": "Kapsul",
-         "harga_1": 10000, "harga_2": 9500, "harga_3": 9000, "stok_akhir": 50, "supplier": "PT. Kalbe Farma", "tanggal_kadaluarsa": "2025-11-30"}
+        {
+            "id_obat": "OB001",
+            "nama_obat": "Paracetamol 500 mg",
+            "kategori": "Analgesik",
+            "satuan": "Tablet",
+
+            "harga_beli": 4000,
+            "harga_1": 5000,
+            "harga_2": 4800,
+            "harga_3": 4500,
+
+            "stok_akhir": 100,
+            "tanggal_kadaluarsa": "2027-12-31"
+        },
+        {
+            "id_obat": "OB002",
+            "nama_obat": "Amoxicillin 500 mg",
+            "kategori": "Antibiotik",
+            "satuan": "Kapsul",
+
+            "harga_beli": 8500,
+            "harga_1": 10000,
+            "harga_2": 9500,
+            "harga_3": 9000,
+
+            "stok_akhir": 50,
+            "tanggal_kadaluarsa": "2027-10-30"
+        }
     ])
 
 # ── Session State untuk Database Supplier ─────────────────────────────────────
 if "database_supplier" not in st.session_state:
     st.session_state.database_supplier = ["PT. Sanbe Farma", "PT. Kalbe Farma", "PT. Kimia Farma", "PT. Indofarma", "PT. Ferron Farma"]
+
+# ===============================
+# SESSION STATE PEMBELIAN
+# ===============================
+if "hasil_pencarian" not in st.session_state:
+    st.session_state.hasil_pencarian = pd.DataFrame()
+
+if "item_pembelian" not in st.session_state:
+    st.session_state.item_pembelian = pd.DataFrame()
+
+if "selected_obat" not in st.session_state:
+    st.session_state.selected_obat = None
+
+if "obat_baru" not in st.session_state:
+    st.session_state.obat_baru = False
 
 # ── Sidebar navigasi ──────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
@@ -1194,7 +1283,7 @@ elif menu == "🏥 Retur Pembelian":
     if df_stok is not None:
         col_cari, col_tambah = st.columns([4, 1])
         with col_cari:
-            cari_obat = st.text_input(
+            cari_obat_input_retur = st.text_input(
                 "Cari Nama Obat atau Kode",
                 placeholder="Ketik nama obat untuk mencari...",
                 key="cari_obat_retur"
@@ -1202,9 +1291,9 @@ elif menu == "🏥 Retur Pembelian":
         with col_tambah:
             btn_tambah_manual = st.button("➕ Tambah Manual", use_container_width=True, key="btn_tambah_manual_key")
         
-        if cari_obat.strip():
+        if cari_obat_input_retur.strip():
             hasil_cari = df_stok[
-                df_stok["Nama Obat"].str.contains(cari_obat.strip(), case=False, na=False)
+                df_stok["Nama Obat"].str.contains(cari_obat_input_retur.strip(), case=False, na=False)
             ][["Nama Obat", "Kategori", "Satuan", "Stok Akhir"]].drop_duplicates("Nama Obat")
             
             if not hasil_cari.empty:
@@ -1526,7 +1615,7 @@ elif menu == "🛍️ Entri Pembelian":
     st.caption("Ketik Kode Obat, Nama Obat / Scan Barcode Obat...")
     col_cari, col_btn_cari, col_obat_baru = st.columns([4, 1, 1])
     with col_cari:
-        cari_obat = st.text_input(
+        cari_obat_input = st.text_input(
             label="Pencarian Obat",
             placeholder="Ketik Kode Obat, Nama Obat / Scan Barcode Obat...",
             label_visibility="collapsed",
@@ -1540,11 +1629,11 @@ elif menu == "🛍️ Entri Pembelian":
             tambah_obat_baru()  # Panggil fungsi dialog
 
     # Hasil pencarian — cocokkan dengan dataset stok jika tersedia
-    if btn_cari and cari_obat.strip():
+    if btn_cari and cari_obat_input.strip():
         df_stok = load_data()
         if df_stok is not None:
             hasil = df_stok[
-                df_stok["Nama Obat"].str.contains(cari_obat.strip(), case=False, na=False)
+                df_stok["Nama Obat"].str.contains(cari_obat_input.strip(), case=False, na=False)
             ][["Nama Obat", "Kategori", "Satuan", "Harga Satuan (Rp)", "Stok Akhir"]].drop_duplicates("Nama Obat")
             if not hasil.empty:
                 st.success(f"{len(hasil)} obat ditemukan:")
