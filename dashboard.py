@@ -355,13 +355,29 @@ RETUR_HISTORY_COLUMNS = [
 def load_data():
     if os.path.exists(DATASET_PATH):
         df = pd.read_csv(DATASET_PATH, parse_dates=["Tanggal", "Tanggal Kadaluarsa"])
-        return df
+        # Bersihkan kolom lama yang sudah tidak dipakai lagi (mis. "Supplier" dari skema lama)
+        # agar tidak muncul di fitur manapun (Cetak & Print, Riwayat, dll).
+        for kolom_lama in df.columns.tolist():
+            if kolom_lama not in KOLOM_WAJIB:
+                df = df.drop(columns=[kolom_lama])
+        # Pastikan semua kolom wajib tetap ada
+        for kolom in KOLOM_WAJIB:
+            if kolom not in df.columns:
+                df[kolom] = None
+        return df[KOLOM_WAJIB]
     return None
 
 def load_retur_history():
     if os.path.exists(RETUR_HISTORY_PATH):
         df = pd.read_csv(RETUR_HISTORY_PATH, parse_dates=["Tanggal Retur", "Tanggal Disimpan"])
-        return df
+        # Bersihkan kolom lama (mis. "Supplier", "Gudang" dari skema lama)
+        for kolom_lama in df.columns.tolist():
+            if kolom_lama not in RETUR_HISTORY_COLUMNS:
+                df = df.drop(columns=[kolom_lama])
+        for kolom in RETUR_HISTORY_COLUMNS:
+            if kolom not in df.columns:
+                df[kolom] = None
+        return df[RETUR_HISTORY_COLUMNS]
     return None
 
 def save_data(df):
@@ -831,6 +847,7 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
                 if missing:
                     st.error(f"Kolom berikut tidak ditemukan: {missing}")
                 else:
+                    df_up = df_up[KOLOM_WAJIB]  # buang kolom lama yang tidak lagi dipakai (mis. Supplier)
                     df_current = load_data()
                     df_gabungan = pd.concat([df_current, df_up], ignore_index=True) if df_current is not None else df_up
                     save_data(df_gabungan)
