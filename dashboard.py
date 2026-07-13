@@ -379,7 +379,7 @@ def format_rupiah(val):
 
 def cari_obat(keyword):
     """
-    Mencari obat berdasarkan kode maupun nama.
+    Mencari obat berdasarkan nama obat.
     """
 
     if keyword.strip() == "":
@@ -388,7 +388,6 @@ def cari_obat(keyword):
     df = st.session_state.database_obat.copy()
 
     hasil = df[
-        df["id_obat"].str.contains(keyword, case=False, na=False) |
         df["nama_obat"].str.contains(keyword, case=False, na=False)
     ]
 
@@ -439,7 +438,6 @@ def tambah_obat_baru():
         new_name = st.text_input("Nama Obat *", placeholder="Contoh: Paracetamol 500mg")
         new_kategori = st.text_input("Kategori", placeholder="Contoh: Analgesik")
     with col2:
-        new_supplier = st.selectbox("Supplier", options=st.session_state.database_supplier)
         new_tgl_exp = st.date_input(
             "Tanggal Kadaluarsa",
             value=date.today()
@@ -499,7 +497,7 @@ def tambah_obat_baru():
                 "id_obat": generate_id_obat(),
                 "nama_obat": new_name,
                 "kategori": new_kategori if new_kategori else "Lainnya",
-                "supplier": new_supplier,
+                "supplier": "-",
 
                 "satuan": "Tablet",
                 "isi_per_strip": isi_per_strip,
@@ -694,124 +692,198 @@ if menu == "🏠 Beranda":
     st.title("💊 Dashboard Apotek Veteran Blitar")
     st.markdown("Selamat datang! Pilih fitur di sidebar untuk mulai mengelola stok obat.")
     st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    df = load_data()
-    if df is not None:
-        col1.metric("Total Jenis Obat", df["Nama Obat"].nunique())
-        col2.metric("Total Stok Tersedia", int(df.groupby("Nama Obat")["Stok Akhir"].last().sum()))
-        exp_soon = df[df["Tanggal Kadaluarsa"] <= pd.Timestamp(date.today()) + pd.Timedelta(days=30)]
-        col3.metric("⚠️ Hampir Kadaluarsa (≤30 hari)", exp_soon["Nama Obat"].nunique())
-    else:
-        st.info("Belum ada dataset. Silakan upload dataset di menu **Tampilkan Obat Hari Ini**.")
+
+    db_obat = st.session_state.database_obat
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Jenis Obat", db_obat["nama_obat"].nunique())
+    col2.metric("Total Stok Tersedia (Tablet)", f"{int(db_obat['stok_akhir'].sum()):,}".replace(",", "."))
+
+    tgl_kadaluarsa = pd.to_datetime(db_obat["tanggal_kadaluarsa"], errors="coerce")
+    exp_soon = db_obat[tgl_kadaluarsa <= pd.Timestamp(date.today()) + pd.Timedelta(days=30)]
+    col3.metric("⚠️ Hampir Kadaluarsa (≤30 hari)", exp_soon["nama_obat"].nunique())
+
+    nilai_stok = (db_obat["stok_akhir"] * db_obat["harga_beli"]).sum()
+    col4.metric("💰 Nilai Stok (Rp)", format_rupiah(nilai_stok))
+
+    st.markdown("---")
+
+    col_low, col_exp = st.columns(2)
+    with col_low:
+        st.markdown("#### 📉 Stok Menipis (≤ 20 Tablet)")
+        stok_menipis = db_obat[db_obat["stok_akhir"] <= 20][["nama_obat", "kategori", "stok_akhir"]]
+        if stok_menipis.empty:
+            st.success("Tidak ada obat dengan stok menipis.")
+        else:
+            st.dataframe(
+                stok_menipis.rename(columns={"nama_obat": "Nama Obat", "kategori": "Kategori", "stok_akhir": "Stok (Tablet)"}),
+                use_container_width=True, hide_index=True
+            )
+    with col_exp:
+        st.markdown("#### ⏰ Segera Kadaluarsa (≤30 hari)")
+        if exp_soon.empty:
+            st.success("Tidak ada obat yang mendekati tanggal kadaluarsa.")
+        else:
+            exp_show = exp_soon[["nama_obat", "kategori", "tanggal_kadaluarsa"]].copy()
+            exp_show["tanggal_kadaluarsa"] = pd.to_datetime(exp_show["tanggal_kadaluarsa"]).dt.strftime("%d-%m-%Y")
+            st.dataframe(
+                exp_show.rename(columns={"nama_obat": "Nama Obat", "kategori": "Kategori", "tanggal_kadaluarsa": "Tanggal Kadaluarsa"}),
+                use_container_width=True, hide_index=True
+            )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 1 — TAMPILKAN OBAT HARI INI
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Tampilkan Stok Obat Hari Ini":
     st.title("📋 Tampilkan Stok Obat")
+    st.caption("Stok ditampilkan real-time dari Database Master Obat, dalam satuan Tablet.")
 
-    df = load_data()
-
-    # Upload dataset (hanya muncul jika belum ada)
-    if df is None:
-        st.subheader("📂 Upload Dataset Stok Obat")
-        st.info("Upload file CSV dataset stok obat. Setelah upload, fitur ini tidak akan muncul lagi.")
-        uploaded = st.file_uploader("Pilih file CSV", type=["csv"])
-        if uploaded:
-            try:
-                df_up = pd.read_csv(uploaded, parse_dates=["Tanggal", "Tanggal Kadaluarsa"])
-                # Validasi kolom
-                missing = [c for c in KOLOM_WAJIB if c not in df_up.columns]
-                if missing:
-                    st.error(f"Kolom berikut tidak ditemukan: {missing}")
-                else:
-                    save_data(df_up)
-                    st.success("Dataset berhasil diupload dan disimpan!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Gagal membaca file: {e}")
-        st.markdown("---")
-        st.markdown("**Format kolom yang diperlukan:**")
-        st.code(", ".join(KOLOM_WAJIB))
-        st.stop()
+    db_obat = st.session_state.database_obat.copy()
 
     # ── Filter ────────────────────────────────────────────────────────────────
     st.subheader("🔍 Filter Data")
-    col_f1, col_f2, col_f3 = st.columns(3)
-
-    with col_f1:
-        bulan_list = sorted(df["Tanggal"].dt.to_period("M").unique().astype(str).tolist(), reverse=True)
-        bulan_sel = st.selectbox("Pilih Bulan", ["Semua"] + bulan_list)
+    col_f2, col_f3 = st.columns(2)
 
     with col_f2:
-        kategori_list = ["Semua"] + sorted(df["Kategori"].dropna().unique().tolist())
+        kategori_list = ["Semua"] + sorted(db_obat["kategori"].dropna().unique().tolist())
         kategori_sel = st.selectbox("Kategori Obat", kategori_list)
 
     with col_f3:
         cari = st.text_input("🔎 Cari Nama Obat")
 
-    df_filtered = df.copy()
-    if bulan_sel != "Semua":
-        df_filtered = df_filtered[df_filtered["Tanggal"].dt.to_period("M").astype(str) == bulan_sel]
+    db_filtered = db_obat.copy()
     if kategori_sel != "Semua":
-        df_filtered = df_filtered[df_filtered["Kategori"] == kategori_sel]
+        db_filtered = db_filtered[db_filtered["kategori"] == kategori_sel]
     if cari:
-        df_filtered = df_filtered[df_filtered["Nama Obat"].str.contains(cari, case=False, na=False)]
+        db_filtered = db_filtered[db_filtered["nama_obat"].str.contains(cari, case=False, na=False)]
 
     # ── Ringkasan ─────────────────────────────────────────────────────────────
     st.markdown("---")
     st.subheader("📊 Ringkasan")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Jenis Obat", df_filtered["Nama Obat"].nunique())
-    c2.metric("Total Stok Masuk", int(df_filtered["Stok Masuk"].sum()))
-    c3.metric("Total Stok Keluar", int(df_filtered["Stok Keluar"].sum()))
-    c4.metric("Total Stok Akhir", int(df_filtered["Stok Akhir"].sum()))
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Jenis Obat", db_filtered["nama_obat"].nunique())
+    c2.metric("Total Stok (Tablet)", f"{int(db_filtered['stok_akhir'].sum()):,}".replace(",", "."))
+    tgl_kadaluarsa = pd.to_datetime(db_filtered["tanggal_kadaluarsa"], errors="coerce")
+    exp_df = db_filtered[tgl_kadaluarsa <= pd.Timestamp(date.today()) + pd.Timedelta(days=30)]
+    c3.metric("⚠️ Hampir Kadaluarsa (≤30 hari)", exp_df["nama_obat"].nunique())
 
     # ── Peringatan kadaluarsa ─────────────────────────────────────────────────
-    exp_df = df_filtered[df_filtered["Tanggal Kadaluarsa"] <= pd.Timestamp(date.today()) + pd.Timedelta(days=30)]
     if not exp_df.empty:
         st.warning(f"⚠️ {len(exp_df)} item mendekati/melewati tanggal kadaluarsa!")
         with st.expander("Lihat detail kadaluarsa"):
-            st.dataframe(exp_df[["Nama Obat", "Kategori", "Stok Akhir", "Tanggal Kadaluarsa"]], use_container_width=True)
+            exp_show = exp_df[["nama_obat", "kategori", "stok_akhir", "tanggal_kadaluarsa"]].copy()
+            exp_show["tanggal_kadaluarsa"] = pd.to_datetime(exp_show["tanggal_kadaluarsa"]).dt.strftime("%d-%m-%Y")
+            st.dataframe(
+                exp_show.rename(columns={"nama_obat": "Nama Obat", "kategori": "Kategori", "stok_akhir": "Stok (Tablet)", "tanggal_kadaluarsa": "Tanggal Kadaluarsa"}),
+                use_container_width=True
+            )
 
     # ── Tabel utama ───────────────────────────────────────────────────────────
     st.markdown("---")
-    st.subheader("📋 Data Stok Obat")
+    st.subheader("📋 Data Stok Obat (Database Master Obat)")
 
-    display_df = df_filtered.copy()
-    display_df["Tanggal"] = display_df["Tanggal"].dt.strftime("%d-%m-%Y")
-    display_df["Tanggal Kadaluarsa"] = display_df["Tanggal Kadaluarsa"].dt.strftime("%d-%m-%Y")
-    display_df["Harga Satuan (Rp)"] = display_df["Harga Satuan (Rp)"].apply(format_rupiah)
-    display_df["Total Nilai (Rp)"] = display_df["Total Nilai (Rp)"].apply(format_rupiah)
+    display_df = db_filtered.copy()
+    display_df["tanggal_kadaluarsa"] = pd.to_datetime(display_df["tanggal_kadaluarsa"], errors="coerce").dt.strftime("%d-%m-%Y")
+    display_df["harga_beli"] = display_df["harga_beli"].apply(format_rupiah)
+    display_df["harga_1"] = display_df["harga_1"].apply(format_rupiah)
+    display_df["harga_2"] = display_df["harga_2"].apply(format_rupiah)
+    display_df["harga_3"] = display_df["harga_3"].apply(format_rupiah)
+    display_df["Konversi"] = display_df.apply(
+        lambda r: f"1 Box = {int(r['isi_per_box'])} Strip = {int(r['isi_per_box'] * r['isi_per_strip'])} Tablet", axis=1
+    )
 
-    st.dataframe(display_df, use_container_width=True, height=450)
-    st.caption(f"Menampilkan {len(df_filtered)} baris data")
+    display_df = display_df.rename(columns={
+        "nama_obat": "Nama Obat", "kategori": "Kategori", "supplier": "Supplier",
+        "stok_akhir": "Stok (Tablet)", "harga_beli": "Harga Beli", "harga_1": "Harga Jual 1",
+        "harga_2": "Harga Jual 2", "harga_3": "Harga Jual 3", "tanggal_kadaluarsa": "Tanggal Kadaluarsa"
+    })[["Nama Obat", "Kategori", "Supplier", "Stok (Tablet)", "Konversi", "Harga Beli", "Harga Jual 1", "Harga Jual 2", "Harga Jual 3", "Tanggal Kadaluarsa"]]
 
-    # Tombol reset dataset
+    st.dataframe(display_df, use_container_width=True, height=350)
+    st.caption(f"Menampilkan {len(db_filtered)} obat")
+
+    # ── Riwayat Transaksi (opsional) ─────────────────────────────────────────
     st.markdown("---")
-    if st.button("🗑️ Hapus Dataset (Upload Ulang)", type="secondary"):
-        if os.path.exists(DATASET_PATH):
-            os.remove(DATASET_PATH)
-            st.success("Dataset dihapus. Silakan upload ulang.")
-            st.rerun()
+    with st.expander("🕘 Riwayat Transaksi Stok (Pembelian & Penjualan)"):
+        df = load_data()
+        if df is None or df.empty:
+            st.info("Belum ada riwayat transaksi. Riwayat akan otomatis muncul setelah ada transaksi Pembelian atau Kasir.")
+        else:
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                bulan_list = sorted(df["Tanggal"].dt.to_period("M").unique().astype(str).tolist(), reverse=True)
+                bulan_sel = st.selectbox("Pilih Bulan", ["Semua"] + bulan_list, key="riwayat_bulan")
+            with col_r2:
+                cari_riwayat = st.text_input("🔎 Cari Nama Obat", key="riwayat_cari")
+
+            df_riwayat = df.copy()
+            if bulan_sel != "Semua":
+                df_riwayat = df_riwayat[df_riwayat["Tanggal"].dt.to_period("M").astype(str) == bulan_sel]
+            if cari_riwayat:
+                df_riwayat = df_riwayat[df_riwayat["Nama Obat"].str.contains(cari_riwayat, case=False, na=False)]
+
+            riwayat_display = df_riwayat.sort_values("Tanggal", ascending=False).copy()
+            riwayat_display["Tanggal"] = riwayat_display["Tanggal"].dt.strftime("%d-%m-%Y")
+            riwayat_display["Tanggal Kadaluarsa"] = riwayat_display["Tanggal Kadaluarsa"].dt.strftime("%d-%m-%Y")
+            riwayat_display["Harga Satuan (Rp)"] = riwayat_display["Harga Satuan (Rp)"].apply(format_rupiah)
+            riwayat_display["Total Nilai (Rp)"] = riwayat_display["Total Nilai (Rp)"].apply(format_rupiah)
+            st.dataframe(riwayat_display, use_container_width=True, height=350)
+            st.caption(f"Menampilkan {len(df_riwayat)} baris riwayat transaksi")
+
+        st.markdown("---")
+        st.markdown("**📂 Import Riwayat Transaksi dari CSV (opsional)**")
+        uploaded = st.file_uploader("Pilih file CSV", type=["csv"], key="upload_riwayat")
+        if uploaded:
+            try:
+                df_up = pd.read_csv(uploaded, parse_dates=["Tanggal", "Tanggal Kadaluarsa"])
+                missing = [c for c in KOLOM_WAJIB if c not in df_up.columns]
+                if missing:
+                    st.error(f"Kolom berikut tidak ditemukan: {missing}")
+                else:
+                    df_current = load_data()
+                    df_gabungan = pd.concat([df_current, df_up], ignore_index=True) if df_current is not None else df_up
+                    save_data(df_gabungan)
+                    st.success("Riwayat transaksi berhasil diimpor!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Gagal membaca file: {e}")
+
+        if st.button("🗑️ Hapus Seluruh Riwayat Transaksi", type="secondary"):
+            if os.path.exists(DATASET_PATH):
+                os.remove(DATASET_PATH)
+                st.success("Riwayat transaksi dihapus.")
+                st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 2 — UBAH STOK OBAT HARI INI
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "✏️ Ubah Stok Obat Hari Ini":
     st.title("✏️ Ubah Stok Obat Hari Ini")
+    st.caption("Penyesuaian stok manual. Stok selalu disimpan dalam satuan Tablet dan langsung memperbarui Database Master Obat.")
 
     df = load_data()
     if df is None:
-        st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **Tampilkan Obat Hari Ini**.")
+        df = pd.DataFrame(columns=KOLOM_WAJIB)
+
+    if st.session_state.database_obat.empty:
+        st.warning("Database Master Obat masih kosong. Tambahkan obat terlebih dahulu di menu **Entri Pembelian** (➕ Obat Baru).")
         st.stop()
 
-    tab1, tab2 = st.tabs(["➕ Tambah / Update Transaksi", "🗑️ Hapus Baris Data"])
+    tab1, tab2 = st.tabs(["➕ Tambah / Update Transaksi", "🗑️ Hapus Baris Riwayat"])
 
     # ── Tab 1: Tambah / Update ────────────────────────────────────────────────
     with tab1:
-        st.subheader("Input Transaksi Stok Obat")
-        st.info("Isi form di bawah untuk menambah transaksi stok masuk atau stok keluar. Data akan langsung tersimpan ke dataset.")
+        st.subheader("Input Penyesuaian Stok")
+        st.info("Pilih obat dari Database Master Obat. Stok Masuk/Keluar dihitung dalam satuan Tablet dan langsung memperbarui stok utama.")
+
+        list_obat = st.session_state.database_obat["nama_obat"].unique().tolist()
+        nama_obat_pilih = st.selectbox("Pilih Obat *", list_obat, key="ubah_stok_nama_obat")
+        data_obat_terpilih = st.session_state.database_obat[
+            st.session_state.database_obat["nama_obat"] == nama_obat_pilih
+        ].iloc[-1]
+        st.caption(
+            f"Kategori: **{data_obat_terpilih['kategori']}** • Supplier: **{data_obat_terpilih['supplier']}** • "
+            f"Stok saat ini: **{int(data_obat_terpilih['stok_akhir'])} Tablet**"
+        )
 
         with st.form("form_update_stok"):
             with st.container():
@@ -819,90 +891,91 @@ elif menu == "✏️ Ubah Stok Obat Hari Ini":
                 with fc1:
                     tgl = st.date_input("Tanggal Transaksi", value=date.today())
                 with fc2:
-                    nama_obat = st.text_input("Nama Obat *", placeholder="Contoh: Paracetamol 500mg")
+                    harga_satuan = st.number_input(
+                        "Harga Satuan per Tablet (Rp)", min_value=0,
+                        value=int(data_obat_terpilih["harga_beli"]), step=100
+                    )
                 with fc3:
-                    harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=0, value=0, step=500)
+                    tgl_exp = st.date_input(
+                        "Tanggal Kadaluarsa",
+                        value=pd.to_datetime(data_obat_terpilih["tanggal_kadaluarsa"]).date()
+                        if pd.notna(data_obat_terpilih["tanggal_kadaluarsa"]) else date.today()
+                    )
 
             with st.container():
-                fc4, fc5, fc6 = st.columns(3)
-                with fc4:
-                    kategori = st.selectbox("Kategori", ["Analgesik", "Antibiotik", "Antasida", "Vitamin", "Antihistamin", "Antihipertensi", "Antidiabetes", "Lainnya"])
-                with fc5:
-                    satuan = st.selectbox("Satuan", ["Tablet", "Kapsul", "Botol", "Ampul", "Sachet", "Strip", "Tube", "Lainnya"])
-                with fc6:
-                    tgl_exp = st.date_input("Tanggal Kadaluarsa", value=date.today())
-
-            with st.container():
-                fc7, fc8, fc9 = st.columns(3)
+                fc7, fc8 = st.columns(2)
                 with fc7:
-                    stok_masuk = st.number_input("Stok Masuk", min_value=0, value=0)
+                    stok_masuk = st.number_input("Stok Masuk (Tablet)", min_value=0, value=0)
                 with fc8:
-                    stok_keluar = st.number_input("Stok Keluar (Terjual)", min_value=0, value=0)
-                with fc9:
-                    supplier = st.text_input("Supplier", placeholder="Nama distributor/supplier")
+                    stok_keluar = st.number_input("Stok Keluar (Tablet)", min_value=0, value=0)
 
-            keterangan = st.text_area("Keterangan", placeholder="Opsional", height=68)
+            keterangan = st.text_area("Keterangan", placeholder="Opsional, mis. alasan penyesuaian stok", height=68)
 
             submitted = st.form_submit_button("💾 Simpan Transaksi", type="primary", use_container_width=True)
 
         if submitted:
-            if not nama_obat.strip():
-                st.error("Nama Obat wajib diisi!")
+            if stok_masuk == 0 and stok_keluar == 0:
+                st.error("Isi minimal Stok Masuk atau Stok Keluar!")
             else:
-                # Hitung stok akhir berdasarkan riwayat obat yang sama
-                prev = df[df["Nama Obat"].str.lower() == nama_obat.strip().lower()]
-                stok_sebelumnya = int(prev["Stok Akhir"].iloc[-1]) if not prev.empty else 0
-                stok_akhir = stok_sebelumnya + stok_masuk - stok_keluar
+                # ── Update Database Master Obat (stok selalu dalam Tablet) ──
+                mask = st.session_state.database_obat["nama_obat"] == nama_obat_pilih
+                idx_master = st.session_state.database_obat[mask].index[-1]
+                stok_sebelumnya = float(st.session_state.database_obat.loc[idx_master, "stok_akhir"])
+                stok_akhir = max(stok_sebelumnya + stok_masuk - stok_keluar, 0)
+                st.session_state.database_obat.loc[idx_master, "stok_akhir"] = stok_akhir
+                if stok_masuk > 0:
+                    st.session_state.database_obat.loc[idx_master, "harga_beli"] = harga_satuan
+
                 total_nilai = stok_akhir * harga_satuan
 
                 baris_baru = {
                     "Tanggal": pd.Timestamp(tgl),
-                    "Nama Obat": nama_obat.strip(),
-                    "Kategori": kategori,
-                    "Satuan": satuan,
+                    "Nama Obat": nama_obat_pilih,
+                    "Kategori": data_obat_terpilih["kategori"],
+                    "Satuan": "Tablet",
                     "Stok Masuk": stok_masuk,
                     "Stok Keluar": stok_keluar,
-                    "Stok Akhir": max(stok_akhir, 0),
+                    "Stok Akhir": stok_akhir,
                     "Harga Satuan (Rp)": harga_satuan,
                     "Total Nilai (Rp)": total_nilai,
                     "Tanggal Kadaluarsa": pd.Timestamp(tgl_exp),
-                    "Supplier": supplier,
-                    "Keterangan": keterangan
+                    "Supplier": data_obat_terpilih["supplier"],
+                    "Keterangan": keterangan if keterangan else "Penyesuaian Stok Manual"
                 }
                 df = pd.concat([df, pd.DataFrame([baris_baru])], ignore_index=True)
                 save_data(df)
-                st.success(f"✅ Transaksi untuk **{nama_obat}** berhasil disimpan! Stok akhir: **{max(stok_akhir,0)} {satuan}**")
+                st.success(f"✅ Transaksi untuk **{nama_obat_pilih}** berhasil disimpan! Stok akhir: **{int(stok_akhir)} Tablet**")
                 st.rerun()
 
     # ── Tab 2: Hapus baris ────────────────────────────────────────────────────
     with tab2:
-        st.subheader("Hapus Baris Data")
-        st.warning("Pilih baris yang ingin dihapus dari dataset.")
+        st.subheader("Hapus Baris Riwayat Transaksi")
+        st.warning("Menghapus baris di sini hanya menghapus catatan riwayat transaksi (CSV) dan **tidak** otomatis menyesuaikan kembali stok di Database Master Obat. Gunakan Tab 'Tambah / Update Transaksi' untuk mengoreksi stok jika perlu.")
 
-        df_show = df.copy()
-        df_show.index.name = "ID Baris"
-        df_show["Tanggal"] = df_show["Tanggal"].dt.strftime("%d-%m-%Y")
-        df_show["Tanggal Kadaluarsa"] = df_show["Tanggal Kadaluarsa"].dt.strftime("%d-%m-%Y")
-        st.dataframe(df_show, use_container_width=True, height=300)
+        if df.empty:
+            st.info("Belum ada riwayat transaksi.")
+        else:
+            df_show = df.copy()
+            df_show.index.name = "ID Baris"
+            df_show["Tanggal"] = df_show["Tanggal"].dt.strftime("%d-%m-%Y")
+            df_show["Tanggal Kadaluarsa"] = df_show["Tanggal Kadaluarsa"].dt.strftime("%d-%m-%Y")
+            st.dataframe(df_show, use_container_width=True, height=300)
 
-        if "idx_hapus_val" not in st.session_state:
-            st.session_state.idx_hapus_val = 0
-
-        idx_hapus = st.number_input(
-            "Masukkan ID Baris yang akan dihapus",
-            min_value=0,
-            max_value=max(len(df)-1, 0),
-            key="idx_hapus_widget"
-        )
-        if st.button("🗑️ Hapus Baris", type="secondary"):
-            target = st.session_state["idx_hapus_widget"]
-            if target in df.index:
-                df = df.drop(index=target).reset_index(drop=True)
-                save_data(df)
-                st.success(f"Baris ID {target} berhasil dihapus.")
-                st.rerun()
-            else:
-                st.error(f"ID Baris {target} tidak ditemukan.")
+            idx_hapus = st.number_input(
+                "Masukkan ID Baris yang akan dihapus",
+                min_value=0,
+                max_value=max(len(df)-1, 0),
+                key="idx_hapus_widget"
+            )
+            if st.button("🗑️ Hapus Baris", type="secondary"):
+                target = st.session_state["idx_hapus_widget"]
+                if target in df.index:
+                    df = df.drop(index=target).reset_index(drop=True)
+                    save_data(df)
+                    st.success(f"Baris ID {target} berhasil dihapus.")
+                    st.rerun()
+                else:
+                    st.error(f"ID Baris {target} tidak ditemukan.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 3 — CETAK & PRINT STOK OBAT
@@ -1366,8 +1439,8 @@ elif menu == "🏥 Retur Pembelian":
     )
 
     cari_obat_input_retur = st.text_input(
-        "Cari Nama Obat atau Kode Obat",
-        placeholder="Ketik nama obat atau kode obat untuk mencari...",
+        "Cari Nama Obat",
+        placeholder="Ketik nama obat untuk mencari...",
         key="cari_obat_retur"
     )
 
