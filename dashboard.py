@@ -325,7 +325,6 @@ KOLOM_DATABASE_OBAT = [
     "id_obat",
     "nama_obat",
     "kategori",
-    "supplier",
 
     "satuan",           # satuan dasar stok - selalu "Tablet"
     "isi_per_strip",    # jumlah tablet dalam 1 strip
@@ -345,7 +344,7 @@ KOLOM_WAJIB = [
     "Tanggal", "Nama Obat", "Kategori", "Satuan",
     "Stok Masuk", "Stok Keluar", "Stok Akhir",
     "Harga Satuan (Rp)", "Total Nilai (Rp)",
-    "Tanggal Kadaluarsa", "Supplier", "Keterangan"
+    "Tanggal Kadaluarsa", "Keterangan"
 ]
 
 RETUR_HISTORY_COLUMNS = [
@@ -497,7 +496,6 @@ def tambah_obat_baru():
                 "id_obat": generate_id_obat(),
                 "nama_obat": new_name,
                 "kategori": new_kategori if new_kategori else "Lainnya",
-                "supplier": "-",
 
                 "satuan": "Tablet",
                 "isi_per_strip": isi_per_strip,
@@ -598,7 +596,6 @@ if "database_obat" not in st.session_state:
             "id_obat": "OB001",
             "nama_obat": "Paracetamol 500 mg",
             "kategori": "Analgesik",
-            "supplier": "PT. Sanbe Farma",
 
             "satuan": "Tablet",
             "isi_per_strip": 10,
@@ -616,7 +613,6 @@ if "database_obat" not in st.session_state:
             "id_obat": "OB002",
             "nama_obat": "Amoxicillin 500 mg",
             "kategori": "Antibiotik",
-            "supplier": "PT. Kalbe Farma",
 
             "satuan": "Tablet",
             "isi_per_strip": 10,
@@ -631,10 +627,6 @@ if "database_obat" not in st.session_state:
             "tanggal_kadaluarsa": "2027-10-30"
         }
     ])
-
-# ── Session State untuk Database Supplier ─────────────────────────────────────
-if "database_supplier" not in st.session_state:
-    st.session_state.database_supplier = ["PT. Sanbe Farma", "PT. Kalbe Farma", "PT. Kimia Farma", "PT. Indofarma", "PT. Ferron Farma"]
 
 # ===============================
 # SESSION STATE PEMBELIAN
@@ -793,10 +785,10 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
     )
 
     display_df = display_df.rename(columns={
-        "nama_obat": "Nama Obat", "kategori": "Kategori", "supplier": "Supplier",
+        "nama_obat": "Nama Obat", "kategori": "Kategori",
         "stok_akhir": "Stok (Tablet)", "harga_beli": "Harga Beli", "harga_1": "Harga Jual 1",
         "harga_2": "Harga Jual 2", "harga_3": "Harga Jual 3", "tanggal_kadaluarsa": "Tanggal Kadaluarsa"
-    })[["Nama Obat", "Kategori", "Supplier", "Stok (Tablet)", "Konversi", "Harga Beli", "Harga Jual 1", "Harga Jual 2", "Harga Jual 3", "Tanggal Kadaluarsa"]]
+    })[["Nama Obat", "Kategori", "Stok (Tablet)", "Konversi", "Harga Beli", "Harga Jual 1", "Harga Jual 2", "Harga Jual 3", "Tanggal Kadaluarsa"]]
 
     st.dataframe(display_df, use_container_width=True, height=350)
     st.caption(f"Menampilkan {len(db_filtered)} obat")
@@ -881,7 +873,7 @@ elif menu == "✏️ Ubah Stok Obat Hari Ini":
             st.session_state.database_obat["nama_obat"] == nama_obat_pilih
         ].iloc[-1]
         st.caption(
-            f"Kategori: **{data_obat_terpilih['kategori']}** • Supplier: **{data_obat_terpilih['supplier']}** • "
+            f"Kategori: **{data_obat_terpilih['kategori']}** • "
             f"Stok saat ini: **{int(data_obat_terpilih['stok_akhir'])} Tablet**"
         )
 
@@ -939,7 +931,6 @@ elif menu == "✏️ Ubah Stok Obat Hari Ini":
                     "Harga Satuan (Rp)": harga_satuan,
                     "Total Nilai (Rp)": total_nilai,
                     "Tanggal Kadaluarsa": pd.Timestamp(tgl_exp),
-                    "Supplier": data_obat_terpilih["supplier"],
                     "Keterangan": keterangan if keterangan else "Penyesuaian Stok Manual"
                 }
                 df = pd.concat([df, pd.DataFrame([baris_baru])], ignore_index=True)
@@ -1176,7 +1167,6 @@ elif menu == "🛒 Update Stok & Kasir":
                             "harga_per_satuan": harga_per_satuan,
                             "subtotal": subtotal,
                             "kategori": data_obat["kategori"],
-                            "supplier": data_obat["supplier"],
                             "tgl_exp": data_obat["tanggal_kadaluarsa"]
                         })
                         st.success(f"{nama_obat} ({jumlah} {satuan_jual}) ditambah ke nota!")
@@ -1324,7 +1314,6 @@ elif menu == "🛒 Update Stok & Kasir":
                                 "Harga Satuan (Rp)": item["harga_per_tablet"],
                                 "Total Nilai (Rp)": stok_baru * item["harga_per_tablet"],
                                 "Tanggal Kadaluarsa": item["tgl_exp"],
-                                "Supplier": item["supplier"],
                                 "Keterangan": f"Penjualan Kasir ({item['qty']} {item['satuan_jual']}, {item['skema_harga']})"
                             })
                         df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
@@ -1627,7 +1616,7 @@ elif menu == "🛍️ Entri Pembelian":
         """
         <div class='app-header'>
             <div class='app-title'>🛍️ Entri Pembelian Obat</div>
-            <div class='app-subtitle'>Formulir pencatatan pembelian obat dari supplier</div>
+            <div class='app-subtitle'>Formulir pencatatan pembelian obat</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -1659,7 +1648,6 @@ elif menu == "🛍️ Entri Pembelian":
     )
 
     no_faktur = st.text_input("No. Faktur", key="no_faktur_pembelian")
-    st.caption("Supplier tidak perlu dipilih di sini — supplier sudah mengikuti data masing-masing obat (lihat kolom Supplier di Database Master Obat).")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1862,13 +1850,11 @@ elif menu == "🛍️ Entri Pembelian":
                         st.session_state.database_obat.loc[idx_master, "stok_akhir"] = stok_akhir_baru
                         st.session_state.database_obat.loc[idx_master, "harga_beli"] = harga_per_tablet
                         kategori_obat = st.session_state.database_obat.loc[idx_master, "kategori"]
-                        supplier_obat = st.session_state.database_obat.loc[idx_master, "supplier"]
                     else:
                         # Obat belum ada di master - lewati update stok master, tetap catat di riwayat stok
                         stok_akhir_baru = jumlah_tablet
                         harga_per_tablet = float(row["Subtotal"]) / jumlah_tablet
                         kategori_obat = "Lainnya"
-                        supplier_obat = "-"
 
                     new_rows.append({
                         "Tanggal": pd.Timestamp(date.today()),
@@ -1881,7 +1867,6 @@ elif menu == "🛍️ Entri Pembelian":
                         "Harga Satuan (Rp)": harga_per_tablet,
                         "Total Nilai (Rp)": stok_akhir_baru * harga_per_tablet,
                         "Tanggal Kadaluarsa": pd.Timestamp(row["Tanggal Expired"]),
-                        "Supplier": supplier_obat,
                         "Keterangan": f"Pembelian - Faktur {no_faktur} ({row['Jumlah']:g} {row['Satuan Beli']})"
                     })
                     jumlah_disimpan += 1
