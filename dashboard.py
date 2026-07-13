@@ -1649,25 +1649,18 @@ elif menu == "🛍️ Entri Pembelian":
             }
         ])
 
-    # ── Baris 1: Informasi Faktur & Supplier ──────────────────────────────────
+    # ── Baris 1: Informasi Faktur ──────────────────────────────────────────────
     st.markdown(
         """
         <div class='form-container'>
-            <div class='form-section-title'>📋 Informasi Faktur & Supplier</div>
+            <div class='form-section-title'>📋 Informasi Faktur</div>
         """,
         unsafe_allow_html=True
     )
-    
-    col_f1, col_f2 = st.columns(2)
-    with col_f1:
-        supplier_terpilih = st.selectbox(
-            "Pilih Supplier",
-            options=st.session_state.database_supplier,
-            key="supplier_pembelian"
-        )
-    with col_f2:
-        no_faktur = st.text_input("No. Faktur", key="no_faktur_pembelian")
-    
+
+    no_faktur = st.text_input("No. Faktur", key="no_faktur_pembelian")
+    st.caption("Supplier tidak perlu dipilih di sini — supplier sudah mengikuti data masing-masing obat (lihat kolom Supplier di Database Master Obat).")
+
     st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Baris 2: Pencarian obat ───────────────────────────────────────────────
@@ -1868,13 +1861,14 @@ elif menu == "🛍️ Entri Pembelian":
                         harga_per_tablet = float(row["Harga Beli"]) / get_konversi_tablet(nama, row["Satuan Beli"])
                         st.session_state.database_obat.loc[idx_master, "stok_akhir"] = stok_akhir_baru
                         st.session_state.database_obat.loc[idx_master, "harga_beli"] = harga_per_tablet
-                        st.session_state.database_obat.loc[idx_master, "supplier"] = supplier_terpilih
                         kategori_obat = st.session_state.database_obat.loc[idx_master, "kategori"]
+                        supplier_obat = st.session_state.database_obat.loc[idx_master, "supplier"]
                     else:
                         # Obat belum ada di master - lewati update stok master, tetap catat di riwayat stok
                         stok_akhir_baru = jumlah_tablet
                         harga_per_tablet = float(row["Subtotal"]) / jumlah_tablet
                         kategori_obat = "Lainnya"
+                        supplier_obat = "-"
 
                     new_rows.append({
                         "Tanggal": pd.Timestamp(date.today()),
@@ -1887,7 +1881,7 @@ elif menu == "🛍️ Entri Pembelian":
                         "Harga Satuan (Rp)": harga_per_tablet,
                         "Total Nilai (Rp)": stok_akhir_baru * harga_per_tablet,
                         "Tanggal Kadaluarsa": pd.Timestamp(row["Tanggal Expired"]),
-                        "Supplier": supplier_terpilih,
+                        "Supplier": supplier_obat,
                         "Keterangan": f"Pembelian - Faktur {no_faktur} ({row['Jumlah']:g} {row['Satuan Beli']})"
                     })
                     jumlah_disimpan += 1
