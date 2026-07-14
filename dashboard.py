@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
+import re
 from datetime import date, datetime
 import os
 
@@ -392,6 +393,19 @@ def format_rupiah(val):
     except:
         return val
 
+def parse_rupiah(val):
+    """
+    Mengubah teks harga seperti 'Rp 1.000' menjadi angka 1000.
+    Dipakai saat import Data Obat dari CSV.
+    """
+    try:
+        if pd.isna(val):
+            return 0
+        teks = str(val).replace("Rp", "").replace(".", "").replace(",", "").strip()
+        return int(float(teks)) if teks else 0
+    except:
+        return 0
+
 def cari_obat(keyword):
     """
     Mencari obat berdasarkan nama obat.
@@ -514,15 +528,15 @@ def tambah_obat_baru():
                 "kategori": new_kategori if new_kategori else "Lainnya",
 
                 "satuan": "Tablet",
-                "isi_per_strip": isi_per_strip,
-                "isi_per_box": isi_per_box,
+                "isi_per_strip": float(isi_per_strip),
+                "isi_per_box": float(isi_per_box),
 
-                "harga_beli": harga_beli,
-                "harga_1": harga_1,
-                "harga_2": harga_2,
-                "harga_3": harga_3,
+                "harga_beli": float(harga_beli),
+                "harga_1": float(harga_1),
+                "harga_2": float(harga_2),
+                "harga_3": float(harga_3),
 
-                "stok_akhir": 0,
+                "stok_akhir": 0.0,
                 "tanggal_kadaluarsa": pd.Timestamp(new_tgl_exp)
             }
             st.session_state.database_obat = pd.concat(
@@ -643,6 +657,10 @@ if "database_obat" not in st.session_state:
             "tanggal_kadaluarsa": "2027-10-30"
         }
     ])
+    # Paksa kolom angka jadi float64 sejak awal, supaya assignment nilai desimal
+    # (hasil bagi konversi Tablet, dsb) lewat .loc tidak memicu TypeError dtype di pandas terbaru.
+    kolom_angka = ["isi_per_strip", "isi_per_box", "harga_beli", "harga_1", "harga_2", "harga_3", "stok_akhir"]
+    st.session_state.database_obat[kolom_angka] = st.session_state.database_obat[kolom_angka].astype(float)
 
 # ===============================
 # SESSION STATE PEMBELIAN
@@ -745,6 +763,7 @@ if menu == "🏠 Beranda":
 elif menu == "📋 Tampilkan Stok Obat Hari Ini":
     st.title("📋 Tampilkan Stok Obat")
     st.caption("Stok ditampilkan real-time dari Database Master Obat, dalam satuan Tablet.")
+    st.success("✅ Anda **tidak perlu upload dataset CSV**. Cukup catat obat & stok lewat menu **Entri Pembelian** (dan Kasir untuk penjualan) — semua data di halaman ini otomatis terisi dari sana. Bagian *Import CSV* di bawah sifatnya opsional saja, hanya untuk yang punya data lama dari sistem lain.")
 
     db_obat = st.session_state.database_obat.copy()
 
@@ -809,6 +828,80 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
     st.dataframe(display_df, use_container_width=True, height=350)
     st.caption(f"Menampilkan {len(db_filtered)} obat")
 
+    # ── Import Data Obat dari CSV (format kolom sama seperti tabel di atas) ────
+    with st.expander("📂 Import / Tambah Data Obat dari CSV"):
+        st.caption(
+            "Format kolom CSV harus sama seperti tabel di atas: "
+            "**Nama Obat, Kategori, Stok (Tablet), Konversi, Harga Beli, Harga Jual 1, Harga Jual 2, Harga Jual 3, Tanggal Kadaluarsa**. "
+            "Contoh isi kolom Konversi: `1 Box = 10 Strip = 100 Tablet`. Contoh isi kolom Harga: `Rp 500` atau `500`. "
+            "Format Tanggal Kadaluarsa: `DD-MM-YYYY` (mis. 31-12-2027)."
+        )
+        uploaded_obat = st.file_uploader("Pilih file CSV Data Obat", type=["csv"], key="upload_data_obat")
+        if uploaded_obat:
+            try:
+                df_obat_up = pd.read_csv(uploaded_obat)
+                kolom_wajib_obat = [
+                    "Nama Obat", "Kategori", "Stok (Tablet)", "Konversi",
+                    "Harga Beli", "Harga Jual 1", "Harga Jual 2", "Harga Jual 3", "Tanggal Kadaluarsa"
+                ]
+                missing_obat = [c for c in kolom_wajib_obat if c not in df_obat_up.columns]
+                if missing_obat:
+                    st.error(f"Kolom berikut tidak ditemukan di file CSV: {missing_obat}")
+                else:
+                    obat_baru_list = []
+                    gagal_parse_konversi = []
+                    for _, r in df_obat_up.iterrows():
+                        nama = str(r["Nama Obat"]).strip()
+                        if not nama:
+                            continue
+
+                        # Parsing kolom Konversi, mis: "1 Box = 10 Strip = 100 Tablet"
+                        konversi_match = re.search(
+                            r"1\s*Box\s*=\s*(\d+)\s*Strip\s*=\s*(\d+)\s*Tablet",
+                            str(r["Konversi"]), re.IGNORECASE
+                        )
+                        if konversi_match:
+                            isi_per_box = int(konversi_match.group(1))
+                            total_tablet_per_box = int(konversi_match.group(2))
+                            isi_per_strip = int(total_tablet_per_box / isi_per_box) if isi_per_box else 10
+                        else:
+                            isi_per_box, isi_per_strip = 10, 10
+                            gagal_parse_konversi.append(nama)
+
+                        obat_baru_list.append({
+                            "id_obat": generate_id_obat(),
+                            "nama_obat": nama,
+                            "kategori": str(r["Kategori"]).strip() if pd.notna(r["Kategori"]) else "Lainnya",
+
+                            "satuan": "Tablet",
+                            "isi_per_strip": float(isi_per_strip),
+                            "isi_per_box": float(isi_per_box),
+
+                            "harga_beli": float(parse_rupiah(r["Harga Beli"])),
+                            "harga_1": float(parse_rupiah(r["Harga Jual 1"])),
+                            "harga_2": float(parse_rupiah(r["Harga Jual 2"])),
+                            "harga_3": float(parse_rupiah(r["Harga Jual 3"])),
+
+                            "stok_akhir": float(r["Stok (Tablet)"]) if pd.notna(r["Stok (Tablet)"]) else 0.0,
+                            "tanggal_kadaluarsa": pd.to_datetime(r["Tanggal Kadaluarsa"], dayfirst=True, errors="coerce")
+                        })
+                        # generate_id_obat() dipanggil sebelum baris ditambahkan ke database_obat,
+                        # jadi ID berikutnya perlu ikut memperhitungkan baris yang baru saja dibuat
+                        st.session_state.database_obat = pd.concat(
+                            [st.session_state.database_obat, pd.DataFrame([obat_baru_list[-1]])],
+                            ignore_index=True
+                        )
+
+                    if gagal_parse_konversi:
+                        st.warning(
+                            f"Kolom Konversi tidak dikenali untuk: {', '.join(gagal_parse_konversi)} — "
+                            "dipakai konversi default 1 Box = 10 Strip = 100 Tablet."
+                        )
+                    st.success(f"✅ {len(obat_baru_list)} obat berhasil ditambahkan ke Database Master Obat!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Gagal membaca file: {e}")
+
     # ── Riwayat Transaksi (opsional) ─────────────────────────────────────────
     st.markdown("---")
     with st.expander("🕘 Riwayat Transaksi Stok (Pembelian & Penjualan)"):
@@ -838,7 +931,7 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
             st.caption(f"Menampilkan {len(df_riwayat)} baris riwayat transaksi")
 
         st.markdown("---")
-        st.markdown("**📂 Import Riwayat Transaksi dari CSV (opsional)**")
+        st.markdown("**📂 Import Riwayat Transaksi dari CSV (opsional — lewati saja jika data Anda sudah dicatat lewat Entri Pembelian & Kasir)**")
         uploaded = st.file_uploader("Pilih file CSV", type=["csv"], key="upload_riwayat")
         if uploaded:
             try:
