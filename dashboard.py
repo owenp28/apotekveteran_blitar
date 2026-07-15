@@ -805,28 +805,97 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
                 use_container_width=True
             )
 
-    # ── Tabel utama ───────────────────────────────────────────────────────────
+    # ── Tabel utama (BISA DIEDIT LANGSUNG) ─────────────────────────────────────
     st.markdown("---")
-    st.subheader("📋 Data Stok Obat (Database Master Obat)")
+    col_judul, col_reset = st.columns([4, 1])
+    with col_judul:
+        st.subheader("📋 Data Stok Obat (Database Master Obat)")
+    with col_reset:
+        st.write("")
+        with st.popover("🗑️ Reset Data Obat"):
+            st.warning("Ini akan **menghapus SEMUA data obat** yang ada sekarang dan mengembalikannya ke data contoh awal (Paracetamol & Amoxicillin). Gunakan ini kalau data kamu kebanyakan/dobel karena import CSV berulang.")
+            if st.button("Ya, Hapus & Reset Sekarang", type="primary", key="btn_reset_database_obat"):
+                st.session_state.database_obat = pd.DataFrame([
+                    {
+                        "id_obat": "OB001", "nama_obat": "Paracetamol 500 mg", "kategori": "Analgesik",
+                        "satuan": "Tablet", "isi_per_strip": 10.0, "isi_per_box": 10.0,
+                        "harga_beli": 400.0, "harga_1": 500.0, "harga_2": 480.0, "harga_3": 450.0,
+                        "stok_akhir": 1000.0, "tanggal_kadaluarsa": pd.Timestamp("2027-12-31")
+                    },
+                    {
+                        "id_obat": "OB002", "nama_obat": "Amoxicillin 500 mg", "kategori": "Antibiotik",
+                        "satuan": "Tablet", "isi_per_strip": 10.0, "isi_per_box": 10.0,
+                        "harga_beli": 850.0, "harga_1": 1000.0, "harga_2": 950.0, "harga_3": 900.0,
+                        "stok_akhir": 500.0, "tanggal_kadaluarsa": pd.Timestamp("2027-10-30")
+                    }
+                ])
+                st.session_state.last_import_obat_id = None
+                st.success("✅ Data Obat berhasil direset!")
+                st.rerun()
+    st.caption("Tabel ini bisa diedit langsung — ubah stok, harga, kategori, atau konversi, lalu klik **Simpan Perubahan**. Tambah baris baru di bagian bawah tabel untuk menambah obat, atau hapus baris (klik kanan → Delete row) untuk menghapus obat.")
 
-    display_df = db_filtered.copy()
-    display_df["tanggal_kadaluarsa"] = pd.to_datetime(display_df["tanggal_kadaluarsa"], errors="coerce").dt.strftime("%d-%m-%Y")
-    display_df["harga_beli"] = display_df["harga_beli"].apply(format_rupiah)
-    display_df["harga_1"] = display_df["harga_1"].apply(format_rupiah)
-    display_df["harga_2"] = display_df["harga_2"].apply(format_rupiah)
-    display_df["harga_3"] = display_df["harga_3"].apply(format_rupiah)
-    display_df["Konversi"] = display_df.apply(
-        lambda r: f"1 Box = {int(r['isi_per_box'])} Strip = {int(r['isi_per_box'] * r['isi_per_strip'])} Tablet", axis=1
+    edit_source = db_filtered.copy() if (kategori_sel != "Semua" or cari) else st.session_state.database_obat.copy()
+    if (kategori_sel != "Semua" or cari):
+        st.info("Filter sedang aktif — tabel di bawah hanya menampilkan hasil filter. Kosongkan filter di atas untuk mengedit/menambah semua data obat sekaligus.")
+
+    edit_source["tanggal_kadaluarsa"] = pd.to_datetime(edit_source["tanggal_kadaluarsa"], errors="coerce")
+
+    edited_obat_df = st.data_editor(
+        edit_source,
+        use_container_width=True,
+        num_rows="dynamic",
+        hide_index=True,
+        column_order=["nama_obat", "kategori", "stok_akhir", "isi_per_strip", "isi_per_box", "harga_beli", "harga_1", "harga_2", "harga_3", "tanggal_kadaluarsa", "id_obat", "satuan"],
+        column_config={
+            "id_obat": st.column_config.TextColumn("Kode", disabled=True, width="small"),
+            "nama_obat": st.column_config.TextColumn("Nama Obat", width="large"),
+            "kategori": st.column_config.TextColumn("Kategori", width="medium"),
+            "satuan": st.column_config.TextColumn("Satuan", disabled=True, width="small"),
+            "isi_per_strip": st.column_config.NumberColumn("Isi/Strip (Tablet)", min_value=1, format="%.0f", width="small"),
+            "isi_per_box": st.column_config.NumberColumn("Isi/Box (Strip)", min_value=1, format="%.0f", width="small"),
+            "harga_beli": st.column_config.NumberColumn("Harga Beli/Tablet (Rp)", min_value=0, format="%.0f", width="medium"),
+            "harga_1": st.column_config.NumberColumn("Harga Jual 1/Tablet (Rp)", min_value=0, format="%.0f", width="medium"),
+            "harga_2": st.column_config.NumberColumn("Harga Jual 2/Tablet (Rp)", min_value=0, format="%.0f", width="medium"),
+            "harga_3": st.column_config.NumberColumn("Harga Jual 3/Tablet (Rp)", min_value=0, format="%.0f", width="medium"),
+            "stok_akhir": st.column_config.NumberColumn("Stok (Tablet)", min_value=0, format="%.0f", width="small"),
+            "tanggal_kadaluarsa": st.column_config.DateColumn("Tanggal Kadaluarsa", format="DD-MM-YYYY", width="medium"),
+        },
+        key="editor_database_obat"
     )
 
-    display_df = display_df.rename(columns={
-        "nama_obat": "Nama Obat", "kategori": "Kategori",
-        "stok_akhir": "Stok (Tablet)", "harga_beli": "Harga Beli", "harga_1": "Harga Jual 1",
-        "harga_2": "Harga Jual 2", "harga_3": "Harga Jual 3", "tanggal_kadaluarsa": "Tanggal Kadaluarsa"
-    })[["Nama Obat", "Kategori", "Stok (Tablet)", "Konversi", "Harga Beli", "Harga Jual 1", "Harga Jual 2", "Harga Jual 3", "Tanggal Kadaluarsa"]]
+    if st.button("💾 Simpan Perubahan Data Obat", type="primary"):
+        df_simpan = edited_obat_df.copy()
+        df_simpan = df_simpan[df_simpan["nama_obat"].astype(str).str.strip() != ""].reset_index(drop=True)
 
-    st.dataframe(display_df, use_container_width=True, height=350)
-    st.caption(f"Menampilkan {len(db_filtered)} obat")
+        # Siapkan penomoran ID lokal (TANPA menyentuh session_state di tengah proses)
+        # supaya tidak ada risiko data tertempel dobel.
+        id_terpakai = st.session_state.database_obat["id_obat"].astype(str).tolist()
+        angka_id = []
+        for k in id_terpakai:
+            angka = "".join(ch for ch in k if ch.isdigit())
+            if angka.isdigit():
+                angka_id.append(int(angka))
+        counter_id = (max(angka_id) + 1) if angka_id else 1
+
+        for i in df_simpan.index:
+            if pd.isna(df_simpan.loc[i, "id_obat"]) or not str(df_simpan.loc[i, "id_obat"]).strip():
+                df_simpan.loc[i, "id_obat"] = f"OB{counter_id:03d}"
+                counter_id += 1
+            if pd.isna(df_simpan.loc[i, "satuan"]) or not str(df_simpan.loc[i, "satuan"]).strip():
+                df_simpan.loc[i, "satuan"] = "Tablet"
+
+        for kolom_angka in ["isi_per_strip", "isi_per_box", "harga_beli", "harga_1", "harga_2", "harga_3", "stok_akhir"]:
+            df_simpan[kolom_angka] = df_simpan[kolom_angka].fillna(0).astype(float)
+
+        if (kategori_sel != "Semua" or cari):
+            # Filter aktif: gabungkan hasil edit dengan baris yang TIDAK sedang difilter
+            nama_terfilter = db_filtered["nama_obat"].tolist()
+            sisa = st.session_state.database_obat[~st.session_state.database_obat["nama_obat"].isin(nama_terfilter)]
+            df_simpan = pd.concat([sisa, df_simpan], ignore_index=True)
+
+        st.session_state.database_obat = df_simpan
+        st.success("✅ Perubahan Data Obat berhasil disimpan!")
+        st.rerun()
 
     # ── Import Data Obat dari CSV (format kolom sama seperti tabel di atas) ────
     with st.expander("📂 Import / Tambah Data Obat dari CSV"):
@@ -837,70 +906,92 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
             "Format Tanggal Kadaluarsa: `DD-MM-YYYY` (mis. 31-12-2027)."
         )
         uploaded_obat = st.file_uploader("Pilih file CSV Data Obat", type=["csv"], key="upload_data_obat")
+
         if uploaded_obat:
-            try:
-                df_obat_up = pd.read_csv(uploaded_obat)
-                kolom_wajib_obat = [
-                    "Nama Obat", "Kategori", "Stok (Tablet)", "Konversi",
-                    "Harga Beli", "Harga Jual 1", "Harga Jual 2", "Harga Jual 3", "Tanggal Kadaluarsa"
-                ]
-                missing_obat = [c for c in kolom_wajib_obat if c not in df_obat_up.columns]
-                if missing_obat:
-                    st.error(f"Kolom berikut tidak ditemukan di file CSV: {missing_obat}")
-                else:
-                    obat_baru_list = []
-                    gagal_parse_konversi = []
-                    for _, r in df_obat_up.iterrows():
-                        nama = str(r["Nama Obat"]).strip()
-                        if not nama:
-                            continue
+            file_id_obat = f"{uploaded_obat.name}_{uploaded_obat.size}"
 
-                        # Parsing kolom Konversi, mis: "1 Box = 10 Strip = 100 Tablet"
-                        konversi_match = re.search(
-                            r"1\s*Box\s*=\s*(\d+)\s*Strip\s*=\s*(\d+)\s*Tablet",
-                            str(r["Konversi"]), re.IGNORECASE
-                        )
-                        if konversi_match:
-                            isi_per_box = int(konversi_match.group(1))
-                            total_tablet_per_box = int(konversi_match.group(2))
-                            isi_per_strip = int(total_tablet_per_box / isi_per_box) if isi_per_box else 10
-                        else:
-                            isi_per_box, isi_per_strip = 10, 10
-                            gagal_parse_konversi.append(nama)
+            if st.session_state.get("last_import_obat_id") == file_id_obat:
+                st.info("✅ File ini sudah pernah diimpor. Hapus file dari kotak upload lalu upload file BARU jika ingin mengimpor lagi (supaya data tidak dobel).")
+            else:
+                try:
+                    df_obat_up = pd.read_csv(uploaded_obat)
+                    kolom_wajib_obat = [
+                        "Nama Obat", "Kategori", "Stok (Tablet)", "Konversi",
+                        "Harga Beli", "Harga Jual 1", "Harga Jual 2", "Harga Jual 3", "Tanggal Kadaluarsa"
+                    ]
+                    missing_obat = [c for c in kolom_wajib_obat if c not in df_obat_up.columns]
+                    if missing_obat:
+                        st.error(f"Kolom berikut tidak ditemukan di file CSV: {missing_obat}")
+                    else:
+                        obat_baru_list = []
+                        gagal_parse_konversi = []
+                        for _, r in df_obat_up.iterrows():
+                            nama = str(r["Nama Obat"]).strip()
+                            if not nama:
+                                continue
 
-                        obat_baru_list.append({
-                            "id_obat": generate_id_obat(),
-                            "nama_obat": nama,
-                            "kategori": str(r["Kategori"]).strip() if pd.notna(r["Kategori"]) else "Lainnya",
+                            # Parsing kolom Konversi, mis: "1 Box = 10 Strip = 100 Tablet"
+                            teks_konversi = str(r["Konversi"])
+                            konversi_match = re.search(
+                                r"1\s*Box\s*=\s*(\d+)\s*Strip\s*=\s*(\d+)\s*Tablet",
+                                teks_konversi, re.IGNORECASE
+                            )
+                            if konversi_match:
+                                isi_per_box = int(konversi_match.group(1))
+                                total_tablet_per_box = int(konversi_match.group(2))
+                                isi_per_strip = int(total_tablet_per_box / isi_per_box) if isi_per_box else 10
+                            else:
+                                # Fallback: coba ambil angka apa pun di dalam teks (format bebas,
+                                # mis. "10 Strip / 100 Tablet" atau "10,100"), supaya tidak
+                                # semuanya jatuh ke nilai default 1 Box = 10 Strip = 100 Tablet.
+                                angka = [int(a) for a in re.findall(r"\d+", teks_konversi)]
+                                if len(angka) >= 3:
+                                    isi_per_box, total_tablet_per_box = angka[-2], angka[-1]
+                                    isi_per_strip = int(total_tablet_per_box / isi_per_box) if isi_per_box else 10
+                                elif len(angka) == 2:
+                                    isi_per_box, total_tablet_per_box = angka[0], angka[1]
+                                    isi_per_strip = int(total_tablet_per_box / isi_per_box) if isi_per_box else 10
+                                else:
+                                    isi_per_box, isi_per_strip = 10, 10
+                                    gagal_parse_konversi.append(nama)
 
-                            "satuan": "Tablet",
-                            "isi_per_strip": float(isi_per_strip),
-                            "isi_per_box": float(isi_per_box),
+                            obat_baru_list.append({
+                                "id_obat": generate_id_obat(),
+                                "nama_obat": nama,
+                                "kategori": str(r["Kategori"]).strip() if pd.notna(r["Kategori"]) else "Lainnya",
 
-                            "harga_beli": float(parse_rupiah(r["Harga Beli"])),
-                            "harga_1": float(parse_rupiah(r["Harga Jual 1"])),
-                            "harga_2": float(parse_rupiah(r["Harga Jual 2"])),
-                            "harga_3": float(parse_rupiah(r["Harga Jual 3"])),
+                                "satuan": "Tablet",
+                                "isi_per_strip": float(isi_per_strip),
+                                "isi_per_box": float(isi_per_box),
 
-                            "stok_akhir": float(r["Stok (Tablet)"]) if pd.notna(r["Stok (Tablet)"]) else 0.0,
-                            "tanggal_kadaluarsa": pd.to_datetime(r["Tanggal Kadaluarsa"], dayfirst=True, errors="coerce")
-                        })
-                        # generate_id_obat() dipanggil sebelum baris ditambahkan ke database_obat,
-                        # jadi ID berikutnya perlu ikut memperhitungkan baris yang baru saja dibuat
-                        st.session_state.database_obat = pd.concat(
-                            [st.session_state.database_obat, pd.DataFrame([obat_baru_list[-1]])],
-                            ignore_index=True
-                        )
+                                "harga_beli": float(parse_rupiah(r["Harga Beli"])),
+                                "harga_1": float(parse_rupiah(r["Harga Jual 1"])),
+                                "harga_2": float(parse_rupiah(r["Harga Jual 2"])),
+                                "harga_3": float(parse_rupiah(r["Harga Jual 3"])),
 
-                    if gagal_parse_konversi:
-                        st.warning(
-                            f"Kolom Konversi tidak dikenali untuk: {', '.join(gagal_parse_konversi)} — "
-                            "dipakai konversi default 1 Box = 10 Strip = 100 Tablet."
-                        )
-                    st.success(f"✅ {len(obat_baru_list)} obat berhasil ditambahkan ke Database Master Obat!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Gagal membaca file: {e}")
+                                "stok_akhir": float(r["Stok (Tablet)"]) if pd.notna(r["Stok (Tablet)"]) else 0.0,
+                                "tanggal_kadaluarsa": pd.to_datetime(r["Tanggal Kadaluarsa"], dayfirst=True, errors="coerce")
+                            })
+                            # generate_id_obat() dipanggil sebelum baris ditambahkan ke database_obat,
+                            # jadi ID berikutnya perlu ikut memperhitungkan baris yang baru saja dibuat
+                            st.session_state.database_obat = pd.concat(
+                                [st.session_state.database_obat, pd.DataFrame([obat_baru_list[-1]])],
+                                ignore_index=True
+                            )
+
+                        # Tandai file ini SUDAH diproses, supaya tidak diimpor ulang terus-menerus
+                        # setiap kali halaman rerun (mis. saat mengetik di filter/tabel lain).
+                        st.session_state.last_import_obat_id = file_id_obat
+
+                        if gagal_parse_konversi:
+                            st.warning(
+                                f"Kolom Konversi tidak dikenali untuk: {', '.join(gagal_parse_konversi)} — "
+                                "dipakai konversi default 1 Box = 10 Strip = 100 Tablet."
+                            )
+                        st.success(f"✅ {len(obat_baru_list)} obat berhasil ditambahkan ke Database Master Obat!")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Gagal membaca file: {e}")
 
     # ── Riwayat Transaksi (opsional) ─────────────────────────────────────────
     st.markdown("---")
@@ -934,20 +1025,26 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
         st.markdown("**📂 Import Riwayat Transaksi dari CSV (opsional — lewati saja jika data Anda sudah dicatat lewat Entri Pembelian & Kasir)**")
         uploaded = st.file_uploader("Pilih file CSV", type=["csv"], key="upload_riwayat")
         if uploaded:
-            try:
-                df_up = pd.read_csv(uploaded, parse_dates=["Tanggal", "Tanggal Kadaluarsa"])
-                missing = [c for c in KOLOM_WAJIB if c not in df_up.columns]
-                if missing:
-                    st.error(f"Kolom berikut tidak ditemukan: {missing}")
-                else:
-                    df_up = df_up[KOLOM_WAJIB]  # buang kolom lama yang tidak lagi dipakai (mis. Supplier)
-                    df_current = load_data()
-                    df_gabungan = pd.concat([df_current, df_up], ignore_index=True) if df_current is not None else df_up
-                    save_data(df_gabungan)
-                    st.success("Riwayat transaksi berhasil diimpor!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Gagal membaca file: {e}")
+            file_id_riwayat = f"{uploaded.name}_{uploaded.size}"
+
+            if st.session_state.get("last_import_riwayat_id") == file_id_riwayat:
+                st.info("✅ File ini sudah pernah diimpor. Hapus file dari kotak upload lalu upload file BARU jika ingin mengimpor lagi (supaya data tidak dobel).")
+            else:
+                try:
+                    df_up = pd.read_csv(uploaded, parse_dates=["Tanggal", "Tanggal Kadaluarsa"])
+                    missing = [c for c in KOLOM_WAJIB if c not in df_up.columns]
+                    if missing:
+                        st.error(f"Kolom berikut tidak ditemukan: {missing}")
+                    else:
+                        df_up = df_up[KOLOM_WAJIB]  # buang kolom lama yang tidak lagi dipakai (mis. Supplier)
+                        df_current = load_data()
+                        df_gabungan = pd.concat([df_current, df_up], ignore_index=True) if df_current is not None else df_up
+                        save_data(df_gabungan)
+                        st.session_state.last_import_riwayat_id = file_id_riwayat
+                        st.success("Riwayat transaksi berhasil diimpor!")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Gagal membaca file: {e}")
 
         if st.button("🗑️ Hapus Seluruh Riwayat Transaksi", type="secondary"):
             if os.path.exists(DATASET_PATH):
@@ -1875,7 +1972,8 @@ elif menu == "🛍️ Entri Pembelian":
                 help="Harga beli TOTAL untuk 1 Satuan Beli (mis. harga per Box)"
             ),
             "Subtotal": st.column_config.NumberColumn(
-                "Subtotal", disabled=True, format="%.2f", width="medium"
+                "Subtotal", min_value=0.0, format="%.2f", width="medium",
+                help="Otomatis terisi dari Jumlah × Harga Beli, tapi bisa diubah manual jika perlu."
             ),
             "Batch": st.column_config.TextColumn(
                 "Batch", width="small"
@@ -1887,7 +1985,7 @@ elif menu == "🛍️ Entri Pembelian":
         key="df_beli_editor"
     )
 
-    # Hitung ulang Jumlah (Tablet) & Subtotal otomatis mengikuti konversi obat masing-masing
+    # Hitung ulang Jumlah (Tablet) otomatis mengikuti konversi obat masing-masing
     jumlah_tablet_list = []
     for _, row in edited_df.iterrows():
         if str(row["Nama Obat"]).strip():
@@ -1896,7 +1994,13 @@ elif menu == "🛍️ Entri Pembelian":
             faktor = 1
         jumlah_tablet_list.append(float(row["Jumlah"] or 0) * faktor)
     edited_df["Jumlah (Tablet)"] = jumlah_tablet_list
-    edited_df["Subtotal"] = (edited_df["Jumlah"].fillna(0) * edited_df["Harga Beli"].fillna(0)).round(2)
+
+    # Subtotal otomatis terisi dari Jumlah x Harga Beli, TAPI kalau kolom Subtotal
+    # sudah pernah diisi/diubah manual oleh pengguna (nilainya tidak 0), nilai itu
+    # akan tetap dipakai dan tidak ditimpa ulang.
+    subtotal_otomatis = (edited_df["Jumlah"].fillna(0) * edited_df["Harga Beli"].fillna(0)).round(2)
+    edited_df["Subtotal"] = edited_df["Subtotal"].fillna(0).where(edited_df["Subtotal"].fillna(0) != 0, subtotal_otomatis)
+
     # Perbarui nomor urut
     edited_df["No."] = range(1, len(edited_df) + 1)
     st.session_state.df_beli = edited_df
