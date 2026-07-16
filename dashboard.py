@@ -1460,7 +1460,7 @@ elif menu == "🛒 Update Stok & Kasir":
             for item in st.session_state.cart:
                 items_html += f"""
                 <div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>
-                    <span style='flex: 2;'>{item['qty']} {item['satuan_jual']} {item['nama']}</span>
+                    <span style='flex: 2;'>{item['qty']} {item['nama']}</span>
                     <span style='flex: 1; text-align: center;'>{format_rupiah(item['harga_per_satuan'])}</span>
                     <span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span>
                 </div>
@@ -1752,6 +1752,47 @@ elif menu == "🏥 Retur Pembelian":
                 if edited_df.empty or total_retur == 0:
                     st.warning("⚠️ Belum ada item dengan jumlah retur yang diisi!")
                 else:
+                    # ── Update stok di Database Master Obat & catat ke riwayat transaksi ──
+                    df_csv = load_data()
+                    if df_csv is None:
+                        df_csv = pd.DataFrame(columns=KOLOM_WAJIB)
+
+                    new_log_rows = []
+                    for _, item in edited_df.iterrows():
+                        jumlah_retur = float(item["Jumlah Retur"] or 0)
+                        nama_obat_retur = str(item["Nama Obat"]).strip()
+                        if jumlah_retur <= 0 or not nama_obat_retur:
+                            continue
+
+                        mask = st.session_state.database_obat["nama_obat"].str.lower() == nama_obat_retur.lower()
+                        if mask.any():
+                            idx_master = st.session_state.database_obat[mask].index[-1]
+                            stok_sebelumnya = float(st.session_state.database_obat.loc[idx_master, "stok_akhir"])
+                            stok_baru = max(stok_sebelumnya - jumlah_retur, 0)
+                            st.session_state.database_obat.loc[idx_master, "stok_akhir"] = stok_baru
+                            kategori_obat = st.session_state.database_obat.loc[idx_master, "kategori"]
+                        else:
+                            stok_baru = 0.0
+                            kategori_obat = "Lainnya"
+
+                        new_log_rows.append({
+                            "Tanggal": pd.Timestamp(tgl_retur),
+                            "Nama Obat": nama_obat_retur,
+                            "Kategori": kategori_obat,
+                            "Satuan": "Tablet",
+                            "Stok Masuk": 0,
+                            "Stok Keluar": jumlah_retur,
+                            "Stok Akhir": stok_baru,
+                            "Harga Satuan (Rp)": float(item["HPP"] or 0),
+                            "Total Nilai (Rp)": stok_baru * float(item["HPP"] or 0),
+                            "Tanggal Kadaluarsa": pd.Timestamp.now(),
+                            "Keterangan": f"Retur Pembelian - Faktur {no_faktur}"
+                        })
+
+                    if new_log_rows:
+                        df_csv = pd.concat([df_csv, pd.DataFrame(new_log_rows)], ignore_index=True)
+                        save_data(df_csv)
+
                     new_history = pd.DataFrame([{
                         "Nomor Faktur": no_faktur,
                         "Tanggal Retur": tgl_retur,
@@ -1766,7 +1807,7 @@ elif menu == "🏥 Retur Pembelian":
                     )
                     save_retur_history(st.session_state.retur_history)
 
-                    st.success(f"✅ Retur pembelian berhasil disimpan! Total retur: Rp {total_retur:,.2f}".replace(",", "."))
+                    st.success(f"✅ Retur pembelian berhasil disimpan! Stok obat terkait sudah dikurangi & tercatat di riwayat. Total retur: Rp {total_retur:,.2f}".replace(",", "."))
 
                     st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
                     st.rerun()
@@ -1835,7 +1876,7 @@ elif menu == "🛍️ Entri Pembelian":
             {
                 "No.": 1,
                 "Nama Obat": "",
-                "Satuan Beli": "Box",
+                "Satuan Beli": "Tablet",
                 "Jumlah": 0.0,
                 "Jumlah (Tablet)": 0.0,
                 "Harga Beli": 0.0,
@@ -1906,14 +1947,13 @@ elif menu == "🛍️ Entri Pembelian":
                 idx = event_beli.selection.rows[0]
                 selected_row = hasil.iloc[idx]
                 if st.button(f"➕ Tambahkan '{selected_row['nama_obat']}' ke Tabel Pembelian", key="tambah_ke_pembelian"):
-                    tablet_per_box = get_konversi_tablet(selected_row["nama_obat"], "Box")
                     new_row = {
                         "No.": len(st.session_state.df_beli) + 1,
                         "Nama Obat": selected_row["nama_obat"],
-                        "Satuan Beli": "Box",
+                        "Satuan Beli": "Tablet",
                         "Jumlah": 0.0,
                         "Jumlah (Tablet)": 0.0,
-                        "Harga Beli": float(selected_row["harga_beli"]) * tablet_per_box,
+                        "Harga Beli": float(selected_row["harga_beli"]),
                         "Subtotal": 0.0,
                         "Batch": "",
                         "Tanggal Expired": pd.Timestamp(selected_row["tanggal_kadaluarsa"]) if selected_row["tanggal_kadaluarsa"] else pd.Timestamp(date.today())
@@ -2008,8 +2048,10 @@ elif menu == "🛍️ Entri Pembelian":
     st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Ringkasan total ───────────────────────────────────────────────────────
+    total_subtotal = edited_df["Subtotal"].sum()
+    total_subtotal_fmt = f"Rp {total_subtotal:,.2f}".replace(",", ".")
     st.markdown(
-        """
+        f"""
         <div class='total-container'>
             <div class='action-buttons'>
                 <button class='btn-custom btn-save' id='btn_simpan_beli'>
@@ -2021,16 +2063,10 @@ elif menu == "🛍️ Entri Pembelian":
             </div>
             <div>
                 <div class='total-label'>Total Subtotal</div>
-                <div class='total-value' id='total-subtotal-value'>Rp 0,00</div>
+                <div class='total-value' id='total-subtotal-value'>{total_subtotal_fmt}</div>
             </div>
         </div>
         """,
-        unsafe_allow_html=True
-    )
-    
-    total_subtotal = edited_df["Subtotal"].sum()
-    st.markdown(
-        f"<script>document.getElementById('total-subtotal-value').textContent = 'Rp {total_subtotal:,.2f}'.replace(',', '.');</script>",
         unsafe_allow_html=True
     )
 
@@ -2090,7 +2126,7 @@ elif menu == "🛍️ Entri Pembelian":
                     save_data(df_stok)
                     st.session_state.df_beli = pd.DataFrame([
                         {
-                            "No.": 1, "Nama Obat": "", "Satuan Beli": "Box",
+                            "No.": 1, "Nama Obat": "", "Satuan Beli": "Tablet",
                             "Jumlah": 0.0, "Jumlah (Tablet)": 0.0, "Harga Beli": 0.0,
                             "Subtotal": 0.0, "Batch": "", "Tanggal Expired": pd.Timestamp(date.today())
                         }
@@ -2103,7 +2139,7 @@ elif menu == "🛍️ Entri Pembelian":
         if st.button("🗑️ Reset Tabel", type="secondary", use_container_width=True):
             st.session_state.df_beli = pd.DataFrame([
                 {
-                    "No.": 1, "Nama Obat": "", "Satuan Beli": "Box",
+                    "No.": 1, "Nama Obat": "", "Satuan Beli": "Tablet",
                     "Jumlah": 0.0, "Jumlah (Tablet)": 0.0, "Harga Beli": 0.0,
                     "Subtotal": 0.0, "Batch": "", "Tanggal Expired": pd.Timestamp(date.today())
                 }
