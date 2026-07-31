@@ -9,6 +9,8 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
+AUTO_REFRESH_SECONDS = 30
+st.markdown(f"<meta http-equiv='refresh' content='{AUTO_REFRESH_SECONDS}'>", unsafe_allow_html=True)
 
 # ── CSS Custom untuk Menyesuaikan Tampilan ERP ─────────────────────────────────
 # Perubahan ini dilakukan untuk:
@@ -323,6 +325,7 @@ RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv"
 WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.xlsx")
 DEFAULT_SOURCE_URL = "https://onedrive.live.com/personal/2b91c5c1ac3eaa9f/_layouts/15/download.aspx?UniqueId=e76e9273-f3c4-4465-8e15-e1f29a558111&Translate=false"
 ONE_DRIVE_SHARE_URL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
+DEFAULT_SOURCE_LABEL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
 
 INVENTORY_SHEETS = ["PCS", "SACHET", "BOTOL", "TAB", "BOX", "STRIP"]
 INVENTORY_COLUMNS = [
@@ -435,8 +438,19 @@ def create_default_inventory_workbook():
     wb.save(WORKBOOK_PATH)
 
 
-def sync_inventory_from_source(source_url=None):
+def normalize_source_url(source_url):
     source_url = (source_url or DEFAULT_SOURCE_URL).strip()
+    if "1drv.ms" in source_url or "onedrive.live.com/:x:" in source_url:
+        return DEFAULT_SOURCE_URL
+    if "download.aspx?UniqueId=" in source_url:
+        return source_url
+    if source_url.endswith(".csv") or source_url.endswith(".xlsx") or source_url.endswith(".xlsm"):
+        return source_url
+    return DEFAULT_SOURCE_URL
+
+
+def sync_inventory_from_source(source_url=None):
+    source_url = normalize_source_url(source_url)
     if not source_url:
         return False
 
@@ -861,9 +875,10 @@ if menu == "🏠 Beranda":
 elif menu == "📋 Tampilkan Stok Obat Hari Ini":
     st.title("📋 Tampilan Obat Hari Ini")
     st.caption("Tampilan sederhana, real-time, dan bisa diedit langsung per worksheet sesuai satuan: PCS, SACHET, BOTOL, TAB, BOX, STRIP.")
+    st.caption(f"Auto refresh aktif setiap {AUTO_REFRESH_SECONDS} detik untuk sinkronisasi ulang dari link sumber.")
 
     if "inventory_source_url" not in st.session_state:
-        st.session_state.inventory_source_url = DEFAULT_SOURCE_URL
+        st.session_state.inventory_source_url = DEFAULT_SOURCE_LABEL
 
     source_url = st.text_input(
         "Link Workbook / CSV Sumber",
