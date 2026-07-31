@@ -4,6 +4,9 @@ import io
 import re
 from datetime import date, datetime
 import os
+from urllib.request import urlretrieve
+from openpyxl import load_workbook, Workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
 
@@ -317,6 +320,25 @@ st.markdown(
 
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
+WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.xlsx")
+ONE_DRIVE_SOURCE_URL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
+
+INVENTORY_SHEETS = ["PCS", "SACHET", "BOTOL", "TAB", "BOX", "STRIP"]
+INVENTORY_COLUMNS = [
+    "Nama produk",
+    "Satuan",
+    "Tanggal",
+    "Nomor Faktur",
+    "Nomor Batch",
+    "PBF",
+    "Tanggal Kadaluwarsa",
+    "Stok Masuk",
+    "Stok Keluar",
+    "Stok Sisa",
+    "Harga 1",
+    "Harga 2",
+    "Keterangan"
+]
 
 # Database Master Obat
 # Konsep: satuan dasar SELALU "Tablet". Pembelian boleh dalam Box/Strip/Tablet,
@@ -392,6 +414,79 @@ def format_rupiah(val):
         return f"Rp {int(val):,}".replace(",", ".")
     except:
         return val
+
+
+def normalize_inventory_df(df):
+    df = df.copy()
+    for kolom in INVENTORY_COLUMNS:
+        if kolom not in df.columns:
+            df[kolom] = None
+    return df[INVENTORY_COLUMNS]
+
+
+def create_default_inventory_workbook():
+    wb = Workbook()
+    if "Sheet" in wb.sheetnames:
+        wb.remove(wb["Sheet"])
+    for sheet_name in INVENTORY_SHEETS:
+        ws = wb.create_sheet(title=sheet_name)
+        ws.append(INVENTORY_COLUMNS)
+    wb.save(WORKBOOK_PATH)
+
+
+def sync_inventory_from_source():
+    if os.path.exists(WORKBOOK_PATH):
+        return True
+
+    try:
+        urlretrieve(ONE_DRIVE_SOURCE_URL, WORKBOOK_PATH)
+        return os.path.exists(WORKBOOK_PATH)
+    except Exception:
+        create_default_inventory_workbook()
+        return os.path.exists(WORKBOOK_PATH)
+
+
+def load_inventory_workbook():
+    sync_inventory_from_source()
+    if not os.path.exists(WORKBOOK_PATH):
+        return {}
+
+    try:
+        wb = load_workbook(WORKBOOK_PATH, data_only=True)
+        workbook_data = {}
+        for sheet_name in INVENTORY_SHEETS:
+            if sheet_name not in wb.sheetnames:
+                continue
+            ws = wb[sheet_name]
+            rows = list(ws.iter_rows(values_only=True))
+            if not rows:
+                workbook_data[sheet_name] = pd.DataFrame(columns=INVENTORY_COLUMNS)
+                continue
+            headers = [str(h).strip() if h is not None else "" for h in rows[0]]
+            data_rows = rows[1:]
+            df = pd.DataFrame(data_rows, columns=headers)
+            workbook_data[sheet_name] = normalize_inventory_df(df)
+        wb.close()
+        return workbook_data
+    except Exception:
+        return {}
+
+
+def save_inventory_workbook(workbook_data):
+    wb = Workbook()
+    if "Sheet" in wb.sheetnames:
+        wb.remove(wb["Sheet"])
+
+    for sheet_name in INVENTORY_SHEETS:
+        df_sheet = workbook_data.get(sheet_name)
+        if df_sheet is None:
+            continue
+        ws = wb.create_sheet(title=sheet_name)
+        for row in dataframe_to_rows(df_sheet, index=False, header=True):
+            ws.append(row)
+
+    wb.save(WORKBOOK_PATH)
+
 
 def parse_rupiah(val):
     """
@@ -761,237 +856,82 @@ if menu == "🏠 Beranda":
 # FITUR 1 — TAMPILKAN OBAT HARI INI
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Tampilkan Stok Obat Hari Ini":
-    st.title("📋 Tampilkan Stok Obat")
-    st.caption("Stok ditampilkan real-time dari Database Master Obat, dalam satuan Tablet.")
-    st.success("✅ Anda **tidak perlu upload dataset CSV**. Cukup catat obat & stok lewat menu **Entri Pembelian** (dan Kasir untuk penjualan) — semua data di halaman ini otomatis terisi dari sana. Bagian *Import CSV* di bawah sifatnya opsional saja, hanya untuk yang punya data lama dari sistem lain.")
+    st.title("📋 Tampilan Obat Hari Ini")
+    st.caption("Tampilan sederhana, real-time, dan bisa diedit langsung per worksheet sesuai satuan: PCS, SACHET, BOTOL, TAB, BOX, STRIP.")
 
-    db_obat = st.session_state.database_obat.copy()
+    workbook_data = load_inventory_workbook()
+    if not workbook_data:
+        st.info("File workbook belum bisa dibaca sepenuhnya, jadi sistem akan membuat struktur default untuk sheet PCS, SACHET, BOTOL, TAB, BOX, dan STRIP.")
 
-    # ── Filter ────────────────────────────────────────────────────────────────
-    st.subheader("🔍 Filter Data")
-    col_f2, col_f3 = st.columns(2)
+    uploaded_workbook = st.file_uploader("Upload workbook obat jika ingin mengganti file lokal", type=["xlsx", "xlsm"], key="upload_inventory_workbook")
+    if uploaded_workbook is not None:
+        try:
+            with open(WORKBOOK_PATH, "wb") as f:
+                f.write(uploaded_workbook.getvalue())
+            st.success("✅ Workbook lokal berhasil diperbarui.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Gagal menimpa workbook lokal: {e}")
 
-    with col_f2:
-        kategori_list = ["Semua"] + sorted(db_obat["kategori"].dropna().unique().tolist())
-        kategori_sel = st.selectbox("Kategori Obat", kategori_list)
+    sheet_name = st.selectbox(
+        "Pilih Worksheet",
+        INVENTORY_SHEETS,
+        index=0,
+        key="inventory_selected_sheet"
+    )
 
-    with col_f3:
-        cari = st.text_input("🔎 Cari Nama Obat")
+    if sheet_name not in workbook_data:
+        sheet_df = pd.DataFrame(columns=INVENTORY_COLUMNS)
+    else:
+        sheet_df = workbook_data[sheet_name].copy()
 
-    db_filtered = db_obat.copy()
-    if kategori_sel != "Semua":
-        db_filtered = db_filtered[db_filtered["kategori"] == kategori_sel]
-    if cari:
-        db_filtered = db_filtered[db_filtered["nama_obat"].str.contains(cari, case=False, na=False)]
+    st.info("Setiap kolom dalam tabel dapat diedit langsung dengan ikon ✏️. Setelah selesai, klik tombol ✅ Submit untuk menyimpan data terbaru ke worksheet yang aktif.")
 
-    # ── Ringkasan ─────────────────────────────────────────────────────────────
-    st.markdown("---")
-    st.subheader("📊 Ringkasan")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Jenis Obat", db_filtered["nama_obat"].nunique())
-    c2.metric("Total Stok (Tablet)", f"{int(db_filtered['stok_akhir'].sum()):,}".replace(",", "."))
-    tgl_kadaluarsa = pd.to_datetime(db_filtered["tanggal_kadaluarsa"], errors="coerce")
-    exp_df = db_filtered[tgl_kadaluarsa <= pd.Timestamp(date.today()) + pd.Timedelta(days=30)]
-    c3.metric("⚠️ Hampir Kadaluarsa (≤30 hari)", exp_df["nama_obat"].nunique())
-
-    # ── Peringatan kadaluarsa ─────────────────────────────────────────────────
-    if not exp_df.empty:
-        st.warning(f"⚠️ {len(exp_df)} item mendekati/melewati tanggal kadaluarsa!")
-        with st.expander("Lihat detail kadaluarsa"):
-            exp_show = exp_df[["nama_obat", "kategori", "stok_akhir", "tanggal_kadaluarsa"]].copy()
-            exp_show["tanggal_kadaluarsa"] = pd.to_datetime(exp_show["tanggal_kadaluarsa"]).dt.strftime("%d-%m-%Y")
-            st.dataframe(
-                exp_show.rename(columns={"nama_obat": "Nama Obat", "kategori": "Kategori", "stok_akhir": "Stok (Tablet)", "tanggal_kadaluarsa": "Tanggal Kadaluarsa"}),
-                use_container_width=True
-            )
-
-    # ── Tabel utama (BISA DIEDIT LANGSUNG) ─────────────────────────────────────
-    st.markdown("---")
-    col_judul, col_reset = st.columns([4, 1])
-    with col_judul:
-        st.subheader("📋 Data Stok Obat (Database Master Obat)")
-    with col_reset:
-        st.write("")
-        with st.popover("🗑️ Reset Data Obat"):
-            st.warning("Ini akan **menghapus SEMUA data obat** yang ada sekarang dan mengembalikannya ke data contoh awal (Paracetamol & Amoxicillin). Gunakan ini kalau data kamu kebanyakan/dobel karena import CSV berulang.")
-            if st.button("Ya, Hapus & Reset Sekarang", type="primary", key="btn_reset_database_obat"):
-                st.session_state.database_obat = pd.DataFrame([
-                    {
-                        "id_obat": "OB001", "nama_obat": "Paracetamol 500 mg", "kategori": "Analgesik",
-                        "satuan": "Tablet", "isi_per_strip": 10.0, "isi_per_box": 10.0,
-                        "harga_beli": 400.0, "harga_1": 500.0, "harga_2": 480.0, "harga_3": 450.0,
-                        "stok_akhir": 1000.0, "tanggal_kadaluarsa": pd.Timestamp("2027-12-31")
-                    },
-                    {
-                        "id_obat": "OB002", "nama_obat": "Amoxicillin 500 mg", "kategori": "Antibiotik",
-                        "satuan": "Tablet", "isi_per_strip": 10.0, "isi_per_box": 10.0,
-                        "harga_beli": 850.0, "harga_1": 1000.0, "harga_2": 950.0, "harga_3": 900.0,
-                        "stok_akhir": 500.0, "tanggal_kadaluarsa": pd.Timestamp("2027-10-30")
-                    }
-                ])
-                st.session_state.last_import_obat_id = None
-                st.success("✅ Data Obat berhasil direset!")
-                st.rerun()
-    st.caption("Tabel ini bisa diedit langsung — ubah stok, harga, kategori, atau konversi, lalu klik **Simpan Perubahan**. Tambah baris baru di bagian bawah tabel untuk menambah obat, atau hapus baris (klik kanan → Delete row) untuk menghapus obat.")
-
-    edit_source = db_filtered.copy() if (kategori_sel != "Semua" or cari) else st.session_state.database_obat.copy()
-    if (kategori_sel != "Semua" or cari):
-        st.info("Filter sedang aktif — tabel di bawah hanya menampilkan hasil filter. Kosongkan filter di atas untuk mengedit/menambah semua data obat sekaligus.")
-
-    edit_source["tanggal_kadaluarsa"] = pd.to_datetime(edit_source["tanggal_kadaluarsa"], errors="coerce")
-
-    edited_obat_df = st.data_editor(
-        edit_source,
+    edited_df = st.data_editor(
+        sheet_df,
         use_container_width=True,
         num_rows="dynamic",
         hide_index=True,
-        column_order=["nama_obat", "kategori", "stok_akhir", "isi_per_strip", "isi_per_box", "harga_beli", "harga_1", "harga_2", "harga_3", "tanggal_kadaluarsa", "id_obat", "satuan"],
+        column_order=INVENTORY_COLUMNS,
         column_config={
-            "id_obat": st.column_config.TextColumn("Kode", disabled=True, width="small"),
-            "nama_obat": st.column_config.TextColumn("Nama Obat", width="large"),
-            "kategori": st.column_config.TextColumn("Kategori", width="medium"),
-            "satuan": st.column_config.TextColumn("Satuan", disabled=True, width="small"),
-            "isi_per_strip": st.column_config.NumberColumn("Isi/Strip (Tablet)", min_value=1, format="%.0f", width="small"),
-            "isi_per_box": st.column_config.NumberColumn("Isi/Box (Strip)", min_value=1, format="%.0f", width="small"),
-            "harga_beli": st.column_config.NumberColumn("Harga Beli/Tablet (Rp)", min_value=0, format="%.0f", width="medium"),
-            "harga_1": st.column_config.NumberColumn("Harga Jual 1/Tablet (Rp)", min_value=0, format="%.0f", width="medium"),
-            "harga_2": st.column_config.NumberColumn("Harga Jual 2/Tablet (Rp)", min_value=0, format="%.0f", width="medium"),
-            "harga_3": st.column_config.NumberColumn("Harga Jual 3/Tablet (Rp)", min_value=0, format="%.0f", width="medium"),
-            "stok_akhir": st.column_config.NumberColumn("Stok (Tablet)", min_value=0, format="%.0f", width="small"),
-            "tanggal_kadaluarsa": st.column_config.DateColumn("Tanggal Kadaluarsa", format="DD-MM-YYYY", width="medium"),
+            "Nama produk": st.column_config.TextColumn("✏️ Nama Produk", width="large"),
+            "Satuan": st.column_config.TextColumn("✏️ Satuan", width="small"),
+            "Tanggal": st.column_config.DateColumn("✏️ Tanggal", format="YYYY-MM-DD", width="medium"),
+            "Nomor Faktur": st.column_config.TextColumn("✏️ Nomor Faktur", width="medium"),
+            "Nomor Batch": st.column_config.TextColumn("✏️ Nomor Batch", width="medium"),
+            "PBF": st.column_config.TextColumn("✏️ PBF", width="medium"),
+            "Tanggal Kadaluwarsa": st.column_config.DateColumn("✏️ Tanggal Kadaluarsa", format="YYYY-MM-DD", width="medium"),
+            "Stok Masuk": st.column_config.NumberColumn("✏️ Stok Masuk", min_value=0, step=1, width="small"),
+            "Stok Keluar": st.column_config.NumberColumn("✏️ Stok Keluar", min_value=0, step=1, width="small"),
+            "Stok Sisa": st.column_config.NumberColumn("✏️ Stok Sisa", min_value=0, step=1, width="small"),
+            "Harga 1": st.column_config.NumberColumn("✏️ Harga 1", min_value=0, step=1, width="small"),
+            "Harga 2": st.column_config.NumberColumn("✏️ Harga 2", min_value=0, step=1, width="small"),
+            "Keterangan": st.column_config.TextColumn("✏️ Keterangan", width="large"),
         },
-        key="editor_database_obat"
+        key="editor_inventory_grid"
     )
 
-    if st.button("💾 Simpan Perubahan Data Obat", type="primary"):
-        df_simpan = edited_obat_df.copy()
-        df_simpan = df_simpan[df_simpan["nama_obat"].astype(str).str.strip() != ""].reset_index(drop=True)
-
-        # Siapkan penomoran ID lokal (TANPA menyentuh session_state di tengah proses)
-        # supaya tidak ada risiko data tertempel dobel.
-        id_terpakai = st.session_state.database_obat["id_obat"].astype(str).tolist()
-        angka_id = []
-        for k in id_terpakai:
-            angka = "".join(ch for ch in k if ch.isdigit())
-            if angka.isdigit():
-                angka_id.append(int(angka))
-        counter_id = (max(angka_id) + 1) if angka_id else 1
-
-        for i in df_simpan.index:
-            if pd.isna(df_simpan.loc[i, "id_obat"]) or not str(df_simpan.loc[i, "id_obat"]).strip():
-                df_simpan.loc[i, "id_obat"] = f"OB{counter_id:03d}"
-                counter_id += 1
-            if pd.isna(df_simpan.loc[i, "satuan"]) or not str(df_simpan.loc[i, "satuan"]).strip():
-                df_simpan.loc[i, "satuan"] = "Tablet"
-
-        for kolom_angka in ["isi_per_strip", "isi_per_box", "harga_beli", "harga_1", "harga_2", "harga_3", "stok_akhir"]:
-            df_simpan[kolom_angka] = df_simpan[kolom_angka].fillna(0).astype(float)
-
-        if (kategori_sel != "Semua" or cari):
-            # Filter aktif: gabungkan hasil edit dengan baris yang TIDAK sedang difilter
-            nama_terfilter = db_filtered["nama_obat"].tolist()
-            sisa = st.session_state.database_obat[~st.session_state.database_obat["nama_obat"].isin(nama_terfilter)]
-            df_simpan = pd.concat([sisa, df_simpan], ignore_index=True)
-
-        st.session_state.database_obat = df_simpan
-        st.success("✅ Perubahan Data Obat berhasil disimpan!")
+    if st.button("✅ Submit Data Terbaru", type="primary"):
+        workbook_data = load_inventory_workbook()
+        workbook_data[sheet_name] = normalize_inventory_df(edited_df)
+        save_inventory_workbook(workbook_data)
+        st.success(f"✅ Data worksheet {sheet_name} berhasil disimpan dan diperbarui secara real-time.")
         st.rerun()
 
-    # ── Import Data Obat dari CSV (format kolom sama seperti tabel di atas) ────
-    with st.expander("📂 Import / Tambah Data Obat dari CSV"):
-        st.caption(
-            "Format kolom CSV harus sama seperti tabel di atas: "
-            "**Nama Obat, Kategori, Stok (Tablet), Konversi, Harga Beli, Harga Jual 1, Harga Jual 2, Harga Jual 3, Tanggal Kadaluarsa**. "
-            "Contoh isi kolom Konversi: `1 Box = 10 Strip = 100 Tablet`. Contoh isi kolom Harga: `Rp 500` atau `500`. "
-            "Format Tanggal Kadaluarsa: `DD-MM-YYYY` (mis. 31-12-2027)."
-        )
-        uploaded_obat = st.file_uploader("Pilih file CSV Data Obat", type=["csv"], key="upload_data_obat")
+    st.markdown("---")
+    st.subheader("📊 Ringkasan Per Worksheet")
+    summary_cols = st.columns(3)
+    with summary_cols[0]:
+        st.metric("Worksheet Tersedia", len(workbook_data))
+    with summary_cols[1]:
+        st.metric("Total Record", sum(len(df) for df in workbook_data.values()))
+    with summary_cols[2]:
+        st.metric("Sheet Aktif", sheet_name)
 
-        if uploaded_obat:
-            file_id_obat = f"{uploaded_obat.name}_{uploaded_obat.size}"
-
-            if st.session_state.get("last_import_obat_id") == file_id_obat:
-                st.info("✅ File ini sudah pernah diimpor. Hapus file dari kotak upload lalu upload file BARU jika ingin mengimpor lagi (supaya data tidak dobel).")
-            else:
-                try:
-                    df_obat_up = pd.read_csv(uploaded_obat)
-                    kolom_wajib_obat = [
-                        "Nama Obat", "Kategori", "Stok (Tablet)", "Konversi",
-                        "Harga Beli", "Harga Jual 1", "Harga Jual 2", "Harga Jual 3", "Tanggal Kadaluarsa"
-                    ]
-                    missing_obat = [c for c in kolom_wajib_obat if c not in df_obat_up.columns]
-                    if missing_obat:
-                        st.error(f"Kolom berikut tidak ditemukan di file CSV: {missing_obat}")
-                    else:
-                        obat_baru_list = []
-                        gagal_parse_konversi = []
-                        for _, r in df_obat_up.iterrows():
-                            nama = str(r["Nama Obat"]).strip()
-                            if not nama:
-                                continue
-
-                            # Parsing kolom Konversi, mis: "1 Box = 10 Strip = 100 Tablet"
-                            teks_konversi = str(r["Konversi"])
-                            konversi_match = re.search(
-                                r"1\s*Box\s*=\s*(\d+)\s*Strip\s*=\s*(\d+)\s*Tablet",
-                                teks_konversi, re.IGNORECASE
-                            )
-                            if konversi_match:
-                                isi_per_box = int(konversi_match.group(1))
-                                total_tablet_per_box = int(konversi_match.group(2))
-                                isi_per_strip = int(total_tablet_per_box / isi_per_box) if isi_per_box else 10
-                            else:
-                                # Fallback: coba ambil angka apa pun di dalam teks (format bebas,
-                                # mis. "10 Strip / 100 Tablet" atau "10,100"), supaya tidak
-                                # semuanya jatuh ke nilai default 1 Box = 10 Strip = 100 Tablet.
-                                angka = [int(a) for a in re.findall(r"\d+", teks_konversi)]
-                                if len(angka) >= 3:
-                                    isi_per_box, total_tablet_per_box = angka[-2], angka[-1]
-                                    isi_per_strip = int(total_tablet_per_box / isi_per_box) if isi_per_box else 10
-                                elif len(angka) == 2:
-                                    isi_per_box, total_tablet_per_box = angka[0], angka[1]
-                                    isi_per_strip = int(total_tablet_per_box / isi_per_box) if isi_per_box else 10
-                                else:
-                                    isi_per_box, isi_per_strip = 10, 10
-                                    gagal_parse_konversi.append(nama)
-
-                            obat_baru_list.append({
-                                "id_obat": generate_id_obat(),
-                                "nama_obat": nama,
-                                "kategori": str(r["Kategori"]).strip() if pd.notna(r["Kategori"]) else "Lainnya",
-
-                                "satuan": "Tablet",
-                                "isi_per_strip": float(isi_per_strip),
-                                "isi_per_box": float(isi_per_box),
-
-                                "harga_beli": float(parse_rupiah(r["Harga Beli"])),
-                                "harga_1": float(parse_rupiah(r["Harga Jual 1"])),
-                                "harga_2": float(parse_rupiah(r["Harga Jual 2"])),
-                                "harga_3": float(parse_rupiah(r["Harga Jual 3"])),
-
-                                "stok_akhir": float(r["Stok (Tablet)"]) if pd.notna(r["Stok (Tablet)"]) else 0.0,
-                                "tanggal_kadaluarsa": pd.to_datetime(r["Tanggal Kadaluarsa"], dayfirst=True, errors="coerce")
-                            })
-                            # generate_id_obat() dipanggil sebelum baris ditambahkan ke database_obat,
-                            # jadi ID berikutnya perlu ikut memperhitungkan baris yang baru saja dibuat
-                            st.session_state.database_obat = pd.concat(
-                                [st.session_state.database_obat, pd.DataFrame([obat_baru_list[-1]])],
-                                ignore_index=True
-                            )
-
-                        # Tandai file ini SUDAH diproses, supaya tidak diimpor ulang terus-menerus
-                        # setiap kali halaman rerun (mis. saat mengetik di filter/tabel lain).
-                        st.session_state.last_import_obat_id = file_id_obat
-
-                        if gagal_parse_konversi:
-                            st.warning(
-                                f"Kolom Konversi tidak dikenali untuk: {', '.join(gagal_parse_konversi)} — "
-                                "dipakai konversi default 1 Box = 10 Strip = 100 Tablet."
-                            )
-                        st.success(f"✅ {len(obat_baru_list)} obat berhasil ditambahkan ke Database Master Obat!")
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Gagal membaca file: {e}")
+    with st.expander("Lihat semua sheet yang tersedia"):
+        for name, df in workbook_data.items():
+            st.markdown(f"#### {name}")
+            st.dataframe(df, use_container_width=True, hide_index=True)
 
     # ── Riwayat Transaksi (opsional) ─────────────────────────────────────────
     st.markdown("---")
