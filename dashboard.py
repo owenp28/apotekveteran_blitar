@@ -4,7 +4,7 @@ import io
 import re
 from datetime import date, datetime
 import os
-from urllib.request import urlretrieve
+from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 
@@ -323,7 +323,7 @@ st.markdown(
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
 WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.xlsx")
-DEFAULT_SOURCE_URL = "https://onedrive.live.com/personal/2b91c5c1ac3eaa9f/_layouts/15/download.aspx?UniqueId=e76e9273-f3c4-4465-8e15-e1f29a558111&Translate=false"
+DEFAULT_SOURCE_URL = "https://onedrive.live.com/personal/2b91c5c1ac3eaa9f/_layouts/15/download.aspx?UniqueId=e76e9273-f3c4-4465-8e15-e1f29a558111&Translate=false&download=1"
 ONE_DRIVE_SHARE_URL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
 DEFAULT_SOURCE_LABEL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
 
@@ -455,7 +455,21 @@ def sync_inventory_from_source(source_url=None):
         return False
 
     try:
-        urlretrieve(source_url, WORKBOOK_PATH)
+        request = Request(
+            source_url,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/octet-stream, */*"
+            }
+        )
+        with urlopen(request, timeout=45) as response:
+            data = response.read()
+
+        if not data:
+            raise ValueError("File download dari link sumber kosong.")
+
+        with open(WORKBOOK_PATH, "wb") as f:
+            f.write(data)
         return os.path.exists(WORKBOOK_PATH)
     except Exception:
         if not os.path.exists(WORKBOOK_PATH):
