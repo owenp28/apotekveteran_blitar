@@ -918,13 +918,18 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
 
     if "inventory_source_url" not in st.session_state:
         st.session_state.inventory_source_url = DEFAULT_SOURCE_LABEL
+    if "inventory_data_cache" not in st.session_state:
+        st.session_state.inventory_data_cache = {}
 
     source_url = st.text_input(
         "Link Workbook / CSV Sumber",
         value=st.session_state.inventory_source_url,
         help="Contoh: link OneDrive, Google Drive, atau URL file Excel/CSV yang bisa di-download langsung."
     )
-    st.session_state.inventory_source_url = source_url
+    if source_url != st.session_state.inventory_source_url:
+        st.session_state.inventory_source_url = source_url
+        if source_url.strip():
+            st.session_state.inventory_data_cache = load_inventory_workbook(source_url)
 
     uploaded_inventory = st.file_uploader(
         "Upload file Excel/CSV langsung dari web",
@@ -932,14 +937,18 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
         key="upload_inventory_source"
     )
 
-    workbook_data = load_inventory_workbook(source_url, uploaded_inventory)
+    if uploaded_inventory is not None:
+        workbook_data = load_inventory_workbook(source_url, uploaded_inventory)
+        st.session_state.inventory_data_cache = workbook_data
+        st.success("✅ Data berhasil dimuat langsung dari file upload.")
+    else:
+        workbook_data = st.session_state.inventory_data_cache
+        if not workbook_data:
+            workbook_data = load_inventory_workbook(source_url)
+            st.session_state.inventory_data_cache = workbook_data
+
     if not workbook_data:
         st.info("Sumber file belum bisa dibaca, jadi sistem akan membuat struktur default untuk sheet PCS, SACHET, BOTOL, TAB, BOX, dan STRIP.")
-
-    if st.button("🔄 Refresh Data Dari Link / Upload", type="secondary"):
-        workbook_data = load_inventory_workbook(source_url, uploaded_inventory)
-        st.success("✅ Data berhasil dimuat ulang dari sumber yang dipilih.")
-        st.rerun()
 
     sheet_name = st.selectbox(
         "Pilih Worksheet",
