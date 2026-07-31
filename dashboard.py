@@ -321,7 +321,8 @@ st.markdown(
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
 WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.xlsx")
-ONE_DRIVE_SOURCE_URL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
+DEFAULT_SOURCE_URL = "https://onedrive.live.com/personal/2b91c5c1ac3eaa9f/_layouts/15/download.aspx?UniqueId=e76e9273-f3c4-4465-8e15-e1f29a558111&Translate=false"
+ONE_DRIVE_SHARE_URL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
 
 INVENTORY_SHEETS = ["PCS", "SACHET", "BOTOL", "TAB", "BOX", "STRIP"]
 INVENTORY_COLUMNS = [
@@ -434,20 +435,22 @@ def create_default_inventory_workbook():
     wb.save(WORKBOOK_PATH)
 
 
-def sync_inventory_from_source():
-    if os.path.exists(WORKBOOK_PATH):
-        return True
+def sync_inventory_from_source(source_url=None):
+    source_url = (source_url or DEFAULT_SOURCE_URL).strip()
+    if not source_url:
+        return False
 
     try:
-        urlretrieve(ONE_DRIVE_SOURCE_URL, WORKBOOK_PATH)
+        urlretrieve(source_url, WORKBOOK_PATH)
         return os.path.exists(WORKBOOK_PATH)
     except Exception:
-        create_default_inventory_workbook()
+        if not os.path.exists(WORKBOOK_PATH):
+            create_default_inventory_workbook()
         return os.path.exists(WORKBOOK_PATH)
 
 
-def load_inventory_workbook():
-    sync_inventory_from_source()
+def load_inventory_workbook(source_url=None):
+    sync_inventory_from_source(source_url)
     if not os.path.exists(WORKBOOK_PATH):
         return {}
 
@@ -859,19 +862,24 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
     st.title("📋 Tampilan Obat Hari Ini")
     st.caption("Tampilan sederhana, real-time, dan bisa diedit langsung per worksheet sesuai satuan: PCS, SACHET, BOTOL, TAB, BOX, STRIP.")
 
-    workbook_data = load_inventory_workbook()
-    if not workbook_data:
-        st.info("File workbook belum bisa dibaca sepenuhnya, jadi sistem akan membuat struktur default untuk sheet PCS, SACHET, BOTOL, TAB, BOX, dan STRIP.")
+    if "inventory_source_url" not in st.session_state:
+        st.session_state.inventory_source_url = DEFAULT_SOURCE_URL
 
-    uploaded_workbook = st.file_uploader("Upload workbook obat jika ingin mengganti file lokal", type=["xlsx", "xlsm"], key="upload_inventory_workbook")
-    if uploaded_workbook is not None:
-        try:
-            with open(WORKBOOK_PATH, "wb") as f:
-                f.write(uploaded_workbook.getvalue())
-            st.success("✅ Workbook lokal berhasil diperbarui.")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Gagal menimpa workbook lokal: {e}")
+    source_url = st.text_input(
+        "Link Workbook / CSV Sumber",
+        value=st.session_state.inventory_source_url,
+        help="Contoh: link OneDrive, Google Drive, atau URL file Excel/CSV yang bisa di-download langsung."
+    )
+    st.session_state.inventory_source_url = source_url
+
+    workbook_data = load_inventory_workbook(source_url)
+    if not workbook_data:
+        st.info("Sumber file belum bisa dibaca, jadi sistem akan membuat struktur default untuk sheet PCS, SACHET, BOTOL, TAB, BOX, dan STRIP.")
+
+    if st.button("🔄 Refresh Data Dari Link", type="secondary"):
+        workbook_data = load_inventory_workbook(source_url)
+        st.success("✅ Data berhasil disegarkan dari link sumber.")
+        st.rerun()
 
     sheet_name = st.selectbox(
         "Pilih Worksheet",
