@@ -4,13 +4,12 @@ import io
 import re
 from datetime import date, datetime
 import os
+from io import BytesIO
 from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
-AUTO_REFRESH_SECONDS = 30
-st.markdown(f"<meta http-equiv='refresh' content='{AUTO_REFRESH_SECONDS}'>", unsafe_allow_html=True)
 
 # ── CSS Custom untuk Menyesuaikan Tampilan ERP ─────────────────────────────────
 # Perubahan ini dilakukan untuk:
@@ -323,6 +322,7 @@ st.markdown(
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
 WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.xlsx")
+CSV_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.csv")
 DEFAULT_SOURCE_URL = "https://onedrive.live.com/personal/2b91c5c1ac3eaa9f/_layouts/15/download.aspx?UniqueId=e76e9273-f3c4-4465-8e15-e1f29a558111&Translate=false&download=1"
 ONE_DRIVE_SHARE_URL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
 DEFAULT_SOURCE_LABEL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
@@ -477,7 +477,33 @@ def sync_inventory_from_source(source_url=None):
         return os.path.exists(WORKBOOK_PATH)
 
 
-def load_inventory_workbook(source_url=None):
+def load_inventory_from_bytes(file_bytes, filename):
+    if filename.lower().endswith(".csv"):
+        df = pd.read_csv(BytesIO(file_bytes))
+        return {sheet_name: normalize_inventory_df(df) for sheet_name in INVENTORY_SHEETS[:1]}
+
+    wb = load_workbook(BytesIO(file_bytes), data_only=True)
+    workbook_data = {}
+    for sheet_name in INVENTORY_SHEETS:
+        if sheet_name not in wb.sheetnames:
+            continue
+        ws = wb[sheet_name]
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            workbook_data[sheet_name] = pd.DataFrame(columns=INVENTORY_COLUMNS)
+            continue
+        headers = [str(h).strip() if h is not None else "" for h in rows[0]]
+        data_rows = rows[1:]
+        df = pd.DataFrame(data_rows, columns=headers)
+        workbook_data[sheet_name] = normalize_inventory_df(df)
+    return workbook_data
+
+
+def load_inventory_workbook(source_url=None, uploaded_file=None):
+    if uploaded_file is not None:
+        data = uploaded_file.getvalue()
+        return load_inventory_from_bytes(data, uploaded_file.name)
+
     sync_inventory_from_source(source_url)
     if not os.path.exists(WORKBOOK_PATH):
         return {}
@@ -888,8 +914,7 @@ if menu == "🏠 Beranda":
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Tampilkan Stok Obat Hari Ini":
     st.title("📋 Tampilan Obat Hari Ini")
-    st.caption("Tampilan sederhana, real-time, dan bisa diedit langsung per worksheet sesuai satuan: PCS, SACHET, BOTOL, TAB, BOX, STRIP.")
-    st.caption(f"Auto refresh aktif setiap {AUTO_REFRESH_SECONDS} detik untuk sinkronisasi ulang dari link sumber.")
+    st.caption("Tampilan sederhana dan bisa diedit langsung per worksheet sesuai satuan: PCS, SACHET, BOTOL, TAB, BOX, STRIP.")
 
     if "inventory_source_url" not in st.session_state:
         st.session_state.inventory_source_url = DEFAULT_SOURCE_LABEL
@@ -901,13 +926,19 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
     )
     st.session_state.inventory_source_url = source_url
 
-    workbook_data = load_inventory_workbook(source_url)
+    uploaded_inventory = st.file_uploader(
+        "Upload file Excel/CSV langsung dari web",
+        type=["xlsx", "xlsm", "csv"],
+        key="upload_inventory_source"
+    )
+
+    workbook_data = load_inventory_workbook(source_url, uploaded_inventory)
     if not workbook_data:
         st.info("Sumber file belum bisa dibaca, jadi sistem akan membuat struktur default untuk sheet PCS, SACHET, BOTOL, TAB, BOX, dan STRIP.")
 
-    if st.button("🔄 Refresh Data Dari Link", type="secondary"):
-        workbook_data = load_inventory_workbook(source_url)
-        st.success("✅ Data berhasil disegarkan dari link sumber.")
+    if st.button("🔄 Refresh Data Dari Link / Upload", type="secondary"):
+        workbook_data = load_inventory_workbook(source_url, uploaded_inventory)
+        st.success("✅ Data berhasil dimuat ulang dari sumber yang dipilih.")
         st.rerun()
 
     sheet_name = st.selectbox(
