@@ -2038,28 +2038,11 @@ elif menu == "🛍️ Entri Pembelian":
             }
         ])
 
-    # ── Baris 1: Informasi Faktur ──────────────────────────────────────────────
-    st.markdown(
-        """
-        <div class='form-container'>
-            <div class='form-section-title'>📋 Informasi Faktur</div>
-        """,
-        unsafe_allow_html=True
-    )
-
+    # ── Header Form Ringkas ──────────────────────────────────────────────────
+    st.caption("Nomor faktur dan pencarian obat ditampilkan di bagian atas untuk memudahkan penambahan item pembelian.")
     no_faktur = st.text_input("No. Faktur", key="no_faktur_pembelian")
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # ── Baris 2: Pencarian obat ───────────────────────────────────────────────
-    st.markdown(
-        """
-        <div class='form-container'>
-            <div class='form-section-title'>🔍 Cari Obat</div>
-        """,
-        unsafe_allow_html=True
-    )
-    st.caption("Ketik Nama Obat / Scan Barcode Obat...")
+    # ── Pencarian obat ──────────────────────────────────────────────────────
     col_cari, col_obat_baru = st.columns([5, 1])
     with col_cari:
         cari_obat_input = st.text_input(
@@ -2122,8 +2105,6 @@ elif menu == "🛍️ Entri Pembelian":
                     st.rerun()
         else:
             st.warning("Obat tidak ditemukan di database. Gunakan tombol ➕ Obat Baru untuk menambahkannya.")
-
-    st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Tabel rincian item pembelian ──────────────────────────────────────────
     st.markdown(
