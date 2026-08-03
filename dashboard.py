@@ -1244,7 +1244,7 @@ elif menu == "✏️ Ubah Stok Obat Hari Ini":
         df = pd.DataFrame(columns=KOLOM_WAJIB)
 
     if st.session_state.database_obat.empty:
-        st.warning("Database Master Obat masih kosong. Tambahkan obat terlebih dahulu di menu **Entri Pembelian** (➕ Obat Baru).")
+        st.warning("Database Master Obat masih kosong. Tambahkan obat terlebih dahulu di menu **📦 Entri & Retur Pembelian** (➕ Obat Baru).")
         st.stop()
 
     tab1, tab2 = st.tabs(["➕ Tambah / Update Transaksi", "🗑️ Hapus Baris Riwayat"])
@@ -1512,7 +1512,7 @@ elif menu == "🛒 Update Stok & Kasir":
         df = pd.DataFrame(columns=KOLOM_WAJIB)
 
     if st.session_state.database_obat.empty:
-        st.warning("Database Master Obat masih kosong. Tambahkan obat terlebih dahulu di menu **Entri Pembelian** (➕ Obat Baru).")
+        st.warning("Database Master Obat masih kosong. Tambahkan obat terlebih dahulu di menu **📦 Entri & Retur Pembelian** (➕ Obat Baru).")
         st.stop()
 
     # State untuk menyimpan keranjang belanja sementara
@@ -2008,287 +2008,223 @@ elif menu == "📦 Entri & Retur Pembelian":
             history_display["Total Nilai Retur"] = history_display["Total Nilai Retur"].apply(lambda x: f"Rp {x:,.2f}".replace(",", "."))
             st.dataframe(history_display, use_container_width=True, hide_index=True)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# FITUR 5 — ENTRI PEMBELIAN
-# ══════════════════════════════════════════════════════════════════════════════
-elif menu == "🛍️ Entri Pembelian":
-    st.markdown(
-        """
-        <div class='app-header'>
-            <div class='app-title'>🛍️ Entri Pembelian Obat</div>
-            <div class='app-subtitle'>Formulir pencatatan pembelian obat</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # ── Session state untuk tabel pembelian ──────────────────────────────────
-    if "df_beli" not in st.session_state:
-        st.session_state.df_beli = pd.DataFrame([
-            {
-                "No.": 1,
-                "Nama Obat": "",
-                "Satuan Beli": "Tablet",
-                "Jumlah": 0.0,
-                "Jumlah (Tablet)": 0.0,
-                "Harga Beli": 0.0,
-                "Subtotal": 0.0,
-                "Batch": "",
-                "Tanggal Expired": pd.Timestamp(date.today())
-            }
-        ])
-
-    # ── Header Form Ringkas ──────────────────────────────────────────────────
-    st.caption("Nomor faktur dan pencarian obat ditampilkan di bagian atas untuk memudahkan penambahan item pembelian.")
-    no_faktur = st.text_input("No. Faktur", key="no_faktur_pembelian")
-
-    # ── Pencarian obat ──────────────────────────────────────────────────────
-    col_cari, col_obat_baru = st.columns([5, 1])
-    with col_cari:
-        cari_obat_input = st.text_input(
-            label="Pencarian Obat",
-            placeholder="Ketik Nama Obat / Scan Barcode Obat...",
-            label_visibility="collapsed",
-            key="cari_obat_input"
+    with tab_entri:
+        st.markdown(
+            """
+            <div class='app-header'>
+                <div class='app-title'>🛍️ Entri Pembelian Obat</div>
+                <div class='app-subtitle'>Catat pembelian secara ringkas, fokus pada item, dan simpan langsung ke stok aktif.</div>
+            </div>
+            """,
+            unsafe_allow_html=True
         )
-    with col_obat_baru:
-        # Tombol pintasan untuk menambah obat baru
-        if st.button("➕ Obat Baru", use_container_width=True, key="btn_obat_baru"):
-            tambah_obat_baru()  # Panggil fungsi dialog
 
-    # Hasil pencarian — dicari langsung dari Database Master Obat.
-    # Klik baris pada tabel hasil, lalu tekan tombol "Tambahkan" untuk
-    # otomatis mengisi baris baru di tabel Rincian Item Pembelian di bawah.
-    if cari_obat_input.strip():
-        hasil = cari_obat(cari_obat_input.strip())
-        if not hasil.empty:
-            st.success(f"{len(hasil)} obat ditemukan. Klik salah satu baris lalu tekan tombol Tambahkan:")
-            event_beli = st.dataframe(
-                hasil[["nama_obat", "kategori", "isi_per_strip", "isi_per_box", "harga_1", "harga_2", "stok_akhir"]].rename(columns={
-                    "isi_per_strip": "Tablet/Strip",
-                    "isi_per_box": "Strip/Box",
-                    "harga_1": "Harga Jual 1",
-                    "harga_2": "Harga Jual 2",
-                    "stok_akhir": "Stok (Tablet)"
-                }),
-                use_container_width=True,
-                hide_index=True,
-                on_select="rerun",
-                selection_mode="single-row",
-                key="table_hasil_pencarian_pembelian"
-            )
-
-            if event_beli.selection.rows:
-                idx = event_beli.selection.rows[0]
-                selected_row = hasil.iloc[idx]
-                if st.button(f"➕ Tambahkan '{selected_row['nama_obat']}' ke Tabel Pembelian", key="tambah_ke_pembelian"):
-                    new_row = {
-                        "No.": len(st.session_state.df_beli) + 1,
-                        "Nama Obat": selected_row["nama_obat"],
-                        "Satuan Beli": "Tablet",
-                        "Jumlah": 0.0,
-                        "Jumlah (Tablet)": 0.0,
-                        "Harga Beli": float(selected_row["harga_beli"]),
-                        "Subtotal": 0.0,
-                        "Batch": "",
-                        "Tanggal Expired": pd.Timestamp(selected_row["tanggal_kadaluarsa"]) if selected_row["tanggal_kadaluarsa"] else pd.Timestamp(date.today())
-                    }
-                    # Buang baris kosong pertama (baris default yang belum diisi) jika masih ada
-                    df_existing = st.session_state.df_beli
-                    if len(df_existing) == 1 and not str(df_existing.iloc[0]["Nama Obat"]).strip():
-                        st.session_state.df_beli = pd.DataFrame([new_row])
-                    else:
-                        st.session_state.df_beli = pd.concat(
-                            [df_existing, pd.DataFrame([new_row])], ignore_index=True
-                        )
-                    st.success(f"{selected_row['nama_obat']} ditambahkan ke tabel pembelian!")
-                    st.rerun()
-        else:
-            st.warning("Obat tidak ditemukan di database. Gunakan tombol ➕ Obat Baru untuk menambahkannya.")
-
-    # ── Tabel rincian item pembelian ──────────────────────────────────────────
-    st.markdown(
-        """
-        <div class='table-container'>
-            <div class='table-title'>📦 Rincian Item Pembelian</div>
-        """,
-        unsafe_allow_html=True
-    )
-    st.caption("Pembelian boleh dalam Box / Strip / Tablet. Kolom 'Jumlah (Tablet)' otomatis dihitung mengikuti konversi obat masing-masing — stok akhir tetap tersimpan dalam Tablet.")
-
-    SATUAN_BELI_OPTIONS = ["Box", "Strip", "Tablet"]
-
-    edited_df = st.data_editor(
-        st.session_state.df_beli,
-        use_container_width=True,
-        num_rows="dynamic",
-        hide_index=True,
-        column_config={
-            "No.": st.column_config.NumberColumn(
-                "No.", disabled=True, width="small"
-            ),
-            "Nama Obat": st.column_config.TextColumn(
-                "Nama Obat", width="large"
-            ),
-            "Satuan Beli": st.column_config.SelectboxColumn(
-                "Satuan Beli", options=SATUAN_BELI_OPTIONS, width="small"
-            ),
-            "Jumlah": st.column_config.NumberColumn(
-                "Jumlah", min_value=0.0, format="%.2f", width="small",
-                help="Jumlah dalam Satuan Beli yang dipilih (Box/Strip/Tablet)"
-            ),
-            "Jumlah (Tablet)": st.column_config.NumberColumn(
-                "Jumlah (Tablet)", disabled=True, format="%.0f", width="small"
-            ),
-            "Harga Beli": st.column_config.NumberColumn(
-                "Harga Beli", min_value=0.0, format="%.2f", width="medium",
-                help="Harga beli TOTAL untuk 1 Satuan Beli (mis. harga per Box)"
-            ),
-            "Subtotal": st.column_config.NumberColumn(
-                "Subtotal", min_value=0.0, format="%.2f", width="medium",
-                help="Otomatis terisi dari Jumlah × Harga Beli, tapi bisa diubah manual jika perlu."
-            ),
-            "Batch": st.column_config.TextColumn(
-                "Batch", width="small"
-            ),
-            "Tanggal Expired": st.column_config.DateColumn(
-                "Tanggal Expired", min_value=date.today(), format="DD-MM-YYYY"
-            ),
-        },
-        key="df_beli_editor"
-    )
-
-    # Hitung ulang Jumlah (Tablet) otomatis mengikuti konversi obat masing-masing
-    jumlah_tablet_list = []
-    for _, row in edited_df.iterrows():
-        if str(row["Nama Obat"]).strip():
-            faktor = get_konversi_tablet(row["Nama Obat"], row["Satuan Beli"])
-        else:
-            faktor = 1
-        jumlah_tablet_list.append(float(row["Jumlah"] or 0) * faktor)
-    edited_df["Jumlah (Tablet)"] = jumlah_tablet_list
-
-    # Subtotal otomatis terisi dari Jumlah x Harga Beli, TAPI kalau kolom Subtotal
-    # sudah pernah diisi/diubah manual oleh pengguna (nilainya tidak 0), nilai itu
-    # akan tetap dipakai dan tidak ditimpa ulang.
-    subtotal_otomatis = (edited_df["Jumlah"].fillna(0) * edited_df["Harga Beli"].fillna(0)).round(2)
-    edited_df["Subtotal"] = edited_df["Subtotal"].fillna(0).where(edited_df["Subtotal"].fillna(0) != 0, subtotal_otomatis)
-
-    # Perbarui nomor urut
-    edited_df["No."] = range(1, len(edited_df) + 1)
-    st.session_state.df_beli = edited_df
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # ── Ringkasan total ───────────────────────────────────────────────────────
-    total_subtotal = edited_df["Subtotal"].sum()
-    total_subtotal_fmt = f"Rp {total_subtotal:,.2f}".replace(",", ".")
-    st.markdown(
-        f"""
-        <div class='total-container'>
-            <div class='action-buttons'>
-                <button class='btn-custom btn-save' id='btn_simpan_beli'>
-                    ✓ Simpan
-                </button>
-                <button class='btn-custom btn-reset' id='btn_reset_beli'>
-                    ⟲ Reset
-                </button>
-            </div>
-            <div>
-                <div class='total-label'>Total Subtotal</div>
-                <div class='total-value' id='total-subtotal-value'>{total_subtotal_fmt}</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.markdown("---")
-
-    # ── Tombol simpan ke dataset stok ─────────────────────────────────────────
-    col_simpan_beli, col_reset_beli = st.columns([1, 1])
-    with col_simpan_beli:
-        if st.button("💾 Simpan Pembelian ke Stok", type="primary", use_container_width=True):
-            if edited_df.empty or not edited_df["Nama Obat"].astype(str).str.strip().any():
-                st.warning("Tabel pembelian kosong.")
-            else:
-                df_stok = load_data()
-                if df_stok is None:
-                    df_stok = pd.DataFrame(columns=KOLOM_WAJIB)
-
-                new_rows = []
-                jumlah_disimpan = 0
-                for _, row in edited_df.iterrows():
-                    nama = str(row["Nama Obat"]).strip()
-                    jumlah_tablet = float(row["Jumlah (Tablet)"])
-                    if not nama or jumlah_tablet <= 0:
-                        continue
-
-                    # ── Update Database Master Obat (stok selalu dalam Tablet) ──
-                    mask = st.session_state.database_obat["nama_obat"].str.lower() == nama.lower()
-                    if mask.any():
-                        idx_master = st.session_state.database_obat[mask].index[-1]
-                        stok_akhir_baru = float(st.session_state.database_obat.loc[idx_master, "stok_akhir"]) + jumlah_tablet
-                        harga_per_tablet = float(row["Harga Beli"]) / get_konversi_tablet(nama, row["Satuan Beli"])
-                        st.session_state.database_obat.loc[idx_master, "stok_akhir"] = stok_akhir_baru
-                        st.session_state.database_obat.loc[idx_master, "harga_beli"] = harga_per_tablet
-                        kategori_obat = st.session_state.database_obat.loc[idx_master, "kategori"]
-                    else:
-                        # Obat belum ada di master - lewati update stok master, tetap catat di riwayat stok
-                        stok_akhir_baru = jumlah_tablet
-                        harga_per_tablet = float(row["Subtotal"]) / jumlah_tablet
-                        kategori_obat = "Lainnya"
-
-                    new_rows.append({
-                        "Tanggal": pd.Timestamp(date.today()),
-                        "Nama Obat": nama,
-                        "Kategori": kategori_obat,
-                        "Satuan": "Tablet",
-                        "Stok Masuk": jumlah_tablet,
-                        "Stok Keluar": 0,
-                        "Stok Akhir": stok_akhir_baru,
-                        "Harga Satuan (Rp)": harga_per_tablet,
-                        "Total Nilai (Rp)": stok_akhir_baru * harga_per_tablet,
-                        "Tanggal Kadaluarsa": pd.Timestamp(row["Tanggal Expired"]),
-                        "Keterangan": f"Pembelian - Faktur {no_faktur} ({row['Jumlah']:g} {row['Satuan Beli']})"
-                    })
-                    jumlah_disimpan += 1
-
-                if new_rows:
-                    df_stok = pd.concat([df_stok, pd.DataFrame(new_rows)], ignore_index=True)
-                    save_data(df_stok)
-                    st.session_state.df_beli = pd.DataFrame([
-                        {
-                            "No.": 1, "Nama Obat": "", "Satuan Beli": "Tablet",
-                            "Jumlah": 0.0, "Jumlah (Tablet)": 0.0, "Harga Beli": 0.0,
-                            "Subtotal": 0.0, "Batch": "", "Tanggal Expired": pd.Timestamp(date.today())
-                        }
-                    ])
-                    st.success(f"✅ {jumlah_disimpan} item berhasil disimpan ke stok (dikonversi ke Tablet)!")
-                    st.rerun()
-                else:
-                    st.warning("Tidak ada item dengan Jumlah lebih dari 0.")
-    with col_reset_beli:
-        if st.button("🗑️ Reset Tabel", type="secondary", use_container_width=True):
+        if "df_beli" not in st.session_state:
             st.session_state.df_beli = pd.DataFrame([
                 {
-                    "No.": 1, "Nama Obat": "", "Satuan Beli": "Tablet",
-                    "Jumlah": 0.0, "Jumlah (Tablet)": 0.0, "Harga Beli": 0.0,
-                    "Subtotal": 0.0, "Batch": "", "Tanggal Expired": pd.Timestamp(date.today())
+                    "No.": 1,
+                    "Nama Obat": "",
+                    "Satuan Beli": "Tablet",
+                    "Jumlah": 0.0,
+                    "Jumlah (Tablet)": 0.0,
+                    "Harga Beli": 0.0,
+                    "Subtotal": 0.0,
+                    "Batch": "",
+                    "Tanggal Expired": pd.Timestamp(date.today())
                 }
             ])
-            st.rerun()
 
-    # ── Footer ────────────────────────────────────────────────────────────────
-    st.markdown(
-        """
-        <div class='app-footer'>
-            <p>All Rights Reserved</p>
-            <p style='color: #e94560; font-weight: 600;'>Vmedis 1.8.0</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+        st.caption("Nomor faktur, pencarian obat, dan rincian item pembelian ditampilkan dalam satu panel kerja yang lebih rapi.")
+        no_faktur = st.text_input("No. Faktur", key="no_faktur_pembelian")
+
+        col_cari, col_obat_baru = st.columns([5, 1])
+        with col_cari:
+            cari_obat_input = st.text_input(
+                label="Pencarian Obat",
+                placeholder="Ketik Nama Obat / Scan Barcode Obat...",
+                label_visibility="collapsed",
+                key="cari_obat_input"
+            )
+        with col_obat_baru:
+            if st.button("➕ Obat Baru", use_container_width=True, key="btn_obat_baru"):
+                tambah_obat_baru()
+
+        if cari_obat_input.strip():
+            hasil = cari_obat(cari_obat_input.strip())
+            if not hasil.empty:
+                st.success(f"{len(hasil)} obat ditemukan. Klik salah satu baris lalu tekan tombol Tambahkan:")
+                event_beli = st.dataframe(
+                    hasil[["nama_obat", "kategori", "isi_per_strip", "isi_per_box", "harga_1", "harga_2", "stok_akhir"]].rename(columns={
+                        "isi_per_strip": "Tablet/Strip",
+                        "isi_per_box": "Strip/Box",
+                        "harga_1": "Harga Jual 1",
+                        "harga_2": "Harga Jual 2",
+                        "stok_akhir": "Stok (Tablet)"
+                    }),
+                    use_container_width=True,
+                    hide_index=True,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                    key="table_hasil_pencarian_pembelian"
+                )
+
+                if event_beli.selection.rows:
+                    idx = event_beli.selection.rows[0]
+                    selected_row = hasil.iloc[idx]
+                    if st.button(f"➕ Tambahkan '{selected_row['nama_obat']}' ke Tabel Pembelian", key="tambah_ke_pembelian"):
+                        new_row = {
+                            "No.": len(st.session_state.df_beli) + 1,
+                            "Nama Obat": selected_row["nama_obat"],
+                            "Satuan Beli": "Tablet",
+                            "Jumlah": 0.0,
+                            "Jumlah (Tablet)": 0.0,
+                            "Harga Beli": float(selected_row["harga_beli"]),
+                            "Subtotal": 0.0,
+                            "Batch": "",
+                            "Tanggal Expired": pd.Timestamp(selected_row["tanggal_kadaluarsa"]) if selected_row["tanggal_kadaluarsa"] else pd.Timestamp(date.today())
+                        }
+                        df_existing = st.session_state.df_beli
+                        if len(df_existing) == 1 and not str(df_existing.iloc[0]["Nama Obat"]).strip():
+                            st.session_state.df_beli = pd.DataFrame([new_row])
+                        else:
+                            st.session_state.df_beli = pd.concat(
+                                [df_existing, pd.DataFrame([new_row])], ignore_index=True
+                            )
+                        st.success(f"{selected_row['nama_obat']} ditambahkan ke tabel pembelian!")
+                        st.rerun()
+            else:
+                st.warning("Obat tidak ditemukan di database. Gunakan tombol ➕ Obat Baru untuk menambahkannya.")
+
+        st.markdown("---")
+        st.subheader("📦 Rincian Item Pembelian")
+        st.caption("Pembelian boleh dalam Box / Strip / Tablet. Kolom 'Jumlah (Tablet)' otomatis dihitung mengikuti konversi obat masing-masing — stok akhir tetap tersimpan dalam Tablet.")
+
+        SATUAN_BELI_OPTIONS = ["Box", "Strip", "Tablet"]
+
+        edited_df = st.data_editor(
+            st.session_state.df_beli,
+            use_container_width=True,
+            num_rows="dynamic",
+            hide_index=True,
+            column_config={
+                "No.": st.column_config.NumberColumn("No.", disabled=True, width="small"),
+                "Nama Obat": st.column_config.TextColumn("Nama Obat", width="large"),
+                "Satuan Beli": st.column_config.SelectboxColumn("Satuan Beli", options=SATUAN_BELI_OPTIONS, width="small"),
+                "Jumlah": st.column_config.NumberColumn("Jumlah", min_value=0.0, format="%.2f", width="small", help="Jumlah dalam satuan beli yang dipilih"),
+                "Jumlah (Tablet)": st.column_config.NumberColumn("Jumlah (Tablet)", disabled=True, format="%.0f", width="small"),
+                "Harga Beli": st.column_config.NumberColumn("Harga Beli", min_value=0.0, format="%.2f", width="medium", help="Harga total per satuan beli"),
+                "Subtotal": st.column_config.NumberColumn("Subtotal", min_value=0.0, format="%.2f", width="medium", help="Dihitung otomatis dari Jumlah × Harga Beli"),
+                "Batch": st.column_config.TextColumn("Batch", width="small"),
+                "Tanggal Expired": st.column_config.DateColumn("Tanggal Expired", min_value=date.today(), format="DD-MM-YYYY"),
+            },
+            key="df_beli_editor"
+        )
+
+        jumlah_tablet_list = []
+        for _, row in edited_df.iterrows():
+            if str(row["Nama Obat"]).strip():
+                faktor = get_konversi_tablet(row["Nama Obat"], row["Satuan Beli"])
+            else:
+                faktor = 1
+            jumlah_tablet_list.append(float(row["Jumlah"] or 0) * faktor)
+        edited_df["Jumlah (Tablet)"] = jumlah_tablet_list
+
+        subtotal_otomatis = (edited_df["Jumlah"].fillna(0) * edited_df["Harga Beli"].fillna(0)).round(2)
+        edited_df["Subtotal"] = edited_df["Subtotal"].fillna(0).where(edited_df["Subtotal"].fillna(0) != 0, subtotal_otomatis)
+        edited_df["No."] = range(1, len(edited_df) + 1)
+        st.session_state.df_beli = edited_df
+
+        total_subtotal = edited_df["Subtotal"].sum()
+        total_subtotal_fmt = f"Rp {total_subtotal:,.2f}".replace(",", ".")
+        st.markdown(
+            f"""
+            <div class='total-container'>
+                <div class='action-buttons'>
+                    <button class='btn-custom btn-save' id='btn_simpan_beli'>✓ Simpan</button>
+                    <button class='btn-custom btn-reset' id='btn_reset_beli'>⟲ Reset</button>
+                </div>
+                <div>
+                    <div class='total-label'>Total Subtotal</div>
+                    <div class='total-value' id='total-subtotal-value'>{total_subtotal_fmt}</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown("---")
+        col_simpan_beli, col_reset_beli = st.columns([1, 1])
+        with col_simpan_beli:
+            if st.button("💾 Simpan Pembelian ke Stok", type="primary", use_container_width=True):
+                if edited_df.empty or not edited_df["Nama Obat"].astype(str).str.strip().any():
+                    st.warning("Tabel pembelian kosong.")
+                else:
+                    df_stok = load_data()
+                    if df_stok is None:
+                        df_stok = pd.DataFrame(columns=KOLOM_WAJIB)
+
+                    new_rows = []
+                    jumlah_disimpan = 0
+                    for _, row in edited_df.iterrows():
+                        nama = str(row["Nama Obat"]).strip()
+                        jumlah_tablet = float(row["Jumlah (Tablet)"])
+                        if not nama or jumlah_tablet <= 0:
+                            continue
+
+                        mask = st.session_state.database_obat["nama_obat"].str.lower() == nama.lower()
+                        if mask.any():
+                            idx_master = st.session_state.database_obat[mask].index[-1]
+                            stok_akhir_baru = float(st.session_state.database_obat.loc[idx_master, "stok_akhir"]) + jumlah_tablet
+                            harga_per_tablet = float(row["Harga Beli"]) / get_konversi_tablet(nama, row["Satuan Beli"])
+                            st.session_state.database_obat.loc[idx_master, "stok_akhir"] = stok_akhir_baru
+                            st.session_state.database_obat.loc[idx_master, "harga_beli"] = harga_per_tablet
+                            kategori_obat = st.session_state.database_obat.loc[idx_master, "kategori"]
+                        else:
+                            stok_akhir_baru = jumlah_tablet
+                            harga_per_tablet = float(row["Subtotal"]) / jumlah_tablet
+                            kategori_obat = "Lainnya"
+
+                        new_rows.append({
+                            "Tanggal": pd.Timestamp(date.today()),
+                            "Nama Obat": nama,
+                            "Kategori": kategori_obat,
+                            "Satuan": "Tablet",
+                            "Stok Masuk": jumlah_tablet,
+                            "Stok Keluar": 0,
+                            "Stok Akhir": stok_akhir_baru,
+                            "Harga Satuan (Rp)": harga_per_tablet,
+                            "Total Nilai (Rp)": stok_akhir_baru * harga_per_tablet,
+                            "Tanggal Kadaluarsa": pd.Timestamp(row["Tanggal Expired"]),
+                            "Keterangan": f"Pembelian - Faktur {no_faktur} ({row['Jumlah']:g} {row['Satuan Beli']})"
+                        })
+                        jumlah_disimpan += 1
+
+                    if new_rows:
+                        df_stok = pd.concat([df_stok, pd.DataFrame(new_rows)], ignore_index=True)
+                        save_data(df_stok)
+                        st.session_state.df_beli = pd.DataFrame([
+                            {
+                                "No.": 1, "Nama Obat": "", "Satuan Beli": "Tablet",
+                                "Jumlah": 0.0, "Jumlah (Tablet)": 0.0, "Harga Beli": 0.0,
+                                "Subtotal": 0.0, "Batch": "", "Tanggal Expired": pd.Timestamp(date.today())
+                            }
+                        ])
+                        st.success(f"✅ {jumlah_disimpan} item berhasil disimpan ke stok (dikonversi ke Tablet)!")
+                        st.rerun()
+                    else:
+                        st.warning("Tidak ada item dengan Jumlah lebih dari 0.")
+        with col_reset_beli:
+            if st.button("🗑️ Reset Tabel", type="secondary", use_container_width=True):
+                st.session_state.df_beli = pd.DataFrame([
+                    {
+                        "No.": 1, "Nama Obat": "", "Satuan Beli": "Tablet",
+                        "Jumlah": 0.0, "Jumlah (Tablet)": 0.0, "Harga Beli": 0.0,
+                        "Subtotal": 0.0, "Batch": "", "Tanggal Expired": pd.Timestamp(date.today())
+                    }
+                ])
+                st.rerun()
+
+# ══════════════════════════════════════════════════════════════════════════════
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
