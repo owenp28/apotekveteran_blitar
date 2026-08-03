@@ -1886,9 +1886,10 @@ elif menu == "📦 Entri & Retur Pembelian":
                 value=0.0,
                 key="qty_retur_input"
             )
+            selected_keterangan = sanitize_excel_value(selected_row["Keterangan"]) if "Keterangan" in selected_row.index else None
             keterangan_retur = st.text_area(
                 "Keterangan Retur",
-                value=str(selected_row.get("Keterangan") or ""),
+                value="" if selected_keterangan is None else str(selected_keterangan),
                 placeholder="Masukkan alasan retur / catatan tambahan",
                 height=90,
                 key="keterangan_retur_input"
