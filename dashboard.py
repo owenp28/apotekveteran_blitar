@@ -321,11 +321,11 @@ st.markdown(
 
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
-WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.xlsx")
+WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran.xlsx")
 CSV_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.csv")
-DEFAULT_SOURCE_URL = "https://onedrive.live.com/personal/2b91c5c1ac3eaa9f/_layouts/15/download.aspx?UniqueId=e76e9273-f3c4-4465-8e15-e1f29a558111&Translate=false&download=1"
+DEFAULT_SOURCE_URL = WORKBOOK_PATH
 ONE_DRIVE_SHARE_URL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
-DEFAULT_SOURCE_LABEL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
+DEFAULT_SOURCE_LABEL = WORKBOOK_PATH
 
 INVENTORY_SHEETS = ["PCS", "SACHET", "BOTOL", "TAB", "BOX", "STRIP"]
 INVENTORY_COLUMNS = [
@@ -422,10 +422,66 @@ def format_rupiah(val):
 
 def normalize_inventory_df(df):
     df = df.copy()
+    renamed = {}
+    for kolom in df.columns:
+        nama_kolom = str(kolom).strip()
+        if nama_kolom == "Nama obat":
+            renamed[kolom] = "Nama produk"
+        elif nama_kolom == "Nama Produk":
+            renamed[kolom] = "Nama produk"
+        elif nama_kolom == "PBF ":
+            renamed[kolom] = "PBF"
+        elif nama_kolom == "Keterangan ":
+            renamed[kolom] = "Keterangan"
+        elif nama_kolom == "Nama produk":
+            renamed[kolom] = "Nama produk"
+    if renamed:
+        df = df.rename(columns=renamed)
     for kolom in INVENTORY_COLUMNS:
         if kolom not in df.columns:
             df[kolom] = None
     return df[INVENTORY_COLUMNS]
+
+
+def _find_inventory_header_row(rows):
+    known_headers = {
+        "nama produk",
+        "nama obat",
+        "satuan",
+        "tanggal",
+        "nomor faktur",
+        "nomor batch",
+        "pbf",
+        "tanggal kadaluarsa",
+        "stok masuk",
+        "stok keluar",
+        "stok sisa",
+        "harga 1",
+        "harga 2",
+        "keterangan"
+    }
+    for index, row in enumerate(rows):
+        cleaned = [str(cell).strip().lower() if cell is not None else "" for cell in row]
+        score = sum(1 for cell in cleaned if cell in known_headers)
+        if score >= 4:
+            return index, list(row)
+    return 0, list(rows[0]) if rows else []
+
+
+def load_inventory_sheet_dataframe(ws):
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return pd.DataFrame(columns=INVENTORY_COLUMNS)
+
+    header_index, raw_header = _find_inventory_header_row(rows)
+    header = [str(cell).strip() if cell is not None else "" for cell in raw_header]
+    data_rows = rows[header_index + 1:]
+    if not data_rows:
+        return pd.DataFrame(columns=INVENTORY_COLUMNS)
+
+    data_rows = [tuple(row[:len(header)]) for row in data_rows]
+    df = pd.DataFrame(data_rows, columns=header)
+    return normalize_inventory_df(df)
 
 
 def create_default_inventory_workbook():
@@ -488,21 +544,30 @@ def load_inventory_from_bytes(file_bytes, filename):
         if sheet_name not in wb.sheetnames:
             continue
         ws = wb[sheet_name]
-        rows = list(ws.iter_rows(values_only=True))
-        if not rows:
-            workbook_data[sheet_name] = pd.DataFrame(columns=INVENTORY_COLUMNS)
-            continue
-        headers = [str(h).strip() if h is not None else "" for h in rows[0]]
-        data_rows = rows[1:]
-        df = pd.DataFrame(data_rows, columns=headers)
-        workbook_data[sheet_name] = normalize_inventory_df(df)
+        workbook_data[sheet_name] = load_inventory_sheet_dataframe(ws)
     return workbook_data
 
 
 def load_inventory_workbook(source_url=None, uploaded_file=None):
     if uploaded_file is not None:
         data = uploaded_file.getvalue()
-        return load_inventory_from_bytes(data, uploaded_file.name)
+        loaded = load_inventory_from_bytes(data, uploaded_file.name)
+        if loaded:
+            return loaded
+
+    if os.path.exists(WORKBOOK_PATH):
+        try:
+            wb = load_workbook(WORKBOOK_PATH, data_only=True)
+            workbook_data = {}
+            for sheet_name in INVENTORY_SHEETS:
+                if sheet_name not in wb.sheetnames:
+                    continue
+                ws = wb[sheet_name]
+                workbook_data[sheet_name] = load_inventory_sheet_dataframe(ws)
+            wb.close()
+            return workbook_data
+        except Exception:
+            return {}
 
     sync_inventory_from_source(source_url)
     if not os.path.exists(WORKBOOK_PATH):
@@ -515,14 +580,7 @@ def load_inventory_workbook(source_url=None, uploaded_file=None):
             if sheet_name not in wb.sheetnames:
                 continue
             ws = wb[sheet_name]
-            rows = list(ws.iter_rows(values_only=True))
-            if not rows:
-                workbook_data[sheet_name] = pd.DataFrame(columns=INVENTORY_COLUMNS)
-                continue
-            headers = [str(h).strip() if h is not None else "" for h in rows[0]]
-            data_rows = rows[1:]
-            df = pd.DataFrame(data_rows, columns=headers)
-            workbook_data[sheet_name] = normalize_inventory_df(df)
+            workbook_data[sheet_name] = load_inventory_sheet_dataframe(ws)
         wb.close()
         return workbook_data
     except Exception:
@@ -530,15 +588,24 @@ def load_inventory_workbook(source_url=None, uploaded_file=None):
 
 
 def save_inventory_workbook(workbook_data):
-    wb = Workbook()
+    if os.path.exists(WORKBOOK_PATH):
+        wb = load_workbook(WORKBOOK_PATH)
+    else:
+        wb = Workbook()
+
     if "Sheet" in wb.sheetnames:
         wb.remove(wb["Sheet"])
 
+    existing = set(wb.sheetnames)
     for sheet_name in INVENTORY_SHEETS:
         df_sheet = workbook_data.get(sheet_name)
         if df_sheet is None:
             continue
-        ws = wb.create_sheet(title=sheet_name)
+        if sheet_name in existing:
+            ws = wb[sheet_name]
+            ws.delete_rows(1, ws.max_row)
+        else:
+            ws = wb.create_sheet(title=sheet_name)
         for row in dataframe_to_rows(df_sheet, index=False, header=True):
             ws.append(row)
 
