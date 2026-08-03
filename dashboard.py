@@ -587,6 +587,34 @@ def load_inventory_workbook(source_url=None, uploaded_file=None):
         return {}
 
 
+def sanitize_excel_value(value):
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple, dict, set)):
+        return str(value)
+    if isinstance(value, pd.Timestamp):
+        return value.to_pydatetime()
+    if isinstance(value, pd.Timedelta):
+        return str(value)
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    if isinstance(value, (datetime, date)):
+        return value
+    if isinstance(value, (bool, int, float, str)):
+        return value
+    return str(value)
+
+
+def sanitize_excel_dataframe(df):
+    df = df.copy()
+    for kolom in df.columns:
+        df[kolom] = df[kolom].apply(lambda v: sanitize_excel_value(v))
+    return df
+
+
 def save_inventory_workbook(workbook_data):
     if os.path.exists(WORKBOOK_PATH):
         wb = load_workbook(WORKBOOK_PATH)
@@ -601,6 +629,7 @@ def save_inventory_workbook(workbook_data):
         df_sheet = workbook_data.get(sheet_name)
         if df_sheet is None:
             continue
+        df_sheet = sanitize_excel_dataframe(df_sheet)
         if sheet_name in existing:
             ws = wb[sheet_name]
             ws.delete_rows(1, ws.max_row)
