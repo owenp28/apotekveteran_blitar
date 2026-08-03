@@ -971,8 +971,7 @@ st.sidebar.markdown("---")
 if _role == "Admin":
     _menu_options = [
         "🏠 Beranda",
-        "📋 Tampilkan Stok Obat Hari Ini",
-        "✏️ Ubah Stok Obat Hari Ini",
+        "📋 Tampilkan Dan Ubah Stok Obat",
         "🖨️ Cetak & Print Stok Obat",
         "🛒 Update Stok & Kasir",
         "🏥 Retur Pembelian",
@@ -981,7 +980,7 @@ if _role == "Admin":
 else:  # Kasir
     _menu_options = [
         "🏠 Beranda",
-        "✏️ Ubah Stok Obat Hari Ini",
+        "📋 Tampilkan Dan Ubah Stok Obat",
         "🛒 Update Stok & Kasir"
     ]
 
@@ -1040,10 +1039,10 @@ if menu == "🏠 Beranda":
             )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 1 — TAMPILKAN OBAT HARI INI
+# FITUR 1 — TAMPILKAN DAN UBAH STOK OBAT
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "📋 Tampilkan Stok Obat Hari Ini":
-    st.title("📋 Tampilan Obat Hari Ini")
+elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
+    st.title("📋 Tampilkan Dan Ubah Stok Obat")
     st.caption("Tampilan sederhana dan bisa diedit langsung per worksheet sesuai satuan: PCS, SACHET, BOTOL, TAB, BOX, STRIP.")
 
     if "inventory_source_url" not in st.session_state:
@@ -1331,7 +1330,7 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
 
     df = load_data()
     if df is None:
-        st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **Tampilkan Obat Hari Ini**.")
+        st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **📋 Tampilkan Dan Ubah Stok Obat**.")
         st.stop()
 
     st.subheader("Pilih Opsi Cetak")
