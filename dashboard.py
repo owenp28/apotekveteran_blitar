@@ -440,7 +440,41 @@ def normalize_inventory_df(df):
     for kolom in INVENTORY_COLUMNS:
         if kolom not in df.columns:
             df[kolom] = None
-    return df[INVENTORY_COLUMNS]
+    df = df[INVENTORY_COLUMNS]
+
+    # Pastikan kolom teks yang akan di-edit tetap bertipe string agar kompatibel
+    # dengan `st.data_editor(..., column_config=TextColumn(...))`.
+    text_like_columns = [
+        "Nama produk",
+        "Satuan",
+        "Nomor Faktur",
+        "Nomor Batch",
+        "PBF",
+        "Keterangan"
+    ]
+    for kolom in text_like_columns:
+        if kolom in df.columns:
+            df[kolom] = df[kolom].astype("string")
+
+    numeric_columns = ["Stok Masuk", "Stok Keluar", "Stok Sisa", "Harga 1", "Harga 2"]
+    for kolom in numeric_columns:
+        if kolom in df.columns:
+            df[kolom] = pd.to_numeric(df[kolom], errors="coerce")
+
+    if "Tanggal" in df.columns:
+        df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors="coerce")
+    if "Tanggal Kadaluwarsa" in df.columns:
+        df["Tanggal Kadaluwarsa"] = pd.to_datetime(df["Tanggal Kadaluwarsa"], errors="coerce")
+
+    return df
+
+
+def prepare_sheet_for_editor(df):
+    df = normalize_inventory_df(df)
+    for kolom in ["Nomor Faktur", "Nomor Batch", "PBF", "Keterangan", "Nama produk", "Satuan"]:
+        if kolom in df.columns:
+            df[kolom] = df[kolom].astype("string")
+    return df
 
 
 def _find_inventory_header_row(rows):
@@ -1055,8 +1089,9 @@ elif menu == "📋 Tampilkan Stok Obat Hari Ini":
 
     if sheet_name not in workbook_data:
         sheet_df = pd.DataFrame(columns=INVENTORY_COLUMNS)
+        sheet_df = prepare_sheet_for_editor(sheet_df)
     else:
-        sheet_df = workbook_data[sheet_name].copy()
+        sheet_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy())
 
     st.info("Setiap kolom dalam tabel dapat diedit langsung dengan ikon ✏️. Setelah selesai, klik tombol ✅ Submit untuk menyimpan data terbaru ke worksheet yang aktif.")
 
