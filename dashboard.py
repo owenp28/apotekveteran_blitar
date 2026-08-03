@@ -1009,15 +1009,12 @@ if _role == "Admin":
         "🏠 Beranda",
         "📋 Tampilkan Dan Ubah Stok Obat",
         "🖨️ Cetak & Print Stok Obat",
-        "🛒 Update Stok & Kasir",
-        "🏥 Retur Pembelian",
-        "🛍️ Entri Pembelian"
+        "📦 Entri & Retur Pembelian"
     ]
 else:  # Kasir
     _menu_options = [
         "🏠 Beranda",
-        "📋 Tampilkan Dan Ubah Stok Obat",
-        "🛒 Update Stok & Kasir"
+        "📋 Tampilkan Dan Ubah Stok Obat"
     ]
 
 menu = st.sidebar.radio("Pilih Fitur", _menu_options, index=0)
@@ -1804,256 +1801,265 @@ elif menu == "🛒 Update Stok & Kasir":
             st.info("Keranjang kosong. Tambahkan obat dari form di sebelah kiri.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 5 — RETUR PEMBELIAN
-# ══════════════════════════════════════════════════════════════════════════════
-elif menu == "🏥 Retur Pembelian":
-    # ── Header Utama ─────────────────────────────────────────────────────────
+# FITUR BERSAMA — ENTRI & RETUR PEMBELIAN
+# ══════════════════════════════════════════════════════════════════════
+elif menu == "📦 Entri & Retur Pembelian":
     st.markdown(
-        "<h2 style='text-align: center; color: #333333;'>Retur Pembelian Obat</h2>",
+        "<h2 style='text-align: center; color: #333333;'>Entri & Retur Pembelian Obat</h2>",
         unsafe_allow_html=True
     )
     st.write("---")
 
-    # ── Form Input Utama (disederhanakan - fokus hanya pada retur barang) ─────
-    col1, col2 = st.columns(2)
+    tab_retur, tab_entri = st.tabs(["🏥 Retur Pembelian", "🛍️ Entri Pembelian"])
 
-    with col1:
-        no_faktur = st.text_input("No. Faktur", value="", placeholder="Contoh: 2605/PDF.CC/1501", key="no_faktur_input")
-        tgl_faktur = st.text_input("Tanggal Faktur", value="", placeholder="Contoh: 15 Mei 2026", key="tgl_faktur_input")
-
-    with col2:
-        tgl_retur = st.date_input("Tanggal Retur", value=date.today(), key="tgl_retur_input")
-
-    # ── Pencarian Obat dari Database Master Obat ───────────────────────────────
-    st.markdown(
-        """
-        <div class='form-container'>
-            <div class='form-section-title'>🔍 Cari Obat</div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    cari_obat_input_retur = st.text_input(
-        "Cari Nama Obat",
-        placeholder="Ketik nama obat untuk mencari...",
-        key="cari_obat_retur"
-    )
-
-    if cari_obat_input_retur.strip():
-        hasil_cari = cari_obat(cari_obat_input_retur.strip())
-
-        if not hasil_cari.empty:
-            st.success(f"Ditemukan {len(hasil_cari)} obat:")
-            event_retur = st.dataframe(
-                hasil_cari[["nama_obat", "kategori", "satuan", "stok_akhir"]],
-                use_container_width=True,
-                hide_index=True,
-                on_select="rerun",
-                selection_mode="single-row",
-                key="table_obat_selection_retur"
-            )
-
-            if event_retur.selection.rows:
-                idx = event_retur.selection.rows[0]
-                selected_row = hasil_cari.iloc[idx]
-                if st.button(f"➕ Tambah '{selected_row['nama_obat']}' ke Tabel Retur", key="tambah_ke_retur"):
-                    new_item = {
-                        "Pilih": True,
-                        "Kode": selected_row["id_obat"],
-                        "Nama Obat": selected_row["nama_obat"],
-                        "Satuan": selected_row["satuan"],
-                        "No. Batch": "",
-                        "Tanggal Exp": "",
-                        "Ketentuan Retur": "",
-                        "Maks bln sblm ED": 0,
-                        "Tersedia": float(selected_row["stok_akhir"]),
-                        "Jumlah Retur": 0.00,
-                        "HPP": float(selected_row["harga_beli"]) if "harga_beli" in selected_row else 0.00
-                    }
-                    st.session_state.retur_items = pd.concat(
-                        [st.session_state.retur_items, pd.DataFrame([new_item])],
-                        ignore_index=True
-                    ).reset_index(drop=True)
-                    st.success(f"{selected_row['nama_obat']} ditambahkan ke tabel retur!")
-                    st.rerun()
-        else:
-            st.warning("Obat tidak ditemukan di database.")
-
-    if st.button("➕ Tambah Manual", key="btn_tambah_manual_key"):
-        new_item = {
-            "Pilih": True,
-            "Kode": "",
-            "Nama Obat": "",
-            "Satuan": "",
-            "No. Batch": "",
-            "Tanggal Exp": "",
-            "Ketentuan Retur": "",
-            "Maks bln sblm ED": 0,
-            "Tersedia": 0.00,
-            "Jumlah Retur": 0.00,
-            "HPP": 0.00
-        }
-        st.session_state.retur_items = pd.concat(
-            [st.session_state.retur_items, pd.DataFrame([new_item])],
-            ignore_index=True
-        ).reset_index(drop=True)
-        st.success("Item baru ditambahkan ke tabel retur!")
-        st.rerun()
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # ── Tabel Item yang Akan Diretur ──────────────────────────────────────────
-    st.write("##")
-    st.markdown("### 📦 Daftar Item Retur")
-
-    if st.session_state.retur_items.empty:
-        st.info("Belum ada item. Cari obat di atas lalu klik tombol tambah, atau gunakan Tambah Manual.")
-        edited_df = st.session_state.retur_items
-    else:
-        edited_df = st.data_editor(
-            st.session_state.retur_items,
-            column_config={
-                "Pilih": st.column_config.CheckboxColumn(
-                    "Pilih",
-                    help="Centang untuk memilih obat yang akan diretur",
-                    default=False,
-                ),
-                "Jumlah Retur": st.column_config.NumberColumn(
-                    "Jumlah Retur",
-                    min_value=0.0,
-                    step=1.0,
-                    format="%.2f",
-                ),
-                "Kode": st.column_config.TextColumn(disabled=True),
-                "Nama Obat": st.column_config.TextColumn(disabled=True),
-                "Satuan": st.column_config.TextColumn(disabled=True),
-                "Tersedia": st.column_config.NumberColumn(disabled=True, format="%.2f"),
-                "HPP": st.column_config.NumberColumn(format="%.2f"),
-            },
-            disabled=["Kode", "Nama Obat", "Satuan", "Tersedia"],
-            hide_index=True,
-            use_container_width=True,
-            num_rows="dynamic",
-            key="data_editor_retur"
-        )
-        st.session_state.retur_items = edited_df
-
-    total_retur = float((edited_df["Jumlah Retur"] * edited_df["HPP"]).sum()) if not edited_df.empty else 0.0
-
-    # ── Total & Tombol Aksi ────────────────────────────────────────────────────
-    st.write("##")
-    action_col, total_col = st.columns([3, 1])
-
-    with action_col:
-        btn_simpan, btn_reset, _ = st.columns([1, 1, 5])
-        with btn_simpan:
-            if st.button("💾 Simpan Retur", type="primary", use_container_width=True, key="btn_simpan_form"):
-                if edited_df.empty or total_retur == 0:
-                    st.warning("⚠️ Belum ada item dengan jumlah retur yang diisi!")
-                else:
-                    # ── Update stok di Database Master Obat & catat ke riwayat transaksi ──
-                    df_csv = load_data()
-                    if df_csv is None:
-                        df_csv = pd.DataFrame(columns=KOLOM_WAJIB)
-
-                    new_log_rows = []
-                    for _, item in edited_df.iterrows():
-                        jumlah_retur = float(item["Jumlah Retur"] or 0)
-                        nama_obat_retur = str(item["Nama Obat"]).strip()
-                        if jumlah_retur <= 0 or not nama_obat_retur:
-                            continue
-
-                        mask = st.session_state.database_obat["nama_obat"].str.lower() == nama_obat_retur.lower()
-                        if mask.any():
-                            idx_master = st.session_state.database_obat[mask].index[-1]
-                            stok_sebelumnya = float(st.session_state.database_obat.loc[idx_master, "stok_akhir"])
-                            stok_baru = max(stok_sebelumnya - jumlah_retur, 0)
-                            st.session_state.database_obat.loc[idx_master, "stok_akhir"] = stok_baru
-                            kategori_obat = st.session_state.database_obat.loc[idx_master, "kategori"]
-                        else:
-                            stok_baru = 0.0
-                            kategori_obat = "Lainnya"
-
-                        new_log_rows.append({
-                            "Tanggal": pd.Timestamp(tgl_retur),
-                            "Nama Obat": nama_obat_retur,
-                            "Kategori": kategori_obat,
-                            "Satuan": "Tablet",
-                            "Stok Masuk": 0,
-                            "Stok Keluar": jumlah_retur,
-                            "Stok Akhir": stok_baru,
-                            "Harga Satuan (Rp)": float(item["HPP"] or 0),
-                            "Total Nilai (Rp)": stok_baru * float(item["HPP"] or 0),
-                            "Tanggal Kadaluarsa": pd.Timestamp.now(),
-                            "Keterangan": f"Retur Pembelian - Faktur {no_faktur}"
-                        })
-
-                    if new_log_rows:
-                        df_csv = pd.concat([df_csv, pd.DataFrame(new_log_rows)], ignore_index=True)
-                        save_data(df_csv)
-
-                    new_history = pd.DataFrame([{
-                        "Nomor Faktur": no_faktur,
-                        "Tanggal Retur": tgl_retur,
-                        "Jumlah Item": len(edited_df[edited_df["Jumlah Retur"] > 0]),
-                        "Total Nilai Retur": total_retur,
-                        "Tanggal Disimpan": datetime.now()
-                    }])
-
-                    st.session_state.retur_history = pd.concat(
-                        [st.session_state.retur_history, new_history],
-                        ignore_index=True
-                    )
-                    save_retur_history(st.session_state.retur_history)
-
-                    st.success(f"✅ Retur pembelian berhasil disimpan! Stok obat terkait sudah dikurangi & tercatat di riwayat. Total retur: Rp {total_retur:,.2f}".replace(",", "."))
-
-                    st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
-                    st.rerun()
-        with btn_reset:
-            if st.button("🔄 Reset", key="btn_reset_form", use_container_width=True):
-                st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
-                st.rerun()
-
-    with total_col:
+    with tab_retur:
+        # ── Header Utama ─────────────────────────────────────────────────────────
         st.markdown(
-            f"<h2 style='text-align: right; margin: 0; color: #4F4F4F;'>{format_rupiah(total_retur)}</h2>",
+            "<h2 style='text-align: center; color: #333333;'>Retur Pembelian Obat</h2>",
             unsafe_allow_html=True
         )
+        st.write("---")
 
-    st.write("---")
+        # ── Form Input Utama (disederhanakan - fokus hanya pada retur barang) ─────
+        col1, col2 = st.columns(2)
 
-    # ── Tabel Riwayat Retur ──────────────────────────────────────────────────
-    if not st.session_state.retur_history.empty:
+        with col1:
+            no_faktur = st.text_input("No. Faktur", value="", placeholder="Contoh: 2605/PDF.CC/1501", key="no_faktur_input")
+            tgl_faktur = st.text_input("Tanggal Faktur", value="", placeholder="Contoh: 15 Mei 2026", key="tgl_faktur_input")
+
+        with col2:
+            tgl_retur = st.date_input("Tanggal Retur", value=date.today(), key="tgl_retur_input")
+
+        # ── Pencarian Obat dari Database Master Obat ───────────────────────────────
         st.markdown(
             """
-            <div class='table-container'>
-                <div class='table-title'>📜 Riwayat Retur</div>
+            <div class='form-container'>
+                <div class='form-section-title'>🔍 Cari Obat</div>
             """,
             unsafe_allow_html=True
         )
 
-        history_display = st.session_state.retur_history.copy()
-        history_display["Tanggal Retur"] = pd.to_datetime(history_display["Tanggal Retur"]).dt.strftime("%d-%m-%Y")
-        history_display["Tanggal Disimpan"] = pd.to_datetime(history_display["Tanggal Disimpan"]).dt.strftime("%d-%m-%Y %H:%M")
-        history_display["Total Nilai Retur"] = history_display["Total Nilai Retur"].apply(
-            lambda x: f"Rp {x:,.2f}".replace(",", ".")
+        cari_obat_input_retur = st.text_input(
+            "Cari Nama Obat",
+            placeholder="Ketik nama obat untuk mencari...",
+            key="cari_obat_retur"
         )
 
-        st.dataframe(history_display, use_container_width=True, hide_index=True)
+        if cari_obat_input_retur.strip():
+            hasil_cari = cari_obat(cari_obat_input_retur.strip())
+
+            if not hasil_cari.empty:
+                st.success(f"Ditemukan {len(hasil_cari)} obat:")
+                event_retur = st.dataframe(
+                    hasil_cari[["nama_obat", "kategori", "satuan", "stok_akhir"]],
+                    use_container_width=True,
+                    hide_index=True,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                    key="table_obat_selection_retur"
+                )
+
+                if event_retur.selection.rows:
+                    idx = event_retur.selection.rows[0]
+                    selected_row = hasil_cari.iloc[idx]
+                    if st.button(f"➕ Tambah '{selected_row['nama_obat']}' ke Tabel Retur", key="tambah_ke_retur"):
+                        new_item = {
+                            "Pilih": True,
+                            "Kode": selected_row["id_obat"],
+                            "Nama Obat": selected_row["nama_obat"],
+                            "Satuan": selected_row["satuan"],
+                            "No. Batch": "",
+                            "Tanggal Exp": "",
+                            "Ketentuan Retur": "",
+                            "Maks bln sblm ED": 0,
+                            "Tersedia": float(selected_row["stok_akhir"]),
+                            "Jumlah Retur": 0.00,
+                            "HPP": float(selected_row["harga_beli"]) if "harga_beli" in selected_row else 0.00
+                        }
+                        st.session_state.retur_items = pd.concat(
+                            [st.session_state.retur_items, pd.DataFrame([new_item])],
+                            ignore_index=True
+                        ).reset_index(drop=True)
+                        st.success(f"{selected_row['nama_obat']} ditambahkan ke tabel retur!")
+                        st.rerun()
+            else:
+                st.warning("Obat tidak ditemukan di database.")
+
+        if st.button("➕ Tambah Manual", key="btn_tambah_manual_key"):
+            new_item = {
+                "Pilih": True,
+                "Kode": "",
+                "Nama Obat": "",
+                "Satuan": "",
+                "No. Batch": "",
+                "Tanggal Exp": "",
+                "Ketentuan Retur": "",
+                "Maks bln sblm ED": 0,
+                "Tersedia": 0.00,
+                "Jumlah Retur": 0.00,
+                "HPP": 0.00
+            }
+            st.session_state.retur_items = pd.concat(
+                [st.session_state.retur_items, pd.DataFrame([new_item])],
+                ignore_index=True
+            ).reset_index(drop=True)
+            st.success("Item baru ditambahkan ke tabel retur!")
+            st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── Footer ───────────────────────────────────────────────────────────────
-    st.markdown(
-        """
-        <div class='app-footer'>
-            <p>All Rights Reserved</p>
-            <p style='color: #e94560; font-weight: 600;'>Vmedis 1.8.0</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+        # ── Tabel Item yang Akan Diretur ──────────────────────────────────────────
+        st.write("##")
+        st.markdown("### 📦 Daftar Item Retur")
+
+        if st.session_state.retur_items.empty:
+            st.info("Belum ada item. Cari obat di atas lalu klik tombol tambah, atau gunakan Tambah Manual.")
+            edited_df = st.session_state.retur_items
+        else:
+            edited_df = st.data_editor(
+                st.session_state.retur_items,
+                column_config={
+                    "Pilih": st.column_config.CheckboxColumn(
+                        "Pilih",
+                        help="Centang untuk memilih obat yang akan diretur",
+                        default=False,
+                    ),
+                    "Jumlah Retur": st.column_config.NumberColumn(
+                        "Jumlah Retur",
+                        min_value=0.0,
+                        step=1.0,
+                        format="%.2f",
+                    ),
+                    "Kode": st.column_config.TextColumn(disabled=True),
+                    "Nama Obat": st.column_config.TextColumn(disabled=True),
+                    "Satuan": st.column_config.TextColumn(disabled=True),
+                    "Tersedia": st.column_config.NumberColumn(disabled=True, format="%.2f"),
+                    "HPP": st.column_config.NumberColumn(format="%.2f"),
+                },
+                disabled=["Kode", "Nama Obat", "Satuan", "Tersedia"],
+                hide_index=True,
+                use_container_width=True,
+                num_rows="dynamic",
+                key="data_editor_retur"
+            )
+            st.session_state.retur_items = edited_df
+
+        total_retur = float((edited_df["Jumlah Retur"] * edited_df["HPP"]).sum()) if not edited_df.empty else 0.0
+
+        # ── Total & Tombol Aksi ────────────────────────────────────────────────────
+        st.write("##")
+        action_col, total_col = st.columns([3, 1])
+
+        with action_col:
+            btn_simpan, btn_reset, _ = st.columns([1, 1, 5])
+            with btn_simpan:
+                if st.button("💾 Simpan Retur", type="primary", use_container_width=True, key="btn_simpan_form"):
+                    if edited_df.empty or total_retur == 0:
+                        st.warning("⚠️ Belum ada item dengan jumlah retur yang diisi!")
+                    else:
+                        # ── Update stok di Database Master Obat & catat ke riwayat transaksi ──
+                        df_csv = load_data()
+                        if df_csv is None:
+                            df_csv = pd.DataFrame(columns=KOLOM_WAJIB)
+
+                        new_log_rows = []
+                        for _, item in edited_df.iterrows():
+                            jumlah_retur = float(item["Jumlah Retur"] or 0)
+                            nama_obat_retur = str(item["Nama Obat"]).strip()
+                            if jumlah_retur <= 0 or not nama_obat_retur:
+                                continue
+
+                            mask = st.session_state.database_obat["nama_obat"].str.lower() == nama_obat_retur.lower()
+                            if mask.any():
+                                idx_master = st.session_state.database_obat[mask].index[-1]
+                                stok_sebelumnya = float(st.session_state.database_obat.loc[idx_master, "stok_akhir"])
+                                stok_baru = max(stok_sebelumnya - jumlah_retur, 0)
+                                st.session_state.database_obat.loc[idx_master, "stok_akhir"] = stok_baru
+                                kategori_obat = st.session_state.database_obat.loc[idx_master, "kategori"]
+                            else:
+                                stok_baru = 0.0
+                                kategori_obat = "Lainnya"
+
+                            new_log_rows.append({
+                                "Tanggal": pd.Timestamp(tgl_retur),
+                                "Nama Obat": nama_obat_retur,
+                                "Kategori": kategori_obat,
+                                "Satuan": "Tablet",
+                                "Stok Masuk": 0,
+                                "Stok Keluar": jumlah_retur,
+                                "Stok Akhir": stok_baru,
+                                "Harga Satuan (Rp)": float(item["HPP"] or 0),
+                                "Total Nilai (Rp)": stok_baru * float(item["HPP"] or 0),
+                                "Tanggal Kadaluarsa": pd.Timestamp.now(),
+                                "Keterangan": f"Retur Pembelian - Faktur {no_faktur}"
+                            })
+
+                        if new_log_rows:
+                            df_csv = pd.concat([df_csv, pd.DataFrame(new_log_rows)], ignore_index=True)
+                            save_data(df_csv)
+
+                        new_history = pd.DataFrame([{
+                            "Nomor Faktur": no_faktur,
+                            "Tanggal Retur": tgl_retur,
+                            "Jumlah Item": len(edited_df[edited_df["Jumlah Retur"] > 0]),
+                            "Total Nilai Retur": total_retur,
+                            "Tanggal Disimpan": datetime.now()
+                        }])
+
+                        st.session_state.retur_history = pd.concat(
+                            [st.session_state.retur_history, new_history],
+                            ignore_index=True
+                        )
+                        save_retur_history(st.session_state.retur_history)
+
+                        st.success(f"✅ Retur pembelian berhasil disimpan! Stok obat terkait sudah dikurangi & tercatat di riwayat. Total retur: Rp {total_retur:,.2f}".replace(",", "."))
+
+                        st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
+                        st.rerun()
+            with btn_reset:
+                if st.button("🔄 Reset", key="btn_reset_form", use_container_width=True):
+                    st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
+                    st.rerun()
+
+        with total_col:
+            st.markdown(
+                f"<h2 style='text-align: right; margin: 0; color: #4F4F4F;'>{format_rupiah(total_retur)}</h2>",
+                unsafe_allow_html=True
+            )
+
+        st.write("---")
+
+        # ── Tabel Riwayat Retur ──────────────────────────────────────────────────
+        if not st.session_state.retur_history.empty:
+            st.markdown(
+                """
+                <div class='table-container'>
+                    <div class='table-title'>📜 Riwayat Retur</div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            history_display = st.session_state.retur_history.copy()
+            history_display["Tanggal Retur"] = pd.to_datetime(history_display["Tanggal Retur"]).dt.strftime("%d-%m-%Y")
+            history_display["Tanggal Disimpan"] = pd.to_datetime(history_display["Tanggal Disimpan"]).dt.strftime("%d-%m-%Y %H:%M")
+            history_display["Total Nilai Retur"] = history_display["Total Nilai Retur"].apply(
+                lambda x: f"Rp {x:,.2f}".replace(",", ".")
+            )
+
+            st.dataframe(history_display, use_container_width=True, hide_index=True)
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── Footer ───────────────────────────────────────────────────────────────
+        st.markdown(
+            """
+            <div class='app-footer'>
+                <p>All Rights Reserved</p>
+                <p style='color: #e94560; font-weight: 600;'>Vmedis 1.8.0</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 5 — ENTRI PEMBELIAN
