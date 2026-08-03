@@ -675,6 +675,42 @@ def save_inventory_workbook(workbook_data):
     wb.save(WORKBOOK_PATH)
 
 
+def build_inventory_print_dataframe():
+    workbook_data = st.session_state.get("inventory_data_cache")
+    if not workbook_data:
+        source_url = st.session_state.get("inventory_source_url", DEFAULT_SOURCE_LABEL)
+        workbook_data = load_inventory_workbook(source_url)
+        st.session_state.inventory_data_cache = workbook_data
+
+    if not workbook_data:
+        return None
+
+    frames = []
+    for sheet_name, df_sheet in workbook_data.items():
+        df_sheet = prepare_sheet_for_editor(df_sheet.copy())
+        df_sheet["Worksheet"] = sheet_name
+        frames.append(df_sheet)
+
+    if not frames:
+        return pd.DataFrame(columns=INVENTORY_COLUMNS + ["Worksheet"])
+
+    combined_df = pd.concat(frames, ignore_index=True)
+    combined_df = normalize_inventory_df(combined_df)
+    combined_df["Worksheet"] = combined_df.get("Worksheet", pd.Series([None] * len(combined_df)))
+    return combined_df
+
+
+def build_rtf_export(df):
+    lines = ["{\\rtf1\\ansi\\deff0", "{\\fonttbl\\f0\\fswiss Arial;}", "\\viewkind4\\uc1"]
+    lines.append("\\pard\\plain\\f0\\fs20 Laporan Stok Obat — Apotek Veteran Blitar\\par")
+    lines.append("\\pard\\plain\\f0\\fs18\\b " + "\\tab".join(str(col) for col in df.columns) + "\\par")
+    for _, row in df.iterrows():
+        row_text = "\\tab".join(str(v) if pd.notna(v) else "" for v in row.tolist())
+        lines.append("\\pard\\plain\\f0\\fs18 " + row_text + "\\par")
+    lines.append("}")
+    return "".join(lines).encode("utf-8")
+
+
 def parse_rupiah(val):
     """
     Mengubah teks harga seperti 'Rp 1.000' menjadi angka 1000.
@@ -1328,31 +1364,38 @@ elif menu == "✏️ Ubah Stok Obat Hari Ini":
 elif menu == "🖨️ Cetak & Print Stok Obat":
     st.title("🖨️ Cetak & Print Stok Obat")
 
-    df = load_data()
-    if df is None:
+    df_inventory = build_inventory_print_dataframe()
+    if df_inventory is None or df_inventory.empty:
         st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **📋 Tampilkan Dan Ubah Stok Obat**.")
         st.stop()
 
     st.subheader("Pilih Opsi Cetak")
     opsi = st.radio("Opsi Data yang Dicetak", ["Semua Komponen Obat", "Sebagian Komponen Obat (Pilih Manual)"])
 
+    df_inventory["Tanggal"] = pd.to_datetime(df_inventory["Tanggal"], errors="coerce")
+    if "Tanggal Kadaluwarsa" in df_inventory.columns:
+        df_inventory["Tanggal Kadaluwarsa"] = pd.to_datetime(df_inventory["Tanggal Kadaluwarsa"], errors="coerce")
+
     # ── Filter tanggal ────────────────────────────────────────────────────────
     st.markdown("---")
     st.subheader("🔍 Filter Sebelum Cetak")
     col_a, col_b = st.columns(2)
     with col_a:
-        tgl_awal = st.date_input("Dari Tanggal", value=df["Tanggal"].min().date())
+        tgl_awal = st.date_input("Dari Tanggal", value=df_inventory["Tanggal"].dropna().min().date())
     with col_b:
-        tgl_akhir = st.date_input("Sampai Tanggal", value=df["Tanggal"].max().date())
+        tgl_akhir = st.date_input("Sampai Tanggal", value=df_inventory["Tanggal"].dropna().max().date())
 
-    df_print = df[(df["Tanggal"] >= pd.Timestamp(tgl_awal)) & (df["Tanggal"] <= pd.Timestamp(tgl_akhir))].copy()
+    df_print = df_inventory[
+        (df_inventory["Tanggal"] >= pd.Timestamp(tgl_awal)) &
+        (df_inventory["Tanggal"] <= pd.Timestamp(tgl_akhir))
+    ].copy()
 
     # ── Pilih kolom (jika sebagian) ───────────────────────────────────────────
     if opsi == "Sebagian Komponen Obat (Pilih Manual)":
         kolom_dipilih = st.multiselect(
             "Pilih Kolom yang Ingin Dicetak",
             options=df_print.columns.tolist(),
-            default=["Tanggal", "Nama Obat", "Stok Masuk", "Stok Keluar", "Stok Akhir", "Harga Satuan (Rp)"]
+            default=["Worksheet", "Tanggal", "Nama produk", "Satuan", "Nomor Faktur", "Nomor Batch", "PBF", "Tanggal Kadaluwarsa", "Stok Masuk", "Stok Keluar", "Stok Sisa", "Harga 1", "Harga 2", "Keterangan"]
         )
         if kolom_dipilih:
             df_print = df_print[kolom_dipilih]
@@ -1366,12 +1409,12 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     preview_df = df_print.copy()
     if "Tanggal" in preview_df.columns:
         preview_df["Tanggal"] = preview_df["Tanggal"].dt.strftime("%d-%m-%Y")
-    if "Tanggal Kadaluarsa" in preview_df.columns:
-        preview_df["Tanggal Kadaluarsa"] = preview_df["Tanggal Kadaluarsa"].dt.strftime("%d-%m-%Y")
-    if "Harga Satuan (Rp)" in preview_df.columns:
-        preview_df["Harga Satuan (Rp)"] = preview_df["Harga Satuan (Rp)"].apply(format_rupiah)
-    if "Total Nilai (Rp)" in preview_df.columns:
-        preview_df["Total Nilai (Rp)"] = preview_df["Total Nilai (Rp)"].apply(format_rupiah)
+    if "Tanggal Kadaluwarsa" in preview_df.columns:
+        preview_df["Tanggal Kadaluwarsa"] = preview_df["Tanggal Kadaluwarsa"].dt.strftime("%d-%m-%Y")
+    if "Harga 1" in preview_df.columns:
+        preview_df["Harga 1"] = preview_df["Harga 1"].apply(lambda x: format_rupiah(x) if pd.notna(x) else x)
+    if "Harga 2" in preview_df.columns:
+        preview_df["Harga 2"] = preview_df["Harga 2"].apply(lambda x: format_rupiah(x) if pd.notna(x) else x)
 
     st.dataframe(preview_df, use_container_width=True, height=350)
     st.caption(f"{len(df_print)} baris data siap dicetak")
@@ -1379,14 +1422,14 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     # ── Unduhan ───────────────────────────────────────────────────────────────
     st.markdown("---")
     st.subheader("⬇️ Unduh File")
-    col_d1, col_d2, col_d3 = st.columns(3)
+    col_d1, col_d2, col_d3, col_d4 = st.columns(4)
 
     # CSV
     csv_buf = df_print.copy()
     if "Tanggal" in csv_buf.columns:
         csv_buf["Tanggal"] = csv_buf["Tanggal"].dt.strftime("%d-%m-%Y")
-    if "Tanggal Kadaluarsa" in csv_buf.columns:
-        csv_buf["Tanggal Kadaluarsa"] = csv_buf["Tanggal Kadaluarsa"].dt.strftime("%d-%m-%Y")
+    if "Tanggal Kadaluwarsa" in csv_buf.columns:
+        csv_buf["Tanggal Kadaluwarsa"] = csv_buf["Tanggal Kadaluwarsa"].dt.strftime("%d-%m-%Y")
     csv_data = csv_buf.to_csv(index=False).encode("utf-8-sig")
     col_d1.download_button(
         label="📄 Unduh CSV",
@@ -1403,8 +1446,8 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
             excel_df = df_print.copy()
             if "Tanggal" in excel_df.columns:
                 excel_df["Tanggal"] = excel_df["Tanggal"].dt.strftime("%d-%m-%Y")
-            if "Tanggal Kadaluarsa" in excel_df.columns:
-                excel_df["Tanggal Kadaluarsa"] = excel_df["Tanggal Kadaluarsa"].dt.strftime("%d-%m-%Y")
+            if "Tanggal Kadaluwarsa" in excel_df.columns:
+                excel_df["Tanggal Kadaluwarsa"] = excel_df["Tanggal Kadaluwarsa"].dt.strftime("%d-%m-%Y")
             excel_df.to_excel(writer, index=False, sheet_name="Stok Obat")
         col_d2.download_button(
             label="📊 Unduh Excel (XLSX)",
@@ -1415,8 +1458,17 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     except ImportError:
         col_d2.info("Install `openpyxl` untuk ekspor Excel.")
 
-    # PDF via HTML print
-    col_d3.markdown("#### 🖨️ Print / PDF")
+    # RTF/Word-compatible export
+    rtf_bytes = build_rtf_export(preview_df)
+    col_d3.download_button(
+        label="📝 Unduh RTF (Word)",
+        data=rtf_bytes,
+        file_name=f"stok_obat_{tgl_awal}_{tgl_akhir}.rtf",
+        mime="application/rtf"
+    )
+
+    # HTML print / PDF
+    col_d4.markdown("#### 🖨️ Print / PDF")
     html_rows = ""
     for _, row in preview_df.iterrows():
         html_rows += "<tr>" + "".join(f"<td>{v}</td>" for v in row.values) + "</tr>"
@@ -1444,13 +1496,13 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     """
 
     html_bytes = html_content.encode("utf-8")
-    col_d3.download_button(
+    col_d4.download_button(
         label="🖨️ Unduh HTML (Print/PDF)",
         data=html_bytes,
         file_name=f"stok_obat_{tgl_awal}_{tgl_akhir}.html",
         mime="text/html"
     )
-    col_d3.caption("Buka file HTML → klik tombol Print → pilih 'Save as PDF'")
+    col_d4.caption("Buka file HTML → klik tombol Print → pilih 'Save as PDF'")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 4 — UPDATE STOK & KASIR
