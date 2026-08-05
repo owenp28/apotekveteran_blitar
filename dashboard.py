@@ -137,6 +137,7 @@ st.markdown(
         background: #16213e;
         color: #666;
         cursor: not-allowed;
+        font-weight: 600;
     }
     
     /* ── Tombol Custom ──────────────────────────────────────────────────────── */
@@ -319,7 +320,6 @@ RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv"
 WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran.xlsx")
 CSV_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.csv")
 DEFAULT_SOURCE_URL = WORKBOOK_PATH
-ONE_DRIVE_SHARE_URL = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
 DEFAULT_SOURCE_LABEL = WORKBOOK_PATH
 
 INVENTORY_SHEETS = ["PCS", "SACHET", "BOTOL", "TAB", "BOX", "STRIP"]
@@ -1366,16 +1366,21 @@ elif menu == "🛒 Kasir Pembelian Obat":
             )
 
             if not st.session_state.checkout_mode:
+                # Memindahkan selectbox ke luar form agar UI interaktif dan seketika menarik satuan yang tepat
+                selected_label = st.selectbox("Pilih Obat", available_items["Label"].unique().tolist(), key="kasir_pilih_obat")
+                selected_row_display = available_items[available_items["Label"] == selected_label].iloc[0]
+                
+                # Menentukan satuan display
+                satuan_display = str(selected_row_display["Satuan"]).strip() if pd.notna(selected_row_display["Satuan"]) and str(selected_row_display["Satuan"]).strip() != "" else str(selected_row_display["Worksheet"]).strip()
+
                 with st.form("form_kasir"):
-                    selected_label = st.selectbox("Pilih Obat", available_items["Label"].unique().tolist())
-                    
                     col_su, col_sh = st.columns(2)
                     with col_su:
-                        st.text_input("Satuan (Otomatis dari Dataset)", value="Berdasarkan pilihan", disabled=True)
+                        st.text_input("Satuan Jual", value=satuan_display, disabled=True)
                     with col_sh:
                         skema_harga = st.selectbox("Skema Harga", ["Harga 1", "Harga 2"])
 
-                    jumlah = st.number_input(f"Jumlah", min_value=1, value=1)
+                    jumlah = st.number_input("Jumlah", min_value=1, value=1)
                     add_to_cart = st.form_submit_button("➕ Tambah ke Nota")
 
                     if add_to_cart:
@@ -1383,7 +1388,7 @@ elif menu == "🛒 Kasir Pembelian Obat":
                         nama_obat = selected_row["Nama produk"]
                         ws_target = selected_row["Worksheet"]
                         batch_target = selected_row["Nomor Batch"]
-                        satuan_jual = selected_row["Satuan"] if pd.notna(selected_row["Satuan"]) else ws_target
+                        satuan_jual = satuan_display
                         
                         harga_per_satuan = float(selected_row["Harga 1"]) if skema_harga == "Harga 1" else float(selected_row["Harga 2"])
                         if pd.isna(harga_per_satuan): harga_per_satuan = 0.0
