@@ -1933,9 +1933,9 @@ elif menu == "🕒 Buka/Tutup Shift":
 
     # Logika filtering opsi kasir berdasarkan Role (Admin bisa melihat semua opsi)
     if st.session_state.role == "Admin":
-        kasir_options = ["Admin (Ivonne)", "Kasir - Karyawan Apotek", "Karyawan 2 (Julia)"]
+        kasir_options = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
     else:
-        kasir_options = ["Kasir - Karyawan Apotek", "Karyawan 2 (Julia)"]
+        kasir_options = ["Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
 
     if not st.session_state.shift_active:
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Buka Shift</h2>", unsafe_allow_html=True)
@@ -2006,7 +2006,7 @@ elif menu == "🕒 Buka/Tutup Shift":
         selisih_calc = saldo_kasir_in - saldo_akhir_in
         selisih_in = render_row_erp("Selisih Saldo", val_num=selisih_calc, disabled=False, widget="number", key_suffix="tutup")
         
-        diserahkan_kepada_opsi = ["Bukan User", "Admin Utama Apotek", "Owner"]
+        diserahkan_kepada_opsi = ["Owner", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)", "Bukan User"]
         diserahkan_kepada = render_row_erp("Di Serahkan Kepada", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="tutup")
         
         nama_penyerah = render_row_erp("Nama", disabled=False, widget="select", opts=kasir_options, val_str=nama_user, key_suffix="tutup")
