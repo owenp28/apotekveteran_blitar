@@ -395,7 +395,7 @@ def load_shift_log():
     if os.path.exists(SHIFT_LOG_PATH):
         return pd.read_csv(SHIFT_LOG_PATH)
     else:
-        return pd.DataFrame(columns=["Waktu Buka", "Waktu Tutup", "Nama Kasir", "Saldo Awal", "Penjualan Sistem", "Fisik Kasir", "Selisih"])
+        return pd.DataFrame(columns=["Waktu Buka", "Waktu Tutup", "Nama Kasir", "Saldo Awal", "Penjualan Sistem", "Fisik Kasir", "Selisih", "Catatan"])
 
 def save_data(df):
     df.to_csv(DATASET_PATH, index=False)
@@ -1891,10 +1891,9 @@ elif menu == "📦 Entri & Retur Pembelian":
 # FITUR BARU — BUKA / TUTUP SHIFT KASIR
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🕒 Buka/Tutup Shift":
-    st.title("🕒 Buka / Tutup Shift Kasir")
 
     if not st.session_state.shift_active:
-        st.subheader("Buka Shift")
+        st.title("🕒 Buka Shift Kasir")
         st.info("Silakan masukkan saldo awal (modal uang receh/tunai di laci) sebelum mulai melayani penjualan.")
         with st.form("form_buka_shift"):
             nama_user = USERS[st.session_state.username]["name"]
@@ -1913,8 +1912,30 @@ elif menu == "🕒 Buka/Tutup Shift":
                 st.rerun()
 
     else:
-        st.subheader("Tutup Shift")
-        st.warning("Pastikan semua transaksi penjualan kasir telah di-submit sebelum menutup shift.")
+        st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Tutup Shift</h2>", unsafe_allow_html=True)
+
+        def format_angka_erp(val):
+            try:
+                return f"{float(val):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            except:
+                return "0,00"
+
+        # Fungsi helper untuk merender baris input sejajar secara horizontal menyerupai gambar ERP
+        def render_row_erp(label, val, disabled=True, widget="text", opts=None):
+            c1, c2 = st.columns([2, 6])
+            with c1:
+                st.markdown(f"<div style='text-align: right; padding-top: 8px; font-weight: 600; font-size: 13px; color: #e0e0e0;'>{label}</div>", unsafe_allow_html=True)
+            with c2:
+                if disabled:
+                    st.text_input(label, value=val, disabled=True, label_visibility="collapsed", key=f"ts_{label}")
+                    return val
+                else:
+                    if widget == "number":
+                        return st.number_input(label, value=float(val), label_visibility="collapsed", key=f"ts_{label}", step=1000.0)
+                    elif widget == "select":
+                        return st.selectbox(label, options=opts, label_visibility="collapsed", key=f"ts_{label}")
+                    elif widget == "text":
+                        return st.text_input(label, value=val, label_visibility="collapsed", key=f"ts_{label}")
 
         # Data context
         nama_user = st.session_state.active_shift_context["user_name"]
@@ -1922,33 +1943,61 @@ elif menu == "🕒 Buka/Tutup Shift":
         saldo_awal = st.session_state.active_shift_context["saldo_awal"]
         penjualan_sistem = st.session_state.active_shift_context["accumulated_sales_expected"]
 
-        st.text_input("User Aktif (Nama Kasir)", value=nama_user, disabled=True)
-        st.text_input("Waktu Mulai Shift", value=waktu_mulai, disabled=True)
+        # Default variabel akuntansi (disesuaikan dengan gambar UI ERP)
+        pembayaran_piutang = 0.0
+        pendapatan_jurnal = 0.0
+        total_pendapatan = penjualan_sistem + pembayaran_piutang + pendapatan_jurnal
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.number_input("Saldo Awal Laci (Disabled)", value=saldo_awal, disabled=True)
-        with col2:
-            st.number_input("Hasil Penjualan Apotek (Akumulasi Kasir)", value=penjualan_sistem, disabled=True)
+        retur_penjualan = 0.0
+        pengeluaran_jurnal = 0.0
+        total_pengeluaran = retur_penjualan + pengeluaran_jurnal
 
-        st.markdown("---")
-        st.markdown("#### Audit Kas Fisik")
-        # Input uang fisik tanpa form agar auto-calculate untuk selisih secara live
-        saldo_kasir_fisik = st.number_input("Saldo Kasir (Hitung total uang fisik di laci saat ini)", min_value=0.0, step=1000.0, value=0.0)
+        saldo_akhir = saldo_awal + total_pendapatan - total_pengeluaran
 
-        # Logic: Live calculate
-        selisih = saldo_kasir_fisik - (saldo_awal + penjualan_sistem)
+        # Render semua field horizontal sesuai urutan gambar
+        render_row_erp("Saldo Awal", format_angka_erp(saldo_awal))
+        render_row_erp("Hasil Penjualan Apotek", format_angka_erp(penjualan_sistem))
+        render_row_erp("Pembayaran Piutang Apotek", format_angka_erp(pembayaran_piutang))
+        render_row_erp("Pendapatan Jurnal Keuangan Shift", format_angka_erp(pendapatan_jurnal))
+        render_row_erp("Total Pendapatan", format_angka_erp(total_pendapatan))
+        
+        render_row_erp("Retur Penjualan Apotek", format_angka_erp(retur_penjualan))
+        render_row_erp("Pengeluaran Jurnal Keuangan Shift", format_angka_erp(pengeluaran_jurnal))
+        render_row_erp("Total Pengeluaran", format_angka_erp(total_pengeluaran))
+        
+        render_row_erp("Saldo Akhir", format_angka_erp(saldo_akhir))
+        
+        # Interactive user input
+        saldo_kasir_fisik = render_row_erp("Saldo Kasir", 0.0, disabled=False, widget="number")
+        
+        selisih = saldo_kasir_fisik - saldo_akhir
+        render_row_erp("Selisih Saldo", format_angka_erp(selisih))
+        
+        diserahkan_kepada = render_row_erp("Di Serahkan Kepada", "", disabled=False, widget="select", opts=["Bukan User", "Admin Utama Apotek", "Owner"])
+        nama_penyerah = render_row_erp("Nama", "", disabled=False, widget="text")
+        catatan = render_row_erp("Catatan", "", disabled=False, widget="text")
 
-        if selisih < 0:
-            st.error(f"⚠️ Selisih Saldo (Minus): {format_rupiah(selisih)}")
-        elif selisih > 0:
-            st.success(f"⚠️ Selisih Saldo (Lebih): {format_rupiah(selisih)}")
-        else:
-            st.info(f"✅ Selisih Saldo (Sesuai / Balance): {format_rupiah(selisih)}")
-            
-        st.text_input("Selisih Saldo Laci Kasir", value=format_rupiah(selisih), disabled=True)
+        c1, c2 = st.columns([2, 6])
+        with c2:
+            st.markdown(
+                "<div style='font-size: 12px; color: #a0a0a0; padding-top: 4px;'>"
+                "Apabila ada <b>selisih saldo shift</b>, silakan isi kolom catatan untuk memberi penjelasan ke Owner. Agar tidak terjadi salah paham."
+                "</div>", unsafe_allow_html=True
+            )
 
-        if st.button("💾 Simpan & Tutup Shift", type="primary", use_container_width=True):
+        st.write("")
+        st.write("")
+        
+        # Tempatkan Tombol di bawah dengan alignment yang rapi sesuai gambar
+        c_btn1, c_btn2 = st.columns([2, 6])
+        with c_btn1:
+            pass # Ruang kosong sejajar label
+        with c_btn2:
+            col_b1, col_b2 = st.columns([1, 4])
+            with col_b1:
+                submit_tutup = st.button("✔ Proses", type="primary", use_container_width=True)
+
+        if submit_tutup:
             log_df = load_shift_log()
             new_log = pd.DataFrame([{
                 "Waktu Buka": waktu_mulai,
@@ -1957,12 +2006,12 @@ elif menu == "🕒 Buka/Tutup Shift":
                 "Saldo Awal": saldo_awal,
                 "Penjualan Sistem": penjualan_sistem,
                 "Fisik Kasir": saldo_kasir_fisik,
-                "Selisih": selisih
+                "Selisih": selisih,
+                "Catatan": catatan
             }])
             log_df = pd.concat([log_df, new_log], ignore_index=True)
             save_shift_log(log_df)
 
-            # Reset Shift
             st.session_state.shift_active = False
             st.session_state.active_shift_context = {
                 "saldo_awal": 0.0,
