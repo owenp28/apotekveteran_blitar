@@ -1920,33 +1920,41 @@ elif menu == "🕒 Buka/Tutup Shift":
                 if widget == "number":
                     return st.number_input(label, value=float(val_num), label_visibility="collapsed", key=k, step=1000.0, format="%.2f")
                 elif widget == "select":
-                    return st.selectbox(label, options=opts, label_visibility="collapsed", key=k)
+                    idx = 0
+                    if opts and val_str in opts:
+                        idx = opts.index(val_str)
+                    return st.selectbox(label, options=opts, index=idx, label_visibility="collapsed", key=k)
                 elif widget == "text":
                     return st.text_input(label, value=val_str, label_visibility="collapsed", key=k)
+
+    kasir_options = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
 
     if not st.session_state.shift_active:
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Buka Shift</h2>", unsafe_allow_html=True)
         st.info("Silakan masukkan saldo awal (modal uang receh/tunai di laci) sebelum mulai melayani penjualan.")
         
-        nama_user = USERS[st.session_state.username]["name"]
-        
-        render_row_erp("User Aktif (Nama Kasir)", disabled=True, widget="text", val_str=nama_user, key_suffix="buka")
-        saldo_awal_buka = render_row_erp("Saldo Awal", val_num=0.0, disabled=False, widget="number", key_suffix="buka")
+        # Default name on open shift based on login
+        default_name = USERS[st.session_state.username]["name"]
+        default_str = default_name if default_name in kasir_options else kasir_options[0]
 
-        st.write("")
-        c_btn1, c_btn2 = st.columns([3, 7])
-        with c_btn2:
-            col_b1, col_b2 = st.columns([1, 3])
-            with col_b1:
-                submit_buka = st.button("✔ Buka Shift", type="primary", use_container_width=True)
+        with st.form("form_buka_shift"):
+            nama_user_buka = render_row_erp("User Aktif (Nama Kasir)", disabled=False, widget="select", opts=kasir_options, val_str=default_str, key_suffix="buka")
+            saldo_awal_buka = render_row_erp("Saldo Awal", val_num=0.0, disabled=False, widget="number", key_suffix="buka")
 
-        if submit_buka:
-            st.session_state.shift_active = True
-            st.session_state.active_shift_context["saldo_awal"] = float(saldo_awal_buka)
-            st.session_state.active_shift_context["accumulated_sales_expected"] = 0.0
-            st.session_state.active_shift_context["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            st.session_state.active_shift_context["user_name"] = nama_user
-            st.rerun()
+            st.write("")
+            c_btn1, c_btn2 = st.columns([3, 7])
+            with c_btn2:
+                col_b1, col_b2 = st.columns([1, 3])
+                with col_b1:
+                    submit_buka = st.form_submit_button("✔ Buka Shift", type="primary", use_container_width=True)
+
+            if submit_buka:
+                st.session_state.shift_active = True
+                st.session_state.active_shift_context["saldo_awal"] = float(saldo_awal_buka)
+                st.session_state.active_shift_context["accumulated_sales_expected"] = 0.0
+                st.session_state.active_shift_context["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                st.session_state.active_shift_context["user_name"] = nama_user_buka
+                st.rerun()
 
     else:
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Tutup Shift</h2>", unsafe_allow_html=True)
@@ -1966,7 +1974,7 @@ elif menu == "🕒 Buka/Tutup Shift":
             mask_retur = df_retur["Tanggal Disimpan"] >= waktu_mulai_dt
             retur_shift_default = float(df_retur[mask_retur]["Total Nilai Retur"].sum())
 
-        # Render semua field horizontal sesuai urutan gambar ERP. Edit=True pada komponen, namun rumusnya dikunci.
+        # Semua input (kecuali hasil final) diberikan disabled=False agar dapat diedit kasir jika ada manual overwrite
         saldo_awal_in = render_row_erp("Saldo Awal", val_num=saldo_awal_context, disabled=False, widget="number", key_suffix="tutup")
         hasil_penjualan_in = render_row_erp("Hasil Penjualan Apotek", val_num=penjualan_sistem, disabled=False, widget="number", key_suffix="tutup")
         piutang_in = render_row_erp("Pembayaran Piutang Apotek", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
@@ -1989,12 +1997,16 @@ elif menu == "🕒 Buka/Tutup Shift":
         
         saldo_kasir_in = render_row_erp("Saldo Kasir", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
         
-        # LOGIC: Selisih terkunci
+        # LOGIC: Selisih terkunci (Fisik Laci - Saldo Akhir Sistem)
         selisih = saldo_kasir_in - saldo_akhir
         render_row_erp("Selisih Saldo", val_num=selisih, disabled=True, widget="number", key_suffix="tutup")
         
-        diserahkan_kepada = render_row_erp("Di Serahkan Kepada", disabled=False, widget="select", opts=["Bukan User", "Admin Utama Apotek", "Owner"], key_suffix="tutup")
-        nama_penyerah = render_row_erp("Nama", disabled=False, widget="text", val_str=nama_user, key_suffix="tutup")
+        diserahkan_kepada_opsi = ["Bukan User", "Admin Utama Apotek", "Owner"]
+        diserahkan_kepada = render_row_erp("Di Serahkan Kepada", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="tutup")
+        
+        # Dropdown Nama Penyerah, Default memuat siapa yang memegang user aktif shift saat ini
+        nama_penyerah = render_row_erp("Nama", disabled=False, widget="select", opts=kasir_options, val_str=nama_user, key_suffix="tutup")
+        
         catatan = render_row_erp("Catatan", disabled=False, widget="text", key_suffix="tutup")
 
         c1, c2 = st.columns([3, 7])
