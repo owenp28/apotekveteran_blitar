@@ -2006,7 +2006,7 @@ elif menu == "🕒 Buka/Tutup Shift":
         selisih_calc = saldo_kasir_in - saldo_akhir_in
         selisih_in = render_row_erp("Selisih Saldo", val_num=selisih_calc, disabled=False, widget="number", key_suffix="tutup")
         
-        diserahkan_kepada_opsi = ["Owner", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)", "Bukan User"]
+        diserahkan_kepada_opsi = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)", "Bukan User"]
         diserahkan_kepada = render_row_erp("Di Serahkan Kepada", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="tutup")
         
         nama_penyerah = render_row_erp("Nama", disabled=False, widget="select", opts=kasir_options, val_str=nama_user, key_suffix="tutup")
@@ -2025,7 +2025,7 @@ elif menu == "🕒 Buka/Tutup Shift":
         with c2:
             st.markdown(
                 "<div style='font-size: 12px; color: #a0a0a0; padding-top: 4px;'>"
-                "Apabila ada <b>selisih saldo shift</b>, silakan isi kolom catatan untuk memberi penjelasan ke Owner. Agar tidak terjadi salah paham."
+                "Apabila ada <b>selisih saldo shift</b>, silakan isi kolom catatan untuk memberi penjelasan ke Admin agar tidak terjadi salah paham."
                 "</div>", unsafe_allow_html=True
             )
 
