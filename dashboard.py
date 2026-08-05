@@ -1930,7 +1930,11 @@ elif menu == "🕒 Buka/Tutup Shift":
                 elif widget == "text":
                     return st.text_input(label, value=val_str, label_visibility="collapsed", key=k)
 
-    kasir_options = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
+    # Logika filtering opsi kasir berdasarkan Role (Admin bisa melihat semua opsi)
+    if st.session_state.role == "Admin":
+        kasir_options = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
+    else:
+        kasir_options = ["Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
 
     if not st.session_state.shift_active:
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Buka Shift</h2>", unsafe_allow_html=True)
