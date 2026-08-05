@@ -2006,7 +2006,7 @@ elif menu == "🕒 Buka/Tutup Shift":
         selisih_calc = saldo_kasir_in - saldo_akhir_in
         selisih_in = render_row_erp("Selisih Saldo", val_num=selisih_calc, disabled=False, widget="number", key_suffix="tutup")
         
-        diserahkan_kepada_opsi = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)", "Bukan User"]
+        diserahkan_kepada_opsi = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
         diserahkan_kepada = render_row_erp("Di Serahkan Kepada", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="tutup")
         
         nama_penyerah = render_row_erp("Nama", disabled=False, widget="select", opts=kasir_options, val_str=nama_user, key_suffix="tutup")
