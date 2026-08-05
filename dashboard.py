@@ -2013,13 +2013,13 @@ elif menu == "🕒 Buka/Tutup Shift":
         catatan = render_row_erp("Catatan", disabled=False, widget="text", key_suffix="tutup")
 
         st.markdown("---")
-        st.markdown("#### ⚖️ Pengecekan Logic Saldo")
+        st.markdown("#### ⚖️ Pengecekan Balance Saldo")
         if selisih_in < 0:
             st.error(f"⚠️ Peringatan: Terdapat Selisih Saldo (Minus) sebesar {format_rupiah(selisih_in)}. Cek kembali nominal di atas atau tambahkan catatan.")
         elif selisih_in > 0:
             st.warning(f"⚠️ Perhatian: Terdapat Selisih Saldo (Lebih) sebesar {format_rupiah(selisih_in)}. Cek kembali nominal di atas atau tambahkan catatan.")
         else:
-            st.success(f"✅ Saldo Balance! Tidak ada selisih (Rp 0). Data sesuai logic dan siap diproses.")
+            st.success(f"✅ Saldo Balance! Tidak ada selisih (Rp 0). Data siap diproses.")
 
         c1, c2 = st.columns([3, 7])
         with c2:
