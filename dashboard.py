@@ -631,11 +631,6 @@ def sanitize_excel_dataframe(df):
 
 
 def save_inventory_workbook(workbook_data):
-    """
-    Menyimpan workbook_data ke dalam file Excel menggunakan pd.ExcelWriter.
-    Ini memastikan file benar-benar tertimpa secara bersih tanpa anomali baris sisa 
-    yang sering terjadi jika menggunakan fitur delete_rows bawaan openpyxl.
-    """
     try:
         with pd.ExcelWriter(WORKBOOK_PATH, engine='openpyxl') as writer:
             for sheet_name in INVENTORY_SHEETS:
@@ -696,15 +691,6 @@ def parse_rupiah(val):
     except:
         return 0
 
-def generate_id_obat():
-    existing = st.session_state.database_obat["id_obat"].astype(str).tolist()
-    nomor = []
-    for kode in existing:
-        angka = "".join(ch for ch in kode if ch.isdigit())
-        if angka.isdigit():
-            nomor.append(int(angka))
-    next_num = (max(nomor) + 1) if nomor else 1
-    return f"OB{next_num:03d}"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AUTENTIKASI — LOGIN
@@ -931,10 +917,18 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
     else:
         sheet_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy())
 
-    st.info("Setiap kolom dalam tabel dapat diedit langsung dengan ikon ✏️. Setelah selesai, klik tombol ✅ Submit untuk menyimpan data terbaru ke worksheet yang aktif.")
+    st.info("Setiap kolom dalam tabel dapat diedit langsung dengan ikon ✏️. Anda juga dapat memfilter menggunakan kotak pencarian di bawah.")
+    
+    # --- PENCARIAN PADA DATA EDITOR ---
+    search_inv = st.text_input("🔍 Pencarian Baris (Nama, Batch, Faktur, PBF, dll di Worksheet ini)", placeholder="Ketik kata kunci...")
+    if search_inv.strip():
+        mask = sheet_df.astype(str).apply(lambda col: col.str.contains(search_inv.strip(), case=False, na=False)).any(axis=1)
+        display_df = sheet_df[mask].copy()
+    else:
+        display_df = sheet_df.copy()
 
-    edited_df = st.data_editor(
-        sheet_df,
+    edited_display_df = st.data_editor(
+        display_df,
         use_container_width=True,
         num_rows="dynamic",
         hide_index=True,
@@ -957,18 +951,35 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
         key="editor_inventory_grid"
     )
 
-    # PERBAIKAN: Menyimpan ke Excel melalui ExcelWriter, lalu secara tegas update cache
     if st.button("✅ Submit Data Terbaru", type="primary"):
         workbook_data = st.session_state.inventory_data_cache
         if not workbook_data:
             workbook_data = load_inventory_workbook()
             
-        workbook_data[sheet_name] = normalize_inventory_df(edited_df)
+        current_ws_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy())
+        
+        # Merge logic khusus: Update baris yang diedit, tambahkan yang baru, hapus yang di-delete
+        # 1. Timpa/Update baris lama yang berhasil dimodifikasi
+        existing_idx = edited_display_df.index.intersection(current_ws_df.index)
+        current_ws_df.loc[existing_idx, edited_display_df.columns] = edited_display_df.loc[existing_idx]
+        
+        # 2. Tambah baris baru (jika user klik "Add Row" pada Streamlit data_editor)
+        new_rows = edited_display_df[~edited_display_df.index.isin(current_ws_df.index)]
+        if not new_rows.empty:
+            current_ws_df = pd.concat([current_ws_df, new_rows])
+            
+        # 3. Hapus baris (jika user menghapus baris dari data_editor)
+        deleted_rows = display_df.index.difference(edited_display_df.index)
+        if not deleted_rows.empty:
+            current_ws_df = current_ws_df.drop(deleted_rows)
+            
+        current_ws_df = current_ws_df.reset_index(drop=True)
+        workbook_data[sheet_name] = normalize_inventory_df(current_ws_df)
         
         success = save_inventory_workbook(workbook_data)
         if success:
             st.session_state.inventory_data_cache = workbook_data
-            st.success(f"✅ Data worksheet {sheet_name} berhasil disimpan ke Excel dan diperbarui di seluruh fitur secara real-time.")
+            st.success(f"✅ Perubahan pada worksheet {sheet_name} berhasil disimpan ke Excel dan diperbarui di seluruh fitur secara real-time.")
             st.rerun()
 
     st.markdown("---")
@@ -998,13 +1009,16 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
                 bulan_list = sorted(df["Tanggal"].dt.to_period("M").unique().astype(str).tolist(), reverse=True)
                 bulan_sel = st.selectbox("Pilih Bulan", ["Semua"] + bulan_list, key="riwayat_bulan")
             with col_r2:
-                cari_riwayat = st.text_input("🔎 Cari Nama Obat", key="riwayat_cari")
+                # --- PENCARIAN PADA RIWAYAT ---
+                cari_riwayat = st.text_input("🔎 Cari Transaksi (Nama Obat, Kategori, Keterangan, dll)", key="riwayat_cari")
 
             df_riwayat = df.copy()
             if bulan_sel != "Semua":
                 df_riwayat = df_riwayat[df_riwayat["Tanggal"].dt.to_period("M").astype(str) == bulan_sel]
-            if cari_riwayat:
-                df_riwayat = df_riwayat[df_riwayat["Nama Obat"].str.contains(cari_riwayat, case=False, na=False)]
+                
+            if cari_riwayat.strip():
+                mask = df_riwayat.astype(str).apply(lambda col: col.str.contains(cari_riwayat.strip(), case=False, na=False)).any(axis=1)
+                df_riwayat = df_riwayat[mask]
 
             riwayat_display = df_riwayat.sort_values("Tanggal", ascending=False).copy()
             riwayat_display["Tanggal"] = riwayat_display["Tanggal"].dt.strftime("%d-%m-%Y")
@@ -1064,19 +1078,27 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     if "Tanggal Kadaluwarsa" in df_inventory.columns:
         df_inventory["Tanggal Kadaluwarsa"] = pd.to_datetime(df_inventory["Tanggal Kadaluwarsa"], errors="coerce")
 
-    # ── Filter tanggal ────────────────────────────────────────────────────────
+    # ── Filter & Search ───────────────────────────────────────────────────────
     st.markdown("---")
-    st.subheader("🔍 Filter Sebelum Cetak")
+    st.subheader("🔍 Filter & Cari Sebelum Cetak")
+    
     col_a, col_b = st.columns(2)
     with col_a:
         tgl_awal = st.date_input("Dari Tanggal", value=df_inventory["Tanggal"].dropna().min().date() if not df_inventory["Tanggal"].dropna().empty else date.today())
     with col_b:
         tgl_akhir = st.date_input("Sampai Tanggal", value=df_inventory["Tanggal"].dropna().max().date() if not df_inventory["Tanggal"].dropna().empty else date.today())
 
+    # --- PENCARIAN GLOBAL UNTUK CETAK ---
+    search_print = st.text_input("🔍 Cari Spesifik (Nama Produk, Batch, Faktur, dll) - Opsional", placeholder="Ketik kata kunci untuk membatasi print out...")
+    
     df_print = df_inventory[
         (df_inventory["Tanggal"] >= pd.Timestamp(tgl_awal)) &
         (df_inventory["Tanggal"] <= pd.Timestamp(tgl_akhir))
     ].copy()
+
+    if search_print.strip():
+        mask_print = df_print.astype(str).apply(lambda col: col.str.contains(search_print.strip(), case=False, na=False)).any(axis=1)
+        df_print = df_print[mask_print]
 
     # ── Pilih kolom (jika sebagian) ───────────────────────────────────────────
     if opsi == "Sebagian Komponen Obat (Pilih Manual)":
@@ -1227,13 +1249,15 @@ elif menu == "🛒 Kasir Pembelian Obat":
         if available_items.empty:
             st.info("Tidak ada obat dengan stok tersedia (>0).")
         else:
+            # --- LABEL COMBOBOX UNTUK PENCARIAN PADA KASIR ---
+            # Dengan memasukkan banyak field ke label, dropdown otomatis mencari ke semua field tsb jika user mengetik
             available_items["Label"] = available_items.apply(
-                lambda x: f"{str(x['Nama produk']).strip()} | Batch: {str(x['Nomor Batch']).strip() if pd.notna(x['Nomor Batch']) and str(x['Nomor Batch']).strip() != '' else '-'} | Sisa: {int(x['Stok Sisa'])} ({str(x['Worksheet']).strip()})",
+                lambda x: f"Nama: {str(x['Nama produk']).strip()} | Batch: {str(x['Nomor Batch']).strip() if pd.notna(x['Nomor Batch']) and str(x['Nomor Batch']).strip() != '' else '-'} | Faktur: {str(x['Nomor Faktur']).strip() if pd.notna(x['Nomor Faktur']) and str(x['Nomor Faktur']).strip() != '' else '-'} | Exp: {pd.to_datetime(x['Tanggal Kadaluwarsa']).strftime('%d-%m-%Y') if pd.notna(x['Tanggal Kadaluwarsa']) else '-'} | Sisa: {int(x['Stok Sisa'])} ({str(x['Worksheet']).strip()})",
                 axis=1
             )
 
             if not st.session_state.checkout_mode:
-                selected_label = st.selectbox("Pilih Obat", available_items["Label"].unique().tolist(), key="kasir_pilih_obat")
+                selected_label = st.selectbox("Pilih Obat (Bisa diketik untuk mencari Nama, Batch, Faktur, atau Exp)", available_items["Label"].unique().tolist(), key="kasir_pilih_obat")
                 selected_row_display = available_items[available_items["Label"] == selected_label].iloc[0]
                 
                 satuan_display = str(selected_row_display["Satuan"]).strip() if pd.notna(selected_row_display["Satuan"]) and str(selected_row_display["Satuan"]).strip() != "" else str(selected_row_display["Worksheet"]).strip()
@@ -1571,19 +1595,17 @@ elif menu == "📦 Entri & Retur Pembelian":
             st.metric("Total Stok Sisa", int(sheet_df["Stok Sisa"].fillna(0).sum()))
 
         st.markdown("---")
-        search_text = st.text_input("Cari Nama Produk / Nomor Batch", placeholder="Contoh: Amoxicillin atau BATCH-001", key="retur_search_input")
+        # --- PENCARIAN GLOBAL UNTUK RETUR ---
+        search_text = st.text_input("🔍 Cari Data Retur (Nama Produk, Batch, Faktur, PBF, dll)", placeholder="Ketik kata kunci pencarian...", key="retur_search_input")
 
         if search_text.strip():
-            mask = (
-                sheet_df["Nama produk"].fillna("").astype(str).str.contains(search_text, case=False, na=False)
-                | sheet_df["Nomor Batch"].fillna("").astype(str).str.contains(search_text, case=False, na=False)
-            )
+            mask = sheet_df.astype(str).apply(lambda col: col.str.contains(search_text.strip(), case=False, na=False)).any(axis=1)
             filtered_df = sheet_df[mask].copy()
         else:
             filtered_df = sheet_df.copy()
 
         if filtered_df.empty:
-            st.info("Data pada worksheet ini belum cocok dengan kata kunci yang Anda cari. Coba gunakan nama produk, nomor batch, atau kata kunci lain.")
+            st.info("Data pada worksheet ini belum cocok dengan kata kunci yang Anda cari.")
             st.stop()
 
         st.subheader("📦 Pilih Produk untuk Retur")
@@ -1755,17 +1777,15 @@ elif menu == "📦 Entri & Retur Pembelian":
         
         all_items_df = build_inventory_print_dataframe()
         
+        # --- PENCARIAN GLOBAL UNTUK ENTRI ---
         cari_obat_input = st.text_input(
-            label="Pencarian Produk (Berdasarkan Data Saat Ini)",
-            placeholder="Ketik Nama Produk / Nomor Batch...",
+            label="🔍 Pencarian Produk (Semua Data: Nama, Batch, Faktur, dll)",
+            placeholder="Ketik kata kunci pencarian...",
             key="cari_obat_pembelian_input"
         )
         
         if cari_obat_input.strip() and all_items_df is not None and not all_items_df.empty:
-            mask = (
-                all_items_df["Nama produk"].fillna("").astype(str).str.contains(cari_obat_input, case=False, na=False)
-                | all_items_df["Nomor Batch"].fillna("").astype(str).str.contains(cari_obat_input, case=False, na=False)
-            )
+            mask = all_items_df.astype(str).apply(lambda col: col.str.contains(cari_obat_input.strip(), case=False, na=False)).any(axis=1)
             hasil = all_items_df[mask]
             
             if not hasil.empty:
