@@ -631,29 +631,24 @@ def sanitize_excel_dataframe(df):
 
 
 def save_inventory_workbook(workbook_data):
-    if os.path.exists(WORKBOOK_PATH):
-        wb = load_workbook(WORKBOOK_PATH)
-    else:
-        wb = Workbook()
-
-    if "Sheet" in wb.sheetnames:
-        wb.remove(wb["Sheet"])
-
-    existing = set(wb.sheetnames)
-    for sheet_name in INVENTORY_SHEETS:
-        df_sheet = workbook_data.get(sheet_name)
-        if df_sheet is None:
-            continue
-        df_sheet = sanitize_excel_dataframe(df_sheet)
-        if sheet_name in existing:
-            ws = wb[sheet_name]
-            ws.delete_rows(1, ws.max_row)
-        else:
-            ws = wb.create_sheet(title=sheet_name)
-        for row in dataframe_to_rows(df_sheet, index=False, header=True):
-            ws.append(row)
-
-    wb.save(WORKBOOK_PATH)
+    """
+    Menyimpan workbook_data ke dalam file Excel menggunakan pd.ExcelWriter.
+    Ini memastikan file benar-benar tertimpa secara bersih tanpa anomali baris sisa 
+    yang sering terjadi jika menggunakan fitur delete_rows bawaan openpyxl.
+    """
+    try:
+        with pd.ExcelWriter(WORKBOOK_PATH, engine='openpyxl') as writer:
+            for sheet_name in INVENTORY_SHEETS:
+                df_sheet = workbook_data.get(sheet_name)
+                if df_sheet is None:
+                    df_sheet = pd.DataFrame(columns=INVENTORY_COLUMNS)
+                
+                df_sheet = sanitize_excel_dataframe(df_sheet)
+                df_sheet.to_excel(writer, sheet_name=sheet_name, index=False)
+        return True
+    except Exception as e:
+        st.error(f"Gagal menyimpan ke file Excel. Pastikan file tidak sedang dibuka di aplikasi lain. Error: {e}")
+        return False
 
 
 def build_inventory_print_dataframe():
@@ -836,12 +831,10 @@ if menu == "🏠 Beranda":
     if all_items_df is None or all_items_df.empty:
         st.info("Dataset belum tersedia. Silakan upload dataset di menu **📋 Tampilkan Dan Ubah Stok Obat**.")
     else:
-        # Konversi tipe data untuk perhitungan metrik
         all_items_df["Stok Sisa"] = pd.to_numeric(all_items_df["Stok Sisa"], errors="coerce").fillna(0)
         all_items_df["Harga 1"] = pd.to_numeric(all_items_df["Harga 1"], errors="coerce").fillna(0)
         all_items_df["Tanggal Kadaluwarsa"] = pd.to_datetime(all_items_df["Tanggal Kadaluwarsa"], errors="coerce")
         
-        # Hitung metrik
         total_jenis = all_items_df["Nama produk"].nunique()
         total_stok = all_items_df["Stok Sisa"].sum()
         
@@ -862,7 +855,6 @@ if menu == "🏠 Beranda":
         col_low, col_exp = st.columns(2)
         with col_low:
             st.markdown("#### 📉 Stok Menipis (≤ 20)")
-            # Grup berdasarkan worksheet dan produk untuk total akumulasi jika terdapat duplikasi record
             stok_summary = all_items_df.groupby(["Worksheet", "Nama produk"])["Stok Sisa"].sum().reset_index()
             stok_menipis = stok_summary[stok_summary["Stok Sisa"] <= 20].sort_values("Stok Sisa")
             
@@ -965,12 +957,19 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
         key="editor_inventory_grid"
     )
 
+    # PERBAIKAN: Menyimpan ke Excel melalui ExcelWriter, lalu secara tegas update cache
     if st.button("✅ Submit Data Terbaru", type="primary"):
-        workbook_data = load_inventory_workbook()
+        workbook_data = st.session_state.inventory_data_cache
+        if not workbook_data:
+            workbook_data = load_inventory_workbook()
+            
         workbook_data[sheet_name] = normalize_inventory_df(edited_df)
-        save_inventory_workbook(workbook_data)
-        st.success(f"✅ Data worksheet {sheet_name} berhasil disimpan dan diperbarui secara real-time.")
-        st.rerun()
+        
+        success = save_inventory_workbook(workbook_data)
+        if success:
+            st.session_state.inventory_data_cache = workbook_data
+            st.success(f"✅ Data worksheet {sheet_name} berhasil disimpan ke Excel dan diperbarui di seluruh fitur secara real-time.")
+            st.rerun()
 
     st.markdown("---")
     st.subheader("📊 Ringkasan Per Worksheet")
@@ -1228,18 +1227,15 @@ elif menu == "🛒 Kasir Pembelian Obat":
         if available_items.empty:
             st.info("Tidak ada obat dengan stok tersedia (>0).")
         else:
-            # Menggunakan .apply() secara per-baris untuk menghindari ValueError/TypeError dengan mixed dtypes 
             available_items["Label"] = available_items.apply(
                 lambda x: f"{str(x['Nama produk']).strip()} | Batch: {str(x['Nomor Batch']).strip() if pd.notna(x['Nomor Batch']) and str(x['Nomor Batch']).strip() != '' else '-'} | Sisa: {int(x['Stok Sisa'])} ({str(x['Worksheet']).strip()})",
                 axis=1
             )
 
             if not st.session_state.checkout_mode:
-                # Memindahkan selectbox ke luar form agar UI interaktif dan seketika menarik satuan yang tepat
                 selected_label = st.selectbox("Pilih Obat", available_items["Label"].unique().tolist(), key="kasir_pilih_obat")
                 selected_row_display = available_items[available_items["Label"] == selected_label].iloc[0]
                 
-                # Menentukan satuan display
                 satuan_display = str(selected_row_display["Satuan"]).strip() if pd.notna(selected_row_display["Satuan"]) and str(selected_row_display["Satuan"]).strip() != "" else str(selected_row_display["Worksheet"]).strip()
 
                 with st.form("form_kasir"):
