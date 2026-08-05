@@ -711,11 +711,11 @@ def parse_rupiah(val):
 # AUTENTIKASI — LOGIN & USER MAPPING
 # ══════════════════════════════════════════════════════════════════════════════
 USERS = {
-    "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
-    "karyawan1@gmail.com": {"password": "karyawan1", "role": "Karyawan Apotek", "name": "Karyawan 1 (Dian)"},
+    "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Admin (Ivonne)"},
+    "karyawan1@gmail.com": {"password": "karyawan1", "role": "Karyawan Apotek", "name": "Kasir - Karyawan Apotek"},
     "karyawan2@gmail.com": {"password": "karyawan2", "role": "Karyawan Apotek", "name": "Karyawan 2 (Julia)"},
     # Menambahkan backup login sebelumnya jika masih digunakan kasir123
-    "kasir123@gmail.com": {"password": "kasir123", "role": "Karyawan Apotek", "name": "Kasir"},
+    "kasir123@gmail.com": {"password": "kasir123", "role": "Karyawan Apotek", "name": "Kasir - Karyawan Apotek"},
 }
 
 if "logged_in" not in st.session_state:
@@ -1921,6 +1921,7 @@ elif menu == "🕒 Buka/Tutup Shift":
                     return val_str
             else:
                 if widget == "number":
+                    # Disabled dilepas supaya bisa diedit kasir secara mandiri
                     return st.number_input(label, value=float(val_num), label_visibility="collapsed", key=k, step=1000.0, format="%.2f")
                 elif widget == "select":
                     idx = 0
@@ -1930,11 +1931,11 @@ elif menu == "🕒 Buka/Tutup Shift":
                 elif widget == "text":
                     return st.text_input(label, value=val_str, label_visibility="collapsed", key=k)
 
-    # Logika filtering opsi kasir berdasarkan Role (Admin bisa melihat semua opsi, Karyawan hanya Karyawan 1 dan Karyawan 2)
+    # Logika filtering opsi kasir berdasarkan Role (Admin bisa melihat semua opsi)
     if st.session_state.role == "Admin":
-        kasir_options = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
+        kasir_options = ["Admin (Ivonne)", "Kasir - Karyawan Apotek", "Karyawan 2 (Julia)"]
     else:
-        kasir_options = ["Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
+        kasir_options = ["Kasir - Karyawan Apotek", "Karyawan 2 (Julia)"]
 
     if not st.session_state.shift_active:
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Buka Shift</h2>", unsafe_allow_html=True)
@@ -1978,33 +1979,47 @@ elif menu == "🕒 Buka/Tutup Shift":
             mask_retur = df_retur["Tanggal Disimpan"] >= waktu_mulai_dt
             retur_shift_default = float(df_retur[mask_retur]["Total Nilai Retur"].sum())
 
+        # Seluruh Row dibuka (disabled=False) agar bisa diperbaiki kasir/karyawan sendiri
         saldo_awal_in = render_row_erp("Saldo Awal", val_num=saldo_awal_context, disabled=False, widget="number", key_suffix="tutup")
         hasil_penjualan_in = render_row_erp("Hasil Penjualan Apotek", val_num=penjualan_sistem, disabled=False, widget="number", key_suffix="tutup")
         piutang_in = render_row_erp("Pembayaran Piutang Apotek", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
         pendapatan_jurnal_in = render_row_erp("Pendapatan Jurnal Keuangan Shift", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
         
-        total_pendapatan = hasil_penjualan_in + piutang_in + pendapatan_jurnal_in
-        render_row_erp("Total Pendapatan", val_num=total_pendapatan, disabled=True, widget="number", key_suffix="tutup")
+        # LOGIC CALCULATION -> Total Pendapatan
+        total_pendapatan_calc = hasil_penjualan_in + piutang_in + pendapatan_jurnal_in
+        total_pendapatan_in = render_row_erp("Total Pendapatan", val_num=total_pendapatan_calc, disabled=False, widget="number", key_suffix="tutup")
         
         retur_penjualan_in = render_row_erp("Retur Penjualan Apotek", val_num=retur_shift_default, disabled=False, widget="number", key_suffix="tutup")
         pengeluaran_jurnal_in = render_row_erp("Pengeluaran Jurnal Keuangan Shift", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
         
-        total_pengeluaran = retur_penjualan_in + pengeluaran_jurnal_in
-        render_row_erp("Total Pengeluaran", val_num=total_pengeluaran, disabled=True, widget="number", key_suffix="tutup")
+        # LOGIC CALCULATION -> Total Pengeluaran
+        total_pengeluaran_calc = retur_penjualan_in + pengeluaran_jurnal_in
+        total_pengeluaran_in = render_row_erp("Total Pengeluaran", val_num=total_pengeluaran_calc, disabled=False, widget="number", key_suffix="tutup")
         
-        saldo_akhir = saldo_awal_in + total_pendapatan - total_pengeluaran
-        render_row_erp("Saldo Akhir", val_num=saldo_akhir, disabled=True, widget="number", key_suffix="tutup")
+        # LOGIC CALCULATION -> Saldo Akhir
+        saldo_akhir_calc = saldo_awal_in + total_pendapatan_in - total_pengeluaran_in
+        saldo_akhir_in = render_row_erp("Saldo Akhir", val_num=saldo_akhir_calc, disabled=False, widget="number", key_suffix="tutup")
         
         saldo_kasir_in = render_row_erp("Saldo Kasir", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
         
-        selisih = saldo_kasir_in - saldo_akhir
-        render_row_erp("Selisih Saldo", val_num=selisih, disabled=True, widget="number", key_suffix="tutup")
+        # LOGIC CALCULATION -> Selisih Saldo
+        selisih_calc = saldo_kasir_in - saldo_akhir_in
+        selisih_in = render_row_erp("Selisih Saldo", val_num=selisih_calc, disabled=False, widget="number", key_suffix="tutup")
         
         diserahkan_kepada_opsi = ["Bukan User", "Admin Utama Apotek", "Owner"]
         diserahkan_kepada = render_row_erp("Di Serahkan Kepada", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="tutup")
         
         nama_penyerah = render_row_erp("Nama", disabled=False, widget="select", opts=kasir_options, val_str=nama_user, key_suffix="tutup")
         catatan = render_row_erp("Catatan", disabled=False, widget="text", key_suffix="tutup")
+
+        st.markdown("---")
+        st.markdown("#### ⚖️ Pengecekan Logic Saldo")
+        if selisih_in < 0:
+            st.error(f"⚠️ Peringatan: Terdapat Selisih Saldo (Minus) sebesar {format_rupiah(selisih_in)}. Cek kembali nominal di atas atau tambahkan catatan.")
+        elif selisih_in > 0:
+            st.warning(f"⚠️ Perhatian: Terdapat Selisih Saldo (Lebih) sebesar {format_rupiah(selisih_in)}. Cek kembali nominal di atas atau tambahkan catatan.")
+        else:
+            st.success(f"✅ Saldo Balance! Tidak ada selisih (Rp 0). Data sesuai logic dan siap diproses.")
 
         c1, c2 = st.columns([3, 7])
         with c2:
@@ -2033,13 +2048,13 @@ elif menu == "🕒 Buka/Tutup Shift":
                 "Hasil Penjualan": hasil_penjualan_in,
                 "Piutang": piutang_in,
                 "Pendapatan Jurnal": pendapatan_jurnal_in,
-                "Total Pendapatan": total_pendapatan,
+                "Total Pendapatan": total_pendapatan_in,
                 "Retur Penjualan": retur_penjualan_in,
                 "Pengeluaran Jurnal": pengeluaran_jurnal_in,
-                "Total Pengeluaran": total_pengeluaran,
-                "Saldo Akhir": saldo_akhir,
+                "Total Pengeluaran": total_pengeluaran_in,
+                "Saldo Akhir": saldo_akhir_in,
                 "Fisik Kasir": saldo_kasir_in,
-                "Selisih": selisih,
+                "Selisih": selisih_in,
                 "Diserahkan Ke": diserahkan_kepada,
                 "Nama Penyerah": nama_penyerah,
                 "Catatan": catatan
