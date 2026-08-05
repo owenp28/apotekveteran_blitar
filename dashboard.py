@@ -711,8 +711,11 @@ def parse_rupiah(val):
 # AUTENTIKASI — LOGIN & USER MAPPING
 # ══════════════════════════════════════════════════════════════════════════════
 USERS = {
-    "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Admin Utama Apotek"},
-    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Ivonne Virginia Wibisono"},
+    "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Admin (Ivonne)"},
+    "karyawan1@gmail.com": {"password": "karyawan1", "role": "Karyawan Apotek", "name": "Karyawan 1 (Dian)"},
+    "karyawan2@gmail.com": {"password": "karyawan2", "role": "Karyawan Apotek", "name": "Karyawan 2 (Julia)"},
+    # Menambahkan backup login sebelumnya jika masih digunakan kasir123
+    "kasir123@gmail.com": {"password": "kasir123", "role": "Karyawan Apotek", "name": "Karyawan 1 (Dian)"},
 }
 
 if "logged_in" not in st.session_state:
@@ -739,7 +742,7 @@ if not st.session_state.logged_in:
     )
     with st.form("form_login"):
         st.markdown("<div style='max-width:380px; margin:0 auto;'>", unsafe_allow_html=True)
-        role_pilih = st.selectbox("Login sebagai", ["Admin", "Kasir"])
+        role_pilih = st.selectbox("Login sebagai", ["Admin", "Karyawan Apotek"])
         username   = st.text_input("Username")
         password   = st.text_input("Password", type="password")
         login_btn  = st.form_submit_button("🔐 Login", use_container_width=True)
@@ -1933,7 +1936,6 @@ elif menu == "🕒 Buka/Tutup Shift":
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Buka Shift</h2>", unsafe_allow_html=True)
         st.info("Silakan masukkan saldo awal (modal uang receh/tunai di laci) sebelum mulai melayani penjualan.")
         
-        # Default name on open shift based on login
         default_name = USERS[st.session_state.username]["name"]
         default_str = default_name if default_name in kasir_options else kasir_options[0]
 
@@ -1959,13 +1961,11 @@ elif menu == "🕒 Buka/Tutup Shift":
     else:
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Tutup Shift</h2>", unsafe_allow_html=True)
 
-        # Mengambil Data Base Context 
         nama_user = st.session_state.active_shift_context["user_name"]
         waktu_mulai = st.session_state.active_shift_context["start_time"]
         saldo_awal_context = st.session_state.active_shift_context["saldo_awal"]
         penjualan_sistem = st.session_state.active_shift_context["accumulated_sales_expected"]
 
-        # Mengambil logic auto-calculate Retur untuk menjadi nilai default
         retur_shift_default = 0.0
         if not st.session_state.retur_history.empty:
             df_retur = st.session_state.retur_history.copy()
@@ -1974,39 +1974,32 @@ elif menu == "🕒 Buka/Tutup Shift":
             mask_retur = df_retur["Tanggal Disimpan"] >= waktu_mulai_dt
             retur_shift_default = float(df_retur[mask_retur]["Total Nilai Retur"].sum())
 
-        # Semua input (kecuali hasil final) diberikan disabled=False agar dapat diedit kasir jika ada manual overwrite
         saldo_awal_in = render_row_erp("Saldo Awal", val_num=saldo_awal_context, disabled=False, widget="number", key_suffix="tutup")
         hasil_penjualan_in = render_row_erp("Hasil Penjualan Apotek", val_num=penjualan_sistem, disabled=False, widget="number", key_suffix="tutup")
         piutang_in = render_row_erp("Pembayaran Piutang Apotek", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
         pendapatan_jurnal_in = render_row_erp("Pendapatan Jurnal Keuangan Shift", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
         
-        # LOGIC: Total Pendapatan terkunci karena ia formula pasti = Penjualan + Piutang + Pendapatan Lain
         total_pendapatan = hasil_penjualan_in + piutang_in + pendapatan_jurnal_in
         render_row_erp("Total Pendapatan", val_num=total_pendapatan, disabled=True, widget="number", key_suffix="tutup")
         
         retur_penjualan_in = render_row_erp("Retur Penjualan Apotek", val_num=retur_shift_default, disabled=False, widget="number", key_suffix="tutup")
         pengeluaran_jurnal_in = render_row_erp("Pengeluaran Jurnal Keuangan Shift", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
         
-        # LOGIC: Total Pengeluaran terkunci = Retur + Pengeluaran Lain
         total_pengeluaran = retur_penjualan_in + pengeluaran_jurnal_in
         render_row_erp("Total Pengeluaran", val_num=total_pengeluaran, disabled=True, widget="number", key_suffix="tutup")
         
-        # LOGIC: Saldo Akhir terkunci = Saldo Awal + Masuk - Keluar
         saldo_akhir = saldo_awal_in + total_pendapatan - total_pengeluaran
         render_row_erp("Saldo Akhir", val_num=saldo_akhir, disabled=True, widget="number", key_suffix="tutup")
         
         saldo_kasir_in = render_row_erp("Saldo Kasir", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
         
-        # LOGIC: Selisih terkunci (Fisik Laci - Saldo Akhir Sistem)
         selisih = saldo_kasir_in - saldo_akhir
         render_row_erp("Selisih Saldo", val_num=selisih, disabled=True, widget="number", key_suffix="tutup")
         
         diserahkan_kepada_opsi = ["Bukan User", "Admin Utama Apotek", "Owner"]
         diserahkan_kepada = render_row_erp("Di Serahkan Kepada", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="tutup")
         
-        # Dropdown Nama Penyerah, Default memuat siapa yang memegang user aktif shift saat ini
         nama_penyerah = render_row_erp("Nama", disabled=False, widget="select", opts=kasir_options, val_str=nama_user, key_suffix="tutup")
-        
         catatan = render_row_erp("Catatan", disabled=False, widget="text", key_suffix="tutup")
 
         c1, c2 = st.columns([3, 7])
