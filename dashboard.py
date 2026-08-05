@@ -712,10 +712,10 @@ def parse_rupiah(val):
 # ══════════════════════════════════════════════════════════════════════════════
 USERS = {
     "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Admin (Ivonne)"},
-    "karyawan1@gmail.com": {"password": "karyawan1", "role": "Karyawan Apotek", "name": "Kasir"},
+    "karyawan1@gmail.com": {"password": "karyawan1", "role": "Karyawan Apotek", "name": "Karyawan 1 (Dian)"},
     "karyawan2@gmail.com": {"password": "karyawan2", "role": "Karyawan Apotek", "name": "Karyawan 2 (Julia)"},
     # Menambahkan backup login sebelumnya jika masih digunakan kasir123
-    "kasir123@gmail.com": {"password": "kasir123", "role": "Karyawan Apotek", "name": "Kasir"},
+    "kasir123@gmail.com": {"password": "kasir123", "role": "Karyawan Apotek", "name": "Karyawan 1 (Dian)"},
 }
 
 if "logged_in" not in st.session_state:
@@ -1932,9 +1932,9 @@ elif menu == "🕒 Buka/Tutup Shift":
 
     # Logika filtering opsi kasir berdasarkan Role (Admin bisa melihat semua opsi, Karyawan hanya Karyawan 1 dan Karyawan 2)
     if st.session_state.role == "Admin":
-        kasir_options = ["Admin (Ivonne)", "Kasir", "Karyawan 2 (Julia)"]
+        kasir_options = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
     else:
-        kasir_options = ["Kasir", "Karyawan 2 (Julia)"]
+        kasir_options = ["Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
 
     if not st.session_state.shift_active:
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Buka Shift</h2>", unsafe_allow_html=True)
