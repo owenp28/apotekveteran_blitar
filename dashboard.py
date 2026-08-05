@@ -396,7 +396,7 @@ def load_shift_log():
         return pd.read_csv(SHIFT_LOG_PATH)
     else:
         return pd.DataFrame(columns=[
-            "Waktu Buka", "Waktu Tutup", "Nama Kasir", "Saldo Awal", 
+            "Waktu Buka", "Waktu Tutup", "Pilih Shift", "Nama Kasir", "Saldo Awal", 
             "Hasil Penjualan", "Piutang", "Pendapatan Jurnal", "Total Pendapatan",
             "Retur Penjualan", "Pengeluaran Jurnal", "Total Pengeluaran",
             "Saldo Akhir", "Fisik Kasir", "Selisih", "Diserahkan Ke", "Nama Penyerah", "Catatan"
@@ -711,11 +711,10 @@ def parse_rupiah(val):
 # AUTENTIKASI — LOGIN & USER MAPPING
 # ══════════════════════════════════════════════════════════════════════════════
 USERS = {
-    "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
-    "karyawan1@gmail.com": {"password": "karyawan1", "role": "Karyawan Apotek", "name": "Karyawan 1 (Dian)"},
+    "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Admin (Ivonne)"},
+    "karyawan1@gmail.com": {"password": "karyawan1", "role": "Karyawan Apotek", "name": "Kasir - Karyawan Apotek"},
     "karyawan2@gmail.com": {"password": "karyawan2", "role": "Karyawan Apotek", "name": "Karyawan 2 (Julia)"},
-    # Menambahkan backup login sebelumnya jika masih digunakan kasir123
-    "kasir123@gmail.com": {"password": "kasir123", "role": "Karyawan Apotek", "name": "Kasir"},
+    "kasir123@gmail.com": {"password": "kasir123", "role": "Karyawan Apotek", "name": "Kasir - Karyawan Apotek"},
 }
 
 if "logged_in" not in st.session_state:
@@ -797,7 +796,8 @@ if "active_shift_context" not in st.session_state:
         "saldo_awal": 0.0,
         "accumulated_sales_expected": 0.0,
         "start_time": None,
-        "user_name": ""
+        "user_name": "",
+        "shift_name": "Pagi"
     }
 
 # ── Sidebar navigasi ──────────────────────────────────────────────────────────
@@ -836,7 +836,7 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     # Reset Shift saat logout supaya safety
     st.session_state.shift_active = False
     st.session_state.active_shift_context = {
-        "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": ""
+        "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
     }
     st.rerun()
 
@@ -1933,9 +1933,11 @@ elif menu == "🕒 Buka/Tutup Shift":
 
     # Logika filtering opsi kasir berdasarkan Role (Admin bisa melihat semua opsi)
     if st.session_state.role == "Admin":
-        kasir_options = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
+        kasir_options = ["Admin (Ivonne)", "Kasir - Karyawan Apotek", "Karyawan 2 (Julia)"]
     else:
-        kasir_options = ["Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
+        kasir_options = ["Kasir - Karyawan Apotek", "Karyawan 2 (Julia)"]
+
+    shift_options = ["Pagi", "Siang", "Sore", "Malam"]
 
     if not st.session_state.shift_active:
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Buka Shift</h2>", unsafe_allow_html=True)
@@ -1946,6 +1948,7 @@ elif menu == "🕒 Buka/Tutup Shift":
 
         with st.form("form_buka_shift"):
             nama_user_buka = render_row_erp("User Aktif (Nama Kasir)", disabled=False, widget="select", opts=kasir_options, val_str=default_str, key_suffix="buka")
+            shift_pilih_buka = render_row_erp("Pilih Shift", disabled=False, widget="select", opts=shift_options, key_suffix="buka")
             saldo_awal_buka = render_row_erp("Saldo Awal", val_num=0.0, disabled=False, widget="number", key_suffix="buka")
 
             st.write("")
@@ -1961,6 +1964,7 @@ elif menu == "🕒 Buka/Tutup Shift":
                 st.session_state.active_shift_context["accumulated_sales_expected"] = 0.0
                 st.session_state.active_shift_context["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 st.session_state.active_shift_context["user_name"] = nama_user_buka
+                st.session_state.active_shift_context["shift_name"] = shift_pilih_buka
                 st.rerun()
 
     else:
@@ -1970,6 +1974,7 @@ elif menu == "🕒 Buka/Tutup Shift":
         waktu_mulai = st.session_state.active_shift_context["start_time"]
         saldo_awal_context = st.session_state.active_shift_context["saldo_awal"]
         penjualan_sistem = st.session_state.active_shift_context["accumulated_sales_expected"]
+        shift_context_name = st.session_state.active_shift_context.get("shift_name", "Pagi")
 
         retur_shift_default = 0.0
         if not st.session_state.retur_history.empty:
@@ -1979,7 +1984,7 @@ elif menu == "🕒 Buka/Tutup Shift":
             mask_retur = df_retur["Tanggal Disimpan"] >= waktu_mulai_dt
             retur_shift_default = float(df_retur[mask_retur]["Total Nilai Retur"].sum())
 
-        # Seluruh Row dibuka (disabled=False) agar bisa diperbaiki kasir/karyawan sendiri
+        shift_in = render_row_erp("Pilih Shift", disabled=False, widget="select", opts=shift_options, val_str=shift_context_name, key_suffix="tutup")
         saldo_awal_in = render_row_erp("Saldo Awal", val_num=saldo_awal_context, disabled=False, widget="number", key_suffix="tutup")
         hasil_penjualan_in = render_row_erp("Hasil Penjualan Apotek", val_num=penjualan_sistem, disabled=False, widget="number", key_suffix="tutup")
         piutang_in = render_row_erp("Pembayaran Piutang Apotek", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
@@ -2006,7 +2011,7 @@ elif menu == "🕒 Buka/Tutup Shift":
         selisih_calc = saldo_kasir_in - saldo_akhir_in
         selisih_in = render_row_erp("Selisih Saldo", val_num=selisih_calc, disabled=False, widget="number", key_suffix="tutup")
         
-        diserahkan_kepada_opsi = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
+        diserahkan_kepada_opsi = ["Bukan User", "Admin Utama Apotek", "Owner"]
         diserahkan_kepada = render_row_erp("Di Serahkan Kepada", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="tutup")
         
         nama_penyerah = render_row_erp("Nama", disabled=False, widget="select", opts=kasir_options, val_str=nama_user, key_suffix="tutup")
@@ -2043,6 +2048,7 @@ elif menu == "🕒 Buka/Tutup Shift":
             new_log = pd.DataFrame([{
                 "Waktu Buka": waktu_mulai,
                 "Waktu Tutup": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Shift": shift_in,
                 "Nama Kasir": nama_user,
                 "Saldo Awal": saldo_awal_in,
                 "Hasil Penjualan": hasil_penjualan_in,
@@ -2067,7 +2073,8 @@ elif menu == "🕒 Buka/Tutup Shift":
                 "saldo_awal": 0.0,
                 "accumulated_sales_expected": 0.0,
                 "start_time": None,
-                "user_name": ""
+                "user_name": "",
+                "shift_name": "Pagi"
             }
             st.success("✅ Shift berhasil ditutup. Data tercatat dengan formal di database shift_log.csv.")
             st.rerun()
