@@ -395,7 +395,12 @@ def load_shift_log():
     if os.path.exists(SHIFT_LOG_PATH):
         return pd.read_csv(SHIFT_LOG_PATH)
     else:
-        return pd.DataFrame(columns=["Waktu Buka", "Waktu Tutup", "Nama Kasir", "Saldo Awal", "Penjualan Sistem", "Fisik Kasir", "Selisih", "Catatan"])
+        return pd.DataFrame(columns=[
+            "Waktu Buka", "Waktu Tutup", "Nama Kasir", "Saldo Awal", 
+            "Hasil Penjualan", "Piutang", "Pendapatan Jurnal", "Total Pendapatan",
+            "Retur Penjualan", "Pengeluaran Jurnal", "Total Pengeluaran",
+            "Saldo Akhir", "Fisik Kasir", "Selisih", "Diserahkan Ke", "Nama Penyerah", "Catatan"
+        ])
 
 def save_data(df):
     df.to_csv(DATASET_PATH, index=False)
@@ -1892,92 +1897,107 @@ elif menu == "📦 Entri & Retur Pembelian":
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🕒 Buka/Tutup Shift":
 
+    def format_angka_erp(val):
+        try:
+            return f"{float(val):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+        except:
+            return "0,00"
+
+    def render_row_erp(label, val_num=0.0, disabled=True, widget="text", opts=None, val_str="", key_suffix=""):
+        c1, c2 = st.columns([3, 7])
+        k = f"ts_{key_suffix}_{re.sub(r'[^a-zA-Z0-9]', '_', label)}"
+        with c1:
+            st.markdown(f"<div style='text-align: right; padding-top: 8px; font-weight: 600; font-size: 13px; color: #e0e0e0;'>{label}</div>", unsafe_allow_html=True)
+        with c2:
+            if disabled:
+                if widget == "number":
+                    st.text_input(label, value=format_angka_erp(val_num), disabled=True, label_visibility="collapsed", key=k)
+                    return val_num
+                else:
+                    st.text_input(label, value=val_str, disabled=True, label_visibility="collapsed", key=k)
+                    return val_str
+            else:
+                if widget == "number":
+                    return st.number_input(label, value=float(val_num), label_visibility="collapsed", key=k, step=1000.0, format="%.2f")
+                elif widget == "select":
+                    return st.selectbox(label, options=opts, label_visibility="collapsed", key=k)
+                elif widget == "text":
+                    return st.text_input(label, value=val_str, label_visibility="collapsed", key=k)
+
     if not st.session_state.shift_active:
-        st.title("🕒 Buka Shift Kasir")
+        st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Buka Shift</h2>", unsafe_allow_html=True)
         st.info("Silakan masukkan saldo awal (modal uang receh/tunai di laci) sebelum mulai melayani penjualan.")
-        with st.form("form_buka_shift"):
-            nama_user = USERS[st.session_state.username]["name"]
-            st.text_input("User Aktif (Nama Kasir)", value=nama_user, disabled=True)
-            
-            saldo_awal = st.number_input("Saldo Awal (Uang Tunai di Laci)", min_value=0.0, step=1000.0, value=0.0)
+        
+        nama_user = USERS[st.session_state.username]["name"]
+        
+        render_row_erp("User Aktif (Nama Kasir)", disabled=True, widget="text", val_str=nama_user, key_suffix="buka")
+        saldo_awal_buka = render_row_erp("Saldo Awal", val_num=0.0, disabled=False, widget="number", key_suffix="buka")
 
-            submit_buka = st.form_submit_button("Buka Shift Sekarang", type="primary", use_container_width=True)
+        st.write("")
+        c_btn1, c_btn2 = st.columns([3, 7])
+        with c_btn2:
+            col_b1, col_b2 = st.columns([1, 3])
+            with col_b1:
+                submit_buka = st.button("✔ Buka Shift", type="primary", use_container_width=True)
 
-            if submit_buka:
-                st.session_state.shift_active = True
-                st.session_state.active_shift_context["saldo_awal"] = float(saldo_awal)
-                st.session_state.active_shift_context["accumulated_sales_expected"] = 0.0
-                st.session_state.active_shift_context["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                st.session_state.active_shift_context["user_name"] = nama_user
-                st.rerun()
+        if submit_buka:
+            st.session_state.shift_active = True
+            st.session_state.active_shift_context["saldo_awal"] = float(saldo_awal_buka)
+            st.session_state.active_shift_context["accumulated_sales_expected"] = 0.0
+            st.session_state.active_shift_context["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.active_shift_context["user_name"] = nama_user
+            st.rerun()
 
     else:
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Tutup Shift</h2>", unsafe_allow_html=True)
 
-        def format_angka_erp(val):
-            try:
-                return f"{float(val):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-            except:
-                return "0,00"
-
-        # Fungsi helper untuk merender baris input sejajar secara horizontal menyerupai gambar ERP
-        def render_row_erp(label, val, disabled=True, widget="text", opts=None):
-            c1, c2 = st.columns([2, 6])
-            with c1:
-                st.markdown(f"<div style='text-align: right; padding-top: 8px; font-weight: 600; font-size: 13px; color: #e0e0e0;'>{label}</div>", unsafe_allow_html=True)
-            with c2:
-                if disabled:
-                    st.text_input(label, value=val, disabled=True, label_visibility="collapsed", key=f"ts_{label}")
-                    return val
-                else:
-                    if widget == "number":
-                        return st.number_input(label, value=float(val), label_visibility="collapsed", key=f"ts_{label}", step=1000.0)
-                    elif widget == "select":
-                        return st.selectbox(label, options=opts, label_visibility="collapsed", key=f"ts_{label}")
-                    elif widget == "text":
-                        return st.text_input(label, value=val, label_visibility="collapsed", key=f"ts_{label}")
-
-        # Data context
+        # Mengambil Data Base Context 
         nama_user = st.session_state.active_shift_context["user_name"]
         waktu_mulai = st.session_state.active_shift_context["start_time"]
-        saldo_awal = st.session_state.active_shift_context["saldo_awal"]
+        saldo_awal_context = st.session_state.active_shift_context["saldo_awal"]
         penjualan_sistem = st.session_state.active_shift_context["accumulated_sales_expected"]
 
-        # Default variabel akuntansi (disesuaikan dengan gambar UI ERP)
-        pembayaran_piutang = 0.0
-        pendapatan_jurnal = 0.0
-        total_pendapatan = penjualan_sistem + pembayaran_piutang + pendapatan_jurnal
+        # Mengambil logic auto-calculate Retur untuk menjadi nilai default
+        retur_shift_default = 0.0
+        if not st.session_state.retur_history.empty:
+            df_retur = st.session_state.retur_history.copy()
+            df_retur["Tanggal Disimpan"] = pd.to_datetime(df_retur["Tanggal Disimpan"], errors="coerce")
+            waktu_mulai_dt = pd.to_datetime(waktu_mulai)
+            mask_retur = df_retur["Tanggal Disimpan"] >= waktu_mulai_dt
+            retur_shift_default = float(df_retur[mask_retur]["Total Nilai Retur"].sum())
 
-        retur_penjualan = 0.0
-        pengeluaran_jurnal = 0.0
-        total_pengeluaran = retur_penjualan + pengeluaran_jurnal
+        # Render semua field horizontal sesuai urutan gambar ERP. Edit=True pada komponen, namun rumusnya dikunci.
+        saldo_awal_in = render_row_erp("Saldo Awal", val_num=saldo_awal_context, disabled=False, widget="number", key_suffix="tutup")
+        hasil_penjualan_in = render_row_erp("Hasil Penjualan Apotek", val_num=penjualan_sistem, disabled=False, widget="number", key_suffix="tutup")
+        piutang_in = render_row_erp("Pembayaran Piutang Apotek", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
+        pendapatan_jurnal_in = render_row_erp("Pendapatan Jurnal Keuangan Shift", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
+        
+        # LOGIC: Total Pendapatan terkunci karena ia formula pasti = Penjualan + Piutang + Pendapatan Lain
+        total_pendapatan = hasil_penjualan_in + piutang_in + pendapatan_jurnal_in
+        render_row_erp("Total Pendapatan", val_num=total_pendapatan, disabled=True, widget="number", key_suffix="tutup")
+        
+        retur_penjualan_in = render_row_erp("Retur Penjualan Apotek", val_num=retur_shift_default, disabled=False, widget="number", key_suffix="tutup")
+        pengeluaran_jurnal_in = render_row_erp("Pengeluaran Jurnal Keuangan Shift", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
+        
+        # LOGIC: Total Pengeluaran terkunci = Retur + Pengeluaran Lain
+        total_pengeluaran = retur_penjualan_in + pengeluaran_jurnal_in
+        render_row_erp("Total Pengeluaran", val_num=total_pengeluaran, disabled=True, widget="number", key_suffix="tutup")
+        
+        # LOGIC: Saldo Akhir terkunci = Saldo Awal + Masuk - Keluar
+        saldo_akhir = saldo_awal_in + total_pendapatan - total_pengeluaran
+        render_row_erp("Saldo Akhir", val_num=saldo_akhir, disabled=True, widget="number", key_suffix="tutup")
+        
+        saldo_kasir_in = render_row_erp("Saldo Kasir", val_num=0.0, disabled=False, widget="number", key_suffix="tutup")
+        
+        # LOGIC: Selisih terkunci
+        selisih = saldo_kasir_in - saldo_akhir
+        render_row_erp("Selisih Saldo", val_num=selisih, disabled=True, widget="number", key_suffix="tutup")
+        
+        diserahkan_kepada = render_row_erp("Di Serahkan Kepada", disabled=False, widget="select", opts=["Bukan User", "Admin Utama Apotek", "Owner"], key_suffix="tutup")
+        nama_penyerah = render_row_erp("Nama", disabled=False, widget="text", val_str=nama_user, key_suffix="tutup")
+        catatan = render_row_erp("Catatan", disabled=False, widget="text", key_suffix="tutup")
 
-        saldo_akhir = saldo_awal + total_pendapatan - total_pengeluaran
-
-        # Render semua field horizontal sesuai urutan gambar
-        render_row_erp("Saldo Awal", format_angka_erp(saldo_awal))
-        render_row_erp("Hasil Penjualan Apotek", format_angka_erp(penjualan_sistem))
-        render_row_erp("Pembayaran Piutang Apotek", format_angka_erp(pembayaran_piutang))
-        render_row_erp("Pendapatan Jurnal Keuangan Shift", format_angka_erp(pendapatan_jurnal))
-        render_row_erp("Total Pendapatan", format_angka_erp(total_pendapatan))
-        
-        render_row_erp("Retur Penjualan Apotek", format_angka_erp(retur_penjualan))
-        render_row_erp("Pengeluaran Jurnal Keuangan Shift", format_angka_erp(pengeluaran_jurnal))
-        render_row_erp("Total Pengeluaran", format_angka_erp(total_pengeluaran))
-        
-        render_row_erp("Saldo Akhir", format_angka_erp(saldo_akhir))
-        
-        # Interactive user input
-        saldo_kasir_fisik = render_row_erp("Saldo Kasir", 0.0, disabled=False, widget="number")
-        
-        selisih = saldo_kasir_fisik - saldo_akhir
-        render_row_erp("Selisih Saldo", format_angka_erp(selisih))
-        
-        diserahkan_kepada = render_row_erp("Di Serahkan Kepada", "", disabled=False, widget="select", opts=["Bukan User", "Admin Utama Apotek", "Owner"])
-        nama_penyerah = render_row_erp("Nama", "", disabled=False, widget="text")
-        catatan = render_row_erp("Catatan", "", disabled=False, widget="text")
-
-        c1, c2 = st.columns([2, 6])
+        c1, c2 = st.columns([3, 7])
         with c2:
             st.markdown(
                 "<div style='font-size: 12px; color: #a0a0a0; padding-top: 4px;'>"
@@ -1988,10 +2008,7 @@ elif menu == "🕒 Buka/Tutup Shift":
         st.write("")
         st.write("")
         
-        # Tempatkan Tombol di bawah dengan alignment yang rapi sesuai gambar
-        c_btn1, c_btn2 = st.columns([2, 6])
-        with c_btn1:
-            pass # Ruang kosong sejajar label
+        c_btn1, c_btn2 = st.columns([3, 7])
         with c_btn2:
             col_b1, col_b2 = st.columns([1, 4])
             with col_b1:
@@ -2003,10 +2020,19 @@ elif menu == "🕒 Buka/Tutup Shift":
                 "Waktu Buka": waktu_mulai,
                 "Waktu Tutup": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "Nama Kasir": nama_user,
-                "Saldo Awal": saldo_awal,
-                "Penjualan Sistem": penjualan_sistem,
-                "Fisik Kasir": saldo_kasir_fisik,
+                "Saldo Awal": saldo_awal_in,
+                "Hasil Penjualan": hasil_penjualan_in,
+                "Piutang": piutang_in,
+                "Pendapatan Jurnal": pendapatan_jurnal_in,
+                "Total Pendapatan": total_pendapatan,
+                "Retur Penjualan": retur_penjualan_in,
+                "Pengeluaran Jurnal": pengeluaran_jurnal_in,
+                "Total Pengeluaran": total_pengeluaran,
+                "Saldo Akhir": saldo_akhir,
+                "Fisik Kasir": saldo_kasir_in,
                 "Selisih": selisih,
+                "Diserahkan Ke": diserahkan_kepada,
+                "Nama Penyerah": nama_penyerah,
                 "Catatan": catatan
             }])
             log_df = pd.concat([log_df, new_log], ignore_index=True)
