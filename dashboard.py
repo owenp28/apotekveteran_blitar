@@ -1359,8 +1359,11 @@ elif menu == "🛒 Kasir Pembelian Obat":
         if available_items.empty:
             st.info("Tidak ada obat dengan stok tersedia (>0).")
         else:
-            # Membuat format label yang rapi untuk combobox seperti pada image referensi ("image_4e80a9.png")
-            available_items["Label"] = available_items["Nama produk"].astype(str) + " | Batch: " + available_items["Nomor Batch"].fillna("-").astype(str) + " | Sisa: " + available_items["Stok Sisa"].astype(int).astype(str) + " (" + available_items["Worksheet"] + ")"
+            # Menggunakan .apply() secara per-baris untuk menghindari ValueError/TypeError dengan mixed dtypes 
+            available_items["Label"] = available_items.apply(
+                lambda x: f"{str(x['Nama produk']).strip()} | Batch: {str(x['Nomor Batch']).strip() if pd.notna(x['Nomor Batch']) and str(x['Nomor Batch']).strip() != '' else '-'} | Sisa: {int(x['Stok Sisa'])} ({str(x['Worksheet']).strip()})",
+                axis=1
+            )
 
             if not st.session_state.checkout_mode:
                 with st.form("form_kasir"):
@@ -1368,7 +1371,6 @@ elif menu == "🛒 Kasir Pembelian Obat":
                     
                     col_su, col_sh = st.columns(2)
                     with col_su:
-                        # Satuan Jual otomatis dari input dataset (read-only style display)
                         st.text_input("Satuan (Otomatis dari Dataset)", value="Berdasarkan pilihan", disabled=True)
                     with col_sh:
                         skema_harga = st.selectbox("Skema Harga", ["Harga 1", "Harga 2"])
