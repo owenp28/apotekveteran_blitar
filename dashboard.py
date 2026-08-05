@@ -711,8 +711,8 @@ def parse_rupiah(val):
 # AUTENTIKASI — LOGIN & USER MAPPING
 # ══════════════════════════════════════════════════════════════════════════════
 USERS = {
-    "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Admin (Ivonne)"},
-    "karyawan1@gmail.com": {"password": "karyawan1", "role": "Karyawan Apotek", "name": "Kasir - Karyawan Apotek"},
+    "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
+    "karyawan1@gmail.com": {"password": "karyawan1", "role": "Karyawan Apotek", "name": "Karyawan 1 (Dian)"},
     "karyawan2@gmail.com": {"password": "karyawan2", "role": "Karyawan Apotek", "name": "Karyawan 2 (Julia)"},
     "kasir123@gmail.com": {"password": "kasir123", "role": "Karyawan Apotek", "name": "Kasir - Karyawan Apotek"},
 }
@@ -741,7 +741,7 @@ if not st.session_state.logged_in:
     )
     with st.form("form_login"):
         st.markdown("<div style='max-width:380px; margin:0 auto;'>", unsafe_allow_html=True)
-        role_pilih = st.selectbox("Login sebagai", ["Admin", "Karyawan Apotek"])
+        role_pilih = st.selectbox("Login sebagai", ["Admin", "Kasir"])
         username   = st.text_input("Username")
         password   = st.text_input("Password", type="password")
         login_btn  = st.form_submit_button("🔐 Login", use_container_width=True)
@@ -1933,9 +1933,9 @@ elif menu == "🕒 Buka/Tutup Shift":
 
     # Logika filtering opsi kasir berdasarkan Role (Admin bisa melihat semua opsi)
     if st.session_state.role == "Admin":
-        kasir_options = ["Admin (Ivonne)", "Kasir - Karyawan Apotek", "Karyawan 2 (Julia)"]
+        kasir_options = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
     else:
-        kasir_options = ["Kasir - Karyawan Apotek", "Karyawan 2 (Julia)"]
+        kasir_options = ["Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
 
     shift_options = ["Pagi", "Siang", "Sore", "Malam"]
 
