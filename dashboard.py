@@ -319,6 +319,7 @@ DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
 WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran.xlsx")
 CSV_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.csv")
+SHIFT_LOG_PATH = os.path.join(os.path.dirname(__file__), "shift_log.csv")
 DEFAULT_SOURCE_URL = WORKBOOK_PATH
 DEFAULT_SOURCE_LABEL = WORKBOOK_PATH
 
@@ -390,11 +391,20 @@ def load_retur_history():
         return df[RETUR_HISTORY_COLUMNS]
     return None
 
+def load_shift_log():
+    if os.path.exists(SHIFT_LOG_PATH):
+        return pd.read_csv(SHIFT_LOG_PATH)
+    else:
+        return pd.DataFrame(columns=["Waktu Buka", "Waktu Tutup", "Nama Kasir", "Saldo Awal", "Penjualan Sistem", "Fisik Kasir", "Selisih"])
+
 def save_data(df):
     df.to_csv(DATASET_PATH, index=False)
 
 def save_retur_history(df):
     df.to_csv(RETUR_HISTORY_PATH, index=False)
+
+def save_shift_log(df):
+    df.to_csv(SHIFT_LOG_PATH, index=False)
 
 def format_rupiah(val):
     try:
@@ -693,11 +703,11 @@ def parse_rupiah(val):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# AUTENTIKASI — LOGIN
+# AUTENTIKASI — LOGIN & USER MAPPING
 # ══════════════════════════════════════════════════════════════════════════════
 USERS = {
-    "admin123@gmail.com": {"password": "admin123", "role": "Admin"},
-    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir"},
+    "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Admin Utama Apotek"},
+    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Ivonne Virginia Wibisono"},
 }
 
 if "logged_in" not in st.session_state:
@@ -741,7 +751,7 @@ if not st.session_state.logged_in:
                 st.error("Username, password, atau role tidak sesuai.")
     st.stop()
 
-# ── Session State ────────────────────────────────────────────────────────────
+# ── Session State (General & Shift) ───────────────────────────────────────────
 if "retur_form_data" not in st.session_state:
     st.session_state.retur_form_data = {}
 if "retur_items" not in st.session_state:
@@ -762,7 +772,6 @@ if "edited_df_data" not in st.session_state:
     ])
 if "cari_faktur" not in st.session_state:
     st.session_state.cari_faktur = False
-
 if "hasil_pencarian" not in st.session_state:
     st.session_state.hasil_pencarian = pd.DataFrame()
 if "item_pembelian" not in st.session_state:
@@ -772,13 +781,25 @@ if "selected_obat" not in st.session_state:
 if "obat_baru" not in st.session_state:
     st.session_state.obat_baru = False
 
+# SHIFT STATE
+if "shift_active" not in st.session_state:
+    st.session_state.shift_active = False
+if "active_shift_context" not in st.session_state:
+    st.session_state.active_shift_context = {
+        "saldo_awal": 0.0,
+        "accumulated_sales_expected": 0.0,
+        "start_time": None,
+        "user_name": ""
+    }
+
 # ── Sidebar navigasi ──────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
 st.sidebar.title("💊 Apotek Veteran Blitar")
 st.sidebar.markdown("---")
 
 _role = st.session_state.role
-st.sidebar.markdown(f"👤 **{st.session_state.username.capitalize()}** — *{_role}*")
+_name = USERS[st.session_state.username]["name"]
+st.sidebar.markdown(f"👤 **{_name}** — *{_role}*")
 st.sidebar.markdown("---")
 
 if _role == "Admin":
@@ -787,13 +808,15 @@ if _role == "Admin":
         "📋 Tampilkan Dan Ubah Stok Obat",
         "🖨️ Cetak & Print Stok Obat",
         "📦 Entri & Retur Pembelian",
-        "🛒 Kasir Pembelian Obat"
+        "🛒 Kasir Pembelian Obat",
+        "🕒 Buka/Tutup Shift"
     ]
 else:  
     _menu_options = [
         "🏠 Beranda",
         "📋 Tampilkan Dan Ubah Stok Obat",
-        "🛒 Kasir Pembelian Obat"
+        "🛒 Kasir Pembelian Obat",
+        "🕒 Buka/Tutup Shift"
     ]
 
 menu = st.sidebar.radio("Pilih Fitur", _menu_options, index=0)
@@ -802,6 +825,11 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.logged_in = False
     st.session_state.role      = None
     st.session_state.username  = ""
+    # Reset Shift saat logout supaya safety
+    st.session_state.shift_active = False
+    st.session_state.active_shift_context = {
+        "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": ""
+    }
     st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -919,7 +947,6 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
 
     st.info("Setiap kolom dalam tabel dapat diedit langsung dengan ikon ✏️. Anda juga dapat memfilter menggunakan kotak pencarian di bawah.")
     
-    # --- PENCARIAN PADA DATA EDITOR ---
     search_inv = st.text_input("🔍 Pencarian Baris (Nama, Batch, Faktur, PBF, dll di Worksheet ini)", placeholder="Ketik kata kunci...")
     if search_inv.strip():
         mask = sheet_df.astype(str).apply(lambda col: col.str.contains(search_inv.strip(), case=False, na=False)).any(axis=1)
@@ -958,17 +985,13 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
             
         current_ws_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy())
         
-        # Merge logic khusus: Update baris yang diedit, tambahkan yang baru, hapus yang di-delete
-        # 1. Timpa/Update baris lama yang berhasil dimodifikasi
         existing_idx = edited_display_df.index.intersection(current_ws_df.index)
         current_ws_df.loc[existing_idx, edited_display_df.columns] = edited_display_df.loc[existing_idx]
         
-        # 2. Tambah baris baru (jika user klik "Add Row" pada Streamlit data_editor)
         new_rows = edited_display_df[~edited_display_df.index.isin(current_ws_df.index)]
         if not new_rows.empty:
             current_ws_df = pd.concat([current_ws_df, new_rows])
             
-        # 3. Hapus baris (jika user menghapus baris dari data_editor)
         deleted_rows = display_df.index.difference(edited_display_df.index)
         if not deleted_rows.empty:
             current_ws_df = current_ws_df.drop(deleted_rows)
@@ -997,7 +1020,6 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
             st.markdown(f"#### {name}")
             st.dataframe(df, use_container_width=True, hide_index=True)
 
-    # ── Riwayat Transaksi ─────────────────────────────────────────
     st.markdown("---")
     with st.expander("🕘 Riwayat Transaksi Stok Kasir (Pembelian & Penjualan)"):
         df = load_data()
@@ -1009,7 +1031,6 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
                 bulan_list = sorted(df["Tanggal"].dt.to_period("M").unique().astype(str).tolist(), reverse=True)
                 bulan_sel = st.selectbox("Pilih Bulan", ["Semua"] + bulan_list, key="riwayat_bulan")
             with col_r2:
-                # --- PENCARIAN PADA RIWAYAT ---
                 cari_riwayat = st.text_input("🔎 Cari Transaksi (Nama Obat, Kategori, Keterangan, dll)", key="riwayat_cari")
 
             df_riwayat = df.copy()
@@ -1059,7 +1080,6 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
                 st.success("Riwayat transaksi dihapus.")
                 st.rerun()
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 3 — CETAK & PRINT STOK OBAT
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1078,7 +1098,6 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     if "Tanggal Kadaluwarsa" in df_inventory.columns:
         df_inventory["Tanggal Kadaluwarsa"] = pd.to_datetime(df_inventory["Tanggal Kadaluwarsa"], errors="coerce")
 
-    # ── Filter & Search ───────────────────────────────────────────────────────
     st.markdown("---")
     st.subheader("🔍 Filter & Cari Sebelum Cetak")
     
@@ -1088,7 +1107,6 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     with col_b:
         tgl_akhir = st.date_input("Sampai Tanggal", value=df_inventory["Tanggal"].dropna().max().date() if not df_inventory["Tanggal"].dropna().empty else date.today())
 
-    # --- PENCARIAN GLOBAL UNTUK CETAK ---
     search_print = st.text_input("🔍 Cari Spesifik (Nama Produk, Batch, Faktur, dll) - Opsional", placeholder="Ketik kata kunci untuk membatasi print out...")
     
     df_print = df_inventory[
@@ -1100,7 +1118,6 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
         mask_print = df_print.astype(str).apply(lambda col: col.str.contains(search_print.strip(), case=False, na=False)).any(axis=1)
         df_print = df_print[mask_print]
 
-    # ── Pilih kolom (jika sebagian) ───────────────────────────────────────────
     if opsi == "Sebagian Komponen Obat (Pilih Manual)":
         kolom_dipilih = st.multiselect(
             "Pilih Kolom yang Ingin Dicetak",
@@ -1113,7 +1130,6 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
             st.warning("Pilih minimal satu kolom.")
             st.stop()
 
-    # ── Preview ───────────────────────────────────────────────────────────────
     st.markdown("---")
     st.subheader("👁️ Preview Data")
     preview_df = df_print.copy()
@@ -1129,12 +1145,10 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     st.dataframe(preview_df, use_container_width=True, height=350)
     st.caption(f"{len(df_print)} baris data siap dicetak")
 
-    # ── Unduhan ───────────────────────────────────────────────────────────────
     st.markdown("---")
     st.subheader("⬇️ Unduh File")
     col_d1, col_d2, col_d3, col_d4 = st.columns(4)
 
-    # CSV
     csv_buf = df_print.copy()
     if "Tanggal" in csv_buf.columns:
         csv_buf["Tanggal"] = csv_buf["Tanggal"].dt.strftime("%d-%m-%Y")
@@ -1148,7 +1162,6 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
         mime="text/csv"
     )
 
-    # Excel (XLSX)
     try:
         import openpyxl
         xlsx_buf = io.BytesIO()
@@ -1168,7 +1181,6 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     except ImportError:
         col_d2.info("Install `openpyxl` untuk ekspor Excel.")
 
-    # RTF/Word-compatible export
     rtf_bytes = build_rtf_export(preview_df)
     col_d3.download_button(
         label="📝 Unduh RTF (Word)",
@@ -1177,7 +1189,6 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
         mime="application/rtf"
     )
 
-    # HTML print / PDF
     col_d4.markdown("#### 🖨️ Print / PDF")
     html_rows = ""
     for _, row in preview_df.iterrows():
@@ -1214,9 +1225,8 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     )
     col_d4.caption("Buka file HTML → klik tombol Print → pilih 'Save as PDF'")
 
-
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 4 — KASIR PEMBELIAN OBAT (SESUAI DATASET)
+# FITUR 4 — KASIR PEMBELIAN OBAT
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🛒 Kasir Pembelian Obat":
     st.title("🛒 Kasir Pembelian Obat")
@@ -1249,15 +1259,13 @@ elif menu == "🛒 Kasir Pembelian Obat":
         if available_items.empty:
             st.info("Tidak ada obat dengan stok tersedia (>0).")
         else:
-            # --- LABEL COMBOBOX UNTUK PENCARIAN PADA KASIR ---
-            # Dengan memasukkan banyak field ke label, dropdown otomatis mencari ke semua field tsb jika user mengetik
             available_items["Label"] = available_items.apply(
                 lambda x: f"Nama: {str(x['Nama produk']).strip()} | Batch: {str(x['Nomor Batch']).strip() if pd.notna(x['Nomor Batch']) and str(x['Nomor Batch']).strip() != '' else '-'} | Faktur: {str(x['Nomor Faktur']).strip() if pd.notna(x['Nomor Faktur']) and str(x['Nomor Faktur']).strip() != '' else '-'} | Exp: {pd.to_datetime(x['Tanggal Kadaluwarsa']).strftime('%d-%m-%Y') if pd.notna(x['Tanggal Kadaluwarsa']) else '-'} | Sisa: {int(x['Stok Sisa'])} ({str(x['Worksheet']).strip()})",
                 axis=1
             )
 
             if not st.session_state.checkout_mode:
-                selected_label = st.selectbox("Pilih Obat (Bisa diketik untuk mencari Nama, Batch, Faktur, atau Exp)", available_items["Label"].unique().tolist(), key="kasir_pilih_obat")
+                selected_label = st.selectbox("Pilih Obat (Bisa diketik untuk mencari)", available_items["Label"].unique().tolist(), key="kasir_pilih_obat")
                 selected_row_display = available_items[available_items["Label"] == selected_label].iloc[0]
                 
                 satuan_display = str(selected_row_display["Satuan"]).strip() if pd.notna(selected_row_display["Satuan"]) and str(selected_row_display["Satuan"]).strip() != "" else str(selected_row_display["Worksheet"]).strip()
@@ -1349,26 +1357,6 @@ elif menu == "🛒 Kasir Pembelian Obat":
 
     with col_nota:
         st.subheader("📄 Preview Nota")
-
-        st.markdown(
-            """
-            <div style="font-family: monospace; font-size: 14px; margin-bottom: 8px;">
-            </div>
-            <script>
-                function updateClock() {
-                    const now = new Date();
-                    const pad = n => String(n).padStart(2, '0');
-                    const str = pad(now.getDate()) + '/' + pad(now.getMonth()+1) + '/' + now.getFullYear()
-                              + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
-                    const el = document.getElementById('realtime-clock');
-                    if (el) el.textContent = str;
-                }
-                updateClock();
-                setInterval(updateClock, 1000);
-            </script>
-            """,
-            unsafe_allow_html=True
-        )
 
         if st.session_state.cart:
             total_belanja = sum(item["subtotal"] for item in st.session_state.cart)
@@ -1471,11 +1459,15 @@ elif menu == "🛒 Kasir Pembelian Obat":
                         st.session_state.inventory_data_cache = workbook_data
                         save_inventory_workbook(workbook_data)
                         
+                        # LOGIC SHIFT : Akumulasi otomatis hasil penjualan dari sistem 
+                        if st.session_state.shift_active:
+                            st.session_state.active_shift_context["accumulated_sales_expected"] += total_belanja
+                        
                         st.session_state.cart = []
                         st.session_state.checkout_mode = False
                         st.session_state.bayar_tunai = 0
                         st.session_state.nota_confirmed = False
-                        st.success("✅ Transaksi berhasil disimpan! Stok Excel sudah diperbarui secara real-time.")
+                        st.success("✅ Transaksi berhasil disimpan! Stok Excel dan Saldo Shift sudah diperbarui secara real-time.")
                         st.rerun()
                 with col_reset:
                     if st.button("🗑️ Kosongkan Keranjang", type="secondary", use_container_width=True):
@@ -1492,61 +1484,6 @@ elif menu == "🛒 Kasir Pembelian Obat":
                     st.session_state.nota_confirmed = False
                     st.rerun()
 
-            # ── Unduh Nota HTML untuk Print ───────────────────────────────────
-            st.markdown("---")
-            nota_print_html = f"""
-            <html><head>
-            <meta charset='utf-8'>
-            <title>Nota Apotek Veteran Blitar</title>
-            <style>
-              body {{ font-family: monospace; font-size: 12px; margin: 20px; width: 300px; }}
-              .center {{ text-align: center; }}
-              .row {{ display: flex; justify-content: space-between; }}
-              .dashed {{ border-top: 1px dashed #000; margin: 8px 0; }}
-              @media print {{ button {{ display: none; }} }}
-            </style>
-            </head><body>
-            <div class="center">
-              <b>APOTEK VETERAN SEHAT BLITAR</b><br>
-              Jl. Veteran no 64B Blitar Kota<br> 
-              (Sebelah Gang Srigading)<br> 
-              Blitar 66111<br>
-              <b>081331808585</b>
-            </div>
-            <div class="dashed"></div>
-            <div id="tgl-nota"></div>
-            <div class="dashed"></div>
-            {items_html}
-            <div class="dashed"></div>
-            <div class="row"><b>Total</b><b>{format_rupiah(total_belanja)}</b></div>
-            <div class="row"><span>Bayar</span><span>{format_rupiah(bayar_tunai)}</span></div>
-            <div class="row"><span>Kembali</span><span>{format_rupiah(max(0, kembali))}</span></div>
-            <div class="dashed"></div>
-            <div class="center" style="font-size:10px;">
-              - Belanja tanpa struk/nota gratis -<br>
-              - Harga sudah termasuk PPN -
-            </div>
-            <br>
-            <button onclick='window.print()' style='padding:6px 16px;background:#2c7be5;color:white;
-              border:none;border-radius:4px;cursor:pointer;font-size:12px;'>🖨️ Print Nota</button>
-            <script>
-              (function() {{
-                var now = new Date();
-                var pad = function(n) {{ return String(n).padStart(2, '0'); }};
-                var str = pad(now.getDate()) + '/' + pad(now.getMonth()+1) + '/' + now.getFullYear()
-                        + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
-                document.getElementById('tgl-nota').textContent = str;
-              }})();
-            </script>
-            </body></html>
-            """
-            st.download_button(
-                label="🖨️ Unduh & Print Nota",
-                data=nota_print_html.encode("utf-8"),
-                file_name=f"nota_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html",
-                mime="text/html"
-            )
-            st.caption("Buka file HTML di browser → klik tombol Print → cetak atau simpan sebagai PDF")
         else:
             st.info("Keranjang kosong. Tambahkan obat dari form di sebelah kiri.")
 
@@ -1595,7 +1532,6 @@ elif menu == "📦 Entri & Retur Pembelian":
             st.metric("Total Stok Sisa", int(sheet_df["Stok Sisa"].fillna(0).sum()))
 
         st.markdown("---")
-        # --- PENCARIAN GLOBAL UNTUK RETUR ---
         search_text = st.text_input("🔍 Cari Data Retur (Nama Produk, Batch, Faktur, PBF, dll)", placeholder="Ketik kata kunci pencarian...", key="retur_search_input")
 
         if search_text.strip():
@@ -1777,7 +1713,6 @@ elif menu == "📦 Entri & Retur Pembelian":
         
         all_items_df = build_inventory_print_dataframe()
         
-        # --- PENCARIAN GLOBAL UNTUK ENTRI ---
         cari_obat_input = st.text_input(
             label="🔍 Pencarian Produk (Semua Data: Nama, Batch, Faktur, dll)",
             placeholder="Ketik kata kunci pencarian...",
@@ -1951,8 +1886,94 @@ elif menu == "📦 Entri & Retur Pembelian":
                 ])
                 st.rerun()
 
-# ══════════════════════════════════════════════════════════════════════════════
 
+# ══════════════════════════════════════════════════════════════════════════════
+# FITUR BARU — BUKA / TUTUP SHIFT KASIR
+# ══════════════════════════════════════════════════════════════════════════════
+elif menu == "🕒 Buka/Tutup Shift":
+    st.title("🕒 Buka / Tutup Shift Kasir")
+
+    if not st.session_state.shift_active:
+        st.subheader("Buka Shift")
+        st.info("Silakan masukkan saldo awal (modal uang receh/tunai di laci) sebelum mulai melayani penjualan.")
+        with st.form("form_buka_shift"):
+            nama_user = USERS[st.session_state.username]["name"]
+            st.text_input("User Aktif (Nama Kasir)", value=nama_user, disabled=True)
+            
+            saldo_awal = st.number_input("Saldo Awal (Uang Tunai di Laci)", min_value=0.0, step=1000.0, value=0.0)
+
+            submit_buka = st.form_submit_button("Buka Shift Sekarang", type="primary", use_container_width=True)
+
+            if submit_buka:
+                st.session_state.shift_active = True
+                st.session_state.active_shift_context["saldo_awal"] = float(saldo_awal)
+                st.session_state.active_shift_context["accumulated_sales_expected"] = 0.0
+                st.session_state.active_shift_context["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                st.session_state.active_shift_context["user_name"] = nama_user
+                st.rerun()
+
+    else:
+        st.subheader("Tutup Shift")
+        st.warning("Pastikan semua transaksi penjualan kasir telah di-submit sebelum menutup shift.")
+
+        # Data context
+        nama_user = st.session_state.active_shift_context["user_name"]
+        waktu_mulai = st.session_state.active_shift_context["start_time"]
+        saldo_awal = st.session_state.active_shift_context["saldo_awal"]
+        penjualan_sistem = st.session_state.active_shift_context["accumulated_sales_expected"]
+
+        st.text_input("User Aktif (Nama Kasir)", value=nama_user, disabled=True)
+        st.text_input("Waktu Mulai Shift", value=waktu_mulai, disabled=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.number_input("Saldo Awal Laci (Disabled)", value=saldo_awal, disabled=True)
+        with col2:
+            st.number_input("Hasil Penjualan Apotek (Akumulasi Kasir)", value=penjualan_sistem, disabled=True)
+
+        st.markdown("---")
+        st.markdown("#### Audit Kas Fisik")
+        # Input uang fisik tanpa form agar auto-calculate untuk selisih secara live
+        saldo_kasir_fisik = st.number_input("Saldo Kasir (Hitung total uang fisik di laci saat ini)", min_value=0.0, step=1000.0, value=0.0)
+
+        # Logic: Live calculate
+        selisih = saldo_kasir_fisik - (saldo_awal + penjualan_sistem)
+
+        if selisih < 0:
+            st.error(f"⚠️ Selisih Saldo (Minus): {format_rupiah(selisih)}")
+        elif selisih > 0:
+            st.success(f"⚠️ Selisih Saldo (Lebih): {format_rupiah(selisih)}")
+        else:
+            st.info(f"✅ Selisih Saldo (Sesuai / Balance): {format_rupiah(selisih)}")
+            
+        st.text_input("Selisih Saldo Laci Kasir", value=format_rupiah(selisih), disabled=True)
+
+        if st.button("💾 Simpan & Tutup Shift", type="primary", use_container_width=True):
+            log_df = load_shift_log()
+            new_log = pd.DataFrame([{
+                "Waktu Buka": waktu_mulai,
+                "Waktu Tutup": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Nama Kasir": nama_user,
+                "Saldo Awal": saldo_awal,
+                "Penjualan Sistem": penjualan_sistem,
+                "Fisik Kasir": saldo_kasir_fisik,
+                "Selisih": selisih
+            }])
+            log_df = pd.concat([log_df, new_log], ignore_index=True)
+            save_shift_log(log_df)
+
+            # Reset Shift
+            st.session_state.shift_active = False
+            st.session_state.active_shift_context = {
+                "saldo_awal": 0.0,
+                "accumulated_sales_expected": 0.0,
+                "start_time": None,
+                "user_name": ""
+            }
+            st.success("✅ Shift berhasil ditutup. Data tercatat dengan formal di database shift_log.csv.")
+            st.rerun()
+
+# ══════════════════════════════════════════════════════════════════════════════
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
 st.sidebar.caption("© Apotek Veteran Blitar")
