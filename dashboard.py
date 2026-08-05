@@ -953,13 +953,13 @@ if _role == "Admin":
         "📋 Tampilkan Dan Ubah Stok Obat",
         "🖨️ Cetak & Print Stok Obat",
         "📦 Entri & Retur Pembelian",
-        "🛒 Update Stok & Kasir"
+        "🛒 Kasir Pembelian Obat"
     ]
 else:  
     _menu_options = [
         "🏠 Beranda",
         "📋 Tampilkan Dan Ubah Stok Obat",
-        "🛒 Update Stok & Kasir"
+        "🛒 Kasir Pembelian Obat"
     ]
 
 menu = st.sidebar.radio("Pilih Fitur", _menu_options, index=0)
@@ -1326,17 +1326,18 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 4 — UPDATE STOK & KASIR
+# FITUR 4 — KASIR PEMBELIAN OBAT (SESUAI DATASET)
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "🛒 Update Stok & Kasir":
-    st.title("✏️ Kasir & Update Stok Obat")
+elif menu == "🛒 Kasir Pembelian Obat":
+    st.title("🛒 Kasir Pembelian Obat")
 
-    df = load_data()
-    if df is None:
-        df = pd.DataFrame(columns=KOLOM_WAJIB)
-
-    if st.session_state.database_obat.empty:
-        st.warning("Database Master Obat masih kosong. Tambahkan obat terlebih dahulu.")
+    if "inventory_data_cache" not in st.session_state or not st.session_state.inventory_data_cache:
+        st.warning("Dataset Excel belum tersedia. Silakan upload terlebih dahulu di menu **📋 Tampilkan Dan Ubah Stok Obat**.")
+        st.stop()
+        
+    all_items_df = build_inventory_print_dataframe()
+    if all_items_df is None or all_items_df.empty:
+        st.warning("Data stok kosong.")
         st.stop()
 
     if "cart" not in st.session_state:
@@ -1352,98 +1353,103 @@ elif menu == "🛒 Update Stok & Kasir":
 
     with col_input:
         st.subheader("🛒 Input Penjualan")
-        st.caption("Penjualan bisa dalam Tablet, Strip, atau Box — stok tetap dikurangi dalam satuan Tablet.")
+        st.caption("Penjualan memotong stok secara real-time dari Dataset Excel berdasarkan Worksheet dan Batch.")
 
-        if not st.session_state.checkout_mode:
-            with st.form("form_kasir"):
-                list_obat = st.session_state.database_obat["nama_obat"].unique().tolist()
-                nama_obat = st.selectbox("Pilih Obat", list_obat)
-
-                col_su, col_sh = st.columns(2)
-                with col_su:
-                    satuan_jual = st.selectbox("Satuan Jual", ["Tablet", "Strip", "Box"])
-                with col_sh:
-                    skema_harga = st.selectbox("Skema Harga", ["Harga 1", "Harga 2"])
-
-                jumlah = st.number_input(f"Jumlah ({satuan_jual})", min_value=1, value=1)
-                add_to_cart = st.form_submit_button("➕ Tambah ke Nota")
-
-                if add_to_cart:
-                    data_obat = st.session_state.database_obat[
-                        st.session_state.database_obat["nama_obat"] == nama_obat
-                    ].iloc[-1]
-
-                    faktor = get_konversi_tablet(nama_obat, satuan_jual)
-                    jumlah_tablet = jumlah * faktor
-                    harga_per_tablet = float(data_obat["harga_1"]) if skema_harga == "Harga 1" else float(data_obat["harga_2"])
-                    harga_per_satuan = harga_per_tablet * faktor
-                    subtotal = harga_per_tablet * jumlah_tablet
-                    stok_tersedia = float(data_obat["stok_akhir"])
-
-                    if jumlah_tablet > stok_tersedia:
-                        st.error(f"❌ Stok tidak cukup! Tersedia {stok_tersedia:.0f} Tablet, dibutuhkan {jumlah_tablet:.0f} Tablet.")
-                    else:
-                        st.session_state.cart.append({
-                            "nama": nama_obat,
-                            "satuan_jual": satuan_jual,
-                            "qty": jumlah,
-                            "qty_tablet": jumlah_tablet,
-                            "skema_harga": skema_harga,
-                            "harga_per_tablet": harga_per_tablet,
-                            "harga_per_satuan": harga_per_satuan,
-                            "subtotal": subtotal,
-                            "kategori": data_obat["kategori"],
-                            "tgl_exp": data_obat["tanggal_kadaluarsa"]
-                        })
-                        st.success(f"{nama_obat} ({jumlah} {satuan_jual}) ditambah ke nota!")
-
-            if st.session_state.cart:
-                st.markdown("**🧾 Item dalam keranjang:**")
-                for i, item in enumerate(st.session_state.cart):
-                    c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
-                    c1.write(f"{item['nama']} ({item['skema_harga']})")
-                    c2.write(f"x{item['qty']} {item['satuan_jual']}")
-                    c3.write(format_rupiah(item['subtotal']))
-                    with c4:
-                        col_min, col_del = st.columns(2)
-                        with col_min:
-                            if st.button("➖", key=f"min_{i}", help="Kurangi 1"):
-                                if st.session_state.cart[i]["qty"] > 1:
-                                    st.session_state.cart[i]["qty"] -= 1
-                                    faktor = get_konversi_tablet(item["nama"], item["satuan_jual"])
-                                    st.session_state.cart[i]["qty_tablet"] = st.session_state.cart[i]["qty"] * faktor
-                                    st.session_state.cart[i]["subtotal"] = (
-                                        st.session_state.cart[i]["harga_per_tablet"] * st.session_state.cart[i]["qty_tablet"]
-                                    )
-                                else:
-                                    st.session_state.cart.pop(i)
-                                st.rerun()
-                        with col_del:
-                            if st.button("🗑️", key=f"del_{i}", help="Hapus item"):
-                                st.session_state.cart.pop(i)
-                                st.rerun()
-                st.markdown("")
-                if st.button("✅ Selesai Menambah Item", type="primary"):
-                    st.session_state.checkout_mode = True
-                    st.rerun()
+        available_items = all_items_df[all_items_df["Stok Sisa"].fillna(0) > 0].copy()
+        if available_items.empty:
+            st.info("Tidak ada obat dengan stok tersedia (>0).")
         else:
-            st.info(f"🛒 {len(st.session_state.cart)} item dalam keranjang. Masukkan nominal bayar.")
-            bayar_input = st.number_input("Nominal Bayar (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
-            st.session_state.bayar_tunai = bayar_input
+            # Membuat format label yang rapi untuk combobox seperti pada image referensi ("image_4e80a9.png")
+            available_items["Label"] = available_items["Nama produk"].astype(str) + " | Batch: " + available_items["Nomor Batch"].fillna("-").astype(str) + " | Sisa: " + available_items["Stok Sisa"].astype(int).astype(str) + " (" + available_items["Worksheet"] + ")"
 
-            col_teliti, col_submit = st.columns(2)
-            with col_teliti:
-                if st.button("🔍 Teliti Kembali", type="secondary", use_container_width=True):
-                    st.session_state.checkout_mode = False
-                    st.session_state.nota_confirmed = False
-                    st.rerun()
-            with col_submit:
-                if st.button("✅ Submit Pembayaran", type="primary", use_container_width=True):
-                    if st.session_state.bayar_tunai <= 0:
-                        st.error("Nominal bayar harus diisi!")
-                    else:
-                        st.session_state.nota_confirmed = True
+            if not st.session_state.checkout_mode:
+                with st.form("form_kasir"):
+                    selected_label = st.selectbox("Pilih Obat", available_items["Label"].unique().tolist())
+                    
+                    col_su, col_sh = st.columns(2)
+                    with col_su:
+                        # Satuan Jual otomatis dari input dataset (read-only style display)
+                        st.text_input("Satuan (Otomatis dari Dataset)", value="Berdasarkan pilihan", disabled=True)
+                    with col_sh:
+                        skema_harga = st.selectbox("Skema Harga", ["Harga 1", "Harga 2"])
+
+                    jumlah = st.number_input(f"Jumlah", min_value=1, value=1)
+                    add_to_cart = st.form_submit_button("➕ Tambah ke Nota")
+
+                    if add_to_cart:
+                        selected_row = available_items[available_items["Label"] == selected_label].iloc[0]
+                        nama_obat = selected_row["Nama produk"]
+                        ws_target = selected_row["Worksheet"]
+                        batch_target = selected_row["Nomor Batch"]
+                        satuan_jual = selected_row["Satuan"] if pd.notna(selected_row["Satuan"]) else ws_target
+                        
+                        harga_per_satuan = float(selected_row["Harga 1"]) if skema_harga == "Harga 1" else float(selected_row["Harga 2"])
+                        if pd.isna(harga_per_satuan): harga_per_satuan = 0.0
+                        
+                        subtotal = harga_per_satuan * jumlah
+                        stok_tersedia = float(selected_row["Stok Sisa"])
+
+                        if jumlah > stok_tersedia:
+                            st.error(f"❌ Stok tidak cukup! Tersedia {stok_tersedia:.0f}, dibutuhkan {jumlah:.0f}.")
+                        else:
+                            st.session_state.cart.append({
+                                "nama": nama_obat,
+                                "worksheet": ws_target,
+                                "batch": batch_target,
+                                "satuan_jual": satuan_jual,
+                                "qty": jumlah,
+                                "skema_harga": skema_harga,
+                                "harga_per_satuan": harga_per_satuan,
+                                "subtotal": subtotal,
+                                "tgl_exp": selected_row["Tanggal Kadaluwarsa"]
+                            })
+                            st.success(f"{nama_obat} ({jumlah} {satuan_jual}) ditambah ke nota!")
+
+                if st.session_state.cart:
+                    st.markdown("**🧾 Item dalam keranjang:**")
+                    for i, item in enumerate(st.session_state.cart):
+                        c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
+                        c1.write(f"{item['nama']} ({item['skema_harga']})")
+                        c2.write(f"x{item['qty']} {item['satuan_jual']}")
+                        c3.write(format_rupiah(item['subtotal']))
+                        with c4:
+                            col_min, col_del = st.columns(2)
+                            with col_min:
+                                if st.button("➖", key=f"min_{i}", help="Kurangi 1"):
+                                    if st.session_state.cart[i]["qty"] > 1:
+                                        st.session_state.cart[i]["qty"] -= 1
+                                        st.session_state.cart[i]["subtotal"] = (
+                                            st.session_state.cart[i]["harga_per_satuan"] * st.session_state.cart[i]["qty"]
+                                        )
+                                    else:
+                                        st.session_state.cart.pop(i)
+                                    st.rerun()
+                            with col_del:
+                                if st.button("🗑️", key=f"del_{i}", help="Hapus item"):
+                                    st.session_state.cart.pop(i)
+                                    st.rerun()
+                    st.markdown("")
+                    if st.button("✅ Selesai Menambah Item", type="primary"):
+                        st.session_state.checkout_mode = True
                         st.rerun()
+            else:
+                st.info(f"🛒 {len(st.session_state.cart)} item dalam keranjang. Masukkan nominal bayar.")
+                bayar_input = st.number_input("Nominal Bayar (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
+                st.session_state.bayar_tunai = bayar_input
+
+                col_teliti, col_submit = st.columns(2)
+                with col_teliti:
+                    if st.button("🔍 Teliti Kembali", type="secondary", use_container_width=True):
+                        st.session_state.checkout_mode = False
+                        st.session_state.nota_confirmed = False
+                        st.rerun()
+                with col_submit:
+                    if st.button("✅ Submit Pembayaran", type="primary", use_container_width=True):
+                        if st.session_state.bayar_tunai <= 0:
+                            st.error("Nominal bayar harus diisi!")
+                        else:
+                            st.session_state.nota_confirmed = True
+                            st.rerun()
 
     with col_nota:
         st.subheader("📄 Preview Nota")
@@ -1517,37 +1523,63 @@ elif menu == "🛒 Update Stok & Kasir":
                 col_simpan, col_reset = st.columns(2)
                 with col_simpan:
                     if st.button("💾 Simpan & Update Stok", type="primary", use_container_width=True):
-                        new_rows = []
+                        workbook_data = st.session_state.inventory_data_cache
+                        
+                        df_history = load_data()
+                        if df_history is None:
+                            df_history = pd.DataFrame(columns=KOLOM_WAJIB)
+                            
+                        new_history_rows = []
+                        
                         for item in st.session_state.cart:
-                            mask = st.session_state.database_obat["nama_obat"] == item["nama"]
-                            if mask.any():
-                                idx_master = st.session_state.database_obat[mask].index[-1]
-                                stok_sebelumnya = float(st.session_state.database_obat.loc[idx_master, "stok_akhir"])
-                                stok_baru = max(stok_sebelumnya - item["qty_tablet"], 0)
-                                st.session_state.database_obat.loc[idx_master, "stok_akhir"] = stok_baru
-                            else:
-                                stok_baru = 0
-
-                            new_rows.append({
+                            ws_target = item["worksheet"]
+                            if ws_target in workbook_data:
+                                sheet_df = prepare_sheet_for_editor(workbook_data[ws_target].copy())
+                                
+                                mask = (
+                                    (sheet_df["Nama produk"].fillna("").astype(str) == str(item["nama"])) &
+                                    (sheet_df["Nomor Batch"].fillna("").astype(str) == str(item["batch"]))
+                                )
+                                
+                                if mask.any():
+                                    idx = sheet_df[mask].index[-1]
+                                    sisa_lama = float(sheet_df.loc[idx, "Stok Sisa"]) if pd.notna(sheet_df.loc[idx, "Stok Sisa"]) else 0.0
+                                    keluar_lama = float(sheet_df.loc[idx, "Stok Keluar"]) if pd.notna(sheet_df.loc[idx, "Stok Keluar"]) else 0.0
+                                    
+                                    sisa_baru = max(sisa_lama - item["qty"], 0)
+                                    keluar_baru = keluar_lama + item["qty"]
+                                    
+                                    sheet_df.loc[idx, "Stok Sisa"] = sisa_baru
+                                    sheet_df.loc[idx, "Stok Keluar"] = keluar_baru
+                                    
+                                    workbook_data[ws_target] = normalize_inventory_df(sheet_df)
+                            
+                            new_history_rows.append({
                                 "Tanggal": pd.Timestamp(date.today()),
                                 "Nama Obat": item["nama"],
-                                "Kategori": item["kategori"],
-                                "Satuan": "Tablet",
+                                "Kategori": ws_target, 
+                                "Satuan": item["satuan_jual"],
                                 "Stok Masuk": 0,
-                                "Stok Keluar": item["qty_tablet"],
-                                "Stok Akhir": stok_baru,
-                                "Harga Satuan (Rp)": item["harga_per_tablet"],
-                                "Total Nilai (Rp)": stok_baru * item["harga_per_tablet"],
-                                "Tanggal Kadaluarsa": item["tgl_exp"],
-                                "Keterangan": f"Penjualan Kasir ({item['qty']} {item['satuan_jual']}, {item['skema_harga']})"
+                                "Stok Keluar": item["qty"],
+                                "Stok Akhir": sisa_baru if 'sisa_baru' in locals() else 0,
+                                "Harga Satuan (Rp)": item["harga_per_satuan"],
+                                "Total Nilai (Rp)": item["subtotal"],
+                                "Tanggal Kadaluarsa": pd.Timestamp(item["tgl_exp"]) if pd.notna(item["tgl_exp"]) else pd.Timestamp(date.today()),
+                                "Keterangan": f"Kasir Pembelian Obat ({item['skema_harga']})"
                             })
-                        df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
-                        save_data(df)
+                            
+                        if new_history_rows:
+                            df_history = pd.concat([df_history, pd.DataFrame(new_history_rows)], ignore_index=True)
+                            save_data(df_history)
+                            
+                        st.session_state.inventory_data_cache = workbook_data
+                        save_inventory_workbook(workbook_data)
+                        
                         st.session_state.cart = []
                         st.session_state.checkout_mode = False
                         st.session_state.bayar_tunai = 0
                         st.session_state.nota_confirmed = False
-                        st.success("✅ Transaksi berhasil disimpan! Stok Tablet sudah diperbarui.")
+                        st.success("✅ Transaksi berhasil disimpan! Stok Excel sudah diperbarui secara real-time.")
                         st.rerun()
                 with col_reset:
                     if st.button("🗑️ Kosongkan Keranjang", type="secondary", use_container_width=True):
