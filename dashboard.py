@@ -317,7 +317,7 @@ st.markdown(
 
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
-WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran.xlsx")
+WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran_2.xlsx") # SESUAIKAN DENGAN FILE UTAMA
 CSV_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.csv")
 SHIFT_LOG_PATH = os.path.join(os.path.dirname(__file__), "shift_log.csv")
 DEFAULT_SOURCE_URL = WORKBOOK_PATH
@@ -712,10 +712,9 @@ def parse_rupiah(val):
 # ══════════════════════════════════════════════════════════════════════════════
 USERS = {
     "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
-    # Mengganti role "Karyawan Apotek" menjadi "Kasir" agar sinkron dengan form st.selectbox di bawah
     "karyawan1@gmail.com": {"password": "karyawan1", "role": "Kasir", "name": "Karyawan 1 (Dian)"},
     "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Karyawan 2 (Julia)"},
-    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Karyawan Apotek"},
+    "kasir123@gmail.com": {"password": "kasir12", "role": "Kasir", "name": "Kasir - Karyawan Apotek"},
 }
 
 if "logged_in" not in st.session_state:
@@ -763,21 +762,15 @@ if not st.session_state.logged_in:
 if "retur_form_data" not in st.session_state:
     st.session_state.retur_form_data = {}
 if "retur_items" not in st.session_state:
+    # PERBAIKAN: Menyelaraskan daftar kolom dengan inisiasi item Retur sebenarnya
     st.session_state.retur_items = pd.DataFrame(columns=[
-        "Pilih", "Kode", "Nama Obat", "Satuan", "No. Batch",
-        "Tanggal Exp", "Ketentuan Retur", "Maks bln sblm ED",
-        "Tersedia", "Jumlah Retur", "HPP", "Subtotal"
+        "Nama produk", "Satuan", "Nomor Batch", "Tanggal Kadaluwarsa", 
+        "Stok Sisa", "Jumlah Retur", "Harga 1", "Keterangan"
     ])
 if "retur_history" not in st.session_state:
     st.session_state.retur_history = load_retur_history()
     if st.session_state.retur_history is None:
         st.session_state.retur_history = pd.DataFrame(columns=RETUR_HISTORY_COLUMNS)
-if "edited_df_data" not in st.session_state:
-    st.session_state.edited_df_data = pd.DataFrame(columns=[
-        "Pilih", "Kode", "Nama Obat", "Satuan", "No. Batch",
-        "Tanggal Exp", "Ketentuan Retur", "Maks bln sblm ED",
-        "Tersedia", "Jumlah Retur", "HPP"
-    ])
 if "cari_faktur" not in st.session_state:
     st.session_state.cari_faktur = False
 if "hasil_pencarian" not in st.session_state:
@@ -849,7 +842,6 @@ if menu == "🏠 Beranda":
     st.markdown("Selamat datang! Pilih fitur di sidebar untuk mulai mengelola stok obat.")
     st.markdown("---")
 
-    # ── PERBAIKAN: Memaksa reload dari file DatasetObat_ApotekVeteran.xlsx lokal agar perubahan eksternal selalu terbaca
     if os.path.exists(WORKBOOK_PATH):
         st.session_state.inventory_data_cache = load_inventory_workbook(DEFAULT_SOURCE_URL)
 
@@ -858,7 +850,6 @@ if menu == "🏠 Beranda":
     if all_items_df is None or all_items_df.empty:
         st.info("Dataset belum tersedia. Silakan upload dataset di menu **📋 Tampilkan Dan Ubah Stok Obat**.")
     else:
-        # ── PERBAIKAN: Bersihkan data (hapus baris kosong/nan) yang membuat data stok menipis berantakan
         all_items_df["Nama produk"] = all_items_df["Nama produk"].astype(str).str.strip()
         all_items_df = all_items_df[
             (all_items_df["Nama produk"] != "") & 
@@ -1660,6 +1651,12 @@ elif menu == "📦 Entri & Retur Pembelian":
                     if sheet_name not in workbook_data:
                         st.error("Worksheet aktif tidak tersedia di data session.")
                     else:
+                        # PERBAIKAN: Menambahkan Logika untuk mencatat retur ke dalam History Database Stok (stok_obat.csv)
+                        df_history = load_data()
+                        if df_history is None:
+                            df_history = pd.DataFrame(columns=KOLOM_WAJIB)
+                        new_history_rows = []
+
                         active_df = workbook_data[sheet_name].copy()
                         active_df = prepare_sheet_for_editor(active_df)
                         for _, item in edited_df.iterrows():
@@ -1679,9 +1676,28 @@ elif menu == "📦 Entri & Retur Pembelian":
                             active_df.loc[idx, "Stok Keluar"] = float(active_df.loc[idx, "Stok Keluar"] if pd.notna(active_df.loc[idx, "Stok Keluar"]) else 0) + qty_retur_item
                             active_df.loc[idx, "Keterangan"] = str(item["Keterangan"] or "") or active_df.loc[idx, "Keterangan"]
 
+                            # Rekam ke log stok_obat.csv
+                            new_history_rows.append({
+                                "Tanggal": pd.Timestamp(date.today()),
+                                "Nama Obat": str(item["Nama produk"]).strip(),
+                                "Kategori": sheet_name,
+                                "Satuan": item["Satuan"],
+                                "Stok Masuk": 0.0,
+                                "Stok Keluar": qty_retur_item,
+                                "Stok Akhir": stok_baru,
+                                "Harga Satuan (Rp)": float(item["Harga 1"]) if pd.notna(item["Harga 1"]) else 0.0,
+                                "Total Nilai (Rp)": qty_retur_item * (float(item["Harga 1"]) if pd.notna(item["Harga 1"]) else 0.0),
+                                "Tanggal Kadaluarsa": pd.Timestamp(item["Tanggal Kadaluwarsa"]),
+                                "Keterangan": f"Retur Pembelian (Batch: {item['Nomor Batch']}) - {item['Keterangan']}"
+                            })
+
                         workbook_data[sheet_name] = normalize_inventory_df(active_df)
                         st.session_state.inventory_data_cache = workbook_data
                         save_inventory_workbook(workbook_data)
+
+                        if new_history_rows:
+                            df_history = pd.concat([df_history, pd.DataFrame(new_history_rows)], ignore_index=True)
+                            save_data(df_history)
 
                         history_row = pd.DataFrame([{
                             "Nomor Faktur": str(selected_batch),
@@ -1718,7 +1734,7 @@ elif menu == "📦 Entri & Retur Pembelian":
             """
             <div class='app-header'>
                 <div class='app-title'>🛍️ Entri Pembelian Obat</div>
-                <div class='app-subtitle'>Catat pembelian secara ringkas, dan simpan langsung ke worksheet DatasetObat_ApotekVeteran.xlsx.</div>
+                <div class='app-subtitle'>Catat pembelian secara ringkas, dan simpan langsung ke worksheet DatasetObat_ApotekVeteran_2.xlsx.</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -1747,7 +1763,8 @@ elif menu == "📦 Entri & Retur Pembelian":
             if not hasil.empty:
                 st.success(f"Ditemukan {len(hasil)} entri. Pilih salah satu baris di bawah, lalu klik Tambahkan:")
                 
-                tabel_cari_df = hasil[["Worksheet", "Nama produk", "Satuan", "Harga 1", "Stok Sisa"]].drop_duplicates(subset=["Worksheet", "Nama produk"]).reset_index(drop=True)
+                # PERBAIKAN: Membawa Harga 2 ke preview tabel
+                tabel_cari_df = hasil[["Worksheet", "Nama produk", "Satuan", "Harga 1", "Harga 2", "Stok Sisa"]].drop_duplicates(subset=["Worksheet", "Nama produk"]).reset_index(drop=True)
                 
                 event_beli = st.dataframe(
                     tabel_cari_df,
@@ -1772,7 +1789,8 @@ elif menu == "📦 Entri & Retur Pembelian":
                             "Tanggal Kadaluwarsa": pd.Timestamp(date.today() + pd.Timedelta(days=365)),
                             "Stok Masuk": 0.0,
                             "Harga 1": float(selected_row["Harga 1"]) if pd.notna(selected_row["Harga 1"]) else 0.0,
-                            "Harga 2": 0.0,
+                            # PERBAIKAN: Memasukkan Harga 2 sesuai dengan data produk yang diklik
+                            "Harga 2": float(selected_row["Harga 2"]) if pd.notna(selected_row["Harga 2"]) else 0.0,
                             "Keterangan": ""
                         }
                         
@@ -1836,6 +1854,12 @@ elif menu == "📦 Entri & Retur Pembelian":
                     workbook_data = st.session_state.inventory_data_cache
                     jumlah_disimpan = 0
                     
+                    # PERBAIKAN: Menambahkan Logika untuk mencatat Entri Pembelian ke dalam History Database Stok (stok_obat.csv)
+                    df_history = load_data()
+                    if df_history is None:
+                        df_history = pd.DataFrame(columns=KOLOM_WAJIB)
+                    new_history_rows = []
+                    
                     for _, row in edited_df.iterrows():
                         nama = str(row["Nama produk"]).strip()
                         stok_masuk = float(row["Stok Masuk"]) if pd.notna(row["Stok Masuk"]) else 0
@@ -1866,9 +1890,28 @@ elif menu == "📦 Entri & Retur Pembelian":
                         workbook_data[ws_target] = normalize_inventory_df(sheet_df)
                         jumlah_disimpan += 1
                         
+                        # Rekam ke log stok_obat.csv
+                        new_history_rows.append({
+                            "Tanggal": pd.Timestamp(date.today()),
+                            "Nama Obat": nama,
+                            "Kategori": ws_target,
+                            "Satuan": row["Satuan"],
+                            "Stok Masuk": stok_masuk,
+                            "Stok Keluar": 0.0,
+                            "Stok Akhir": stok_masuk,
+                            "Harga Satuan (Rp)": float(row["Harga 1"]) if pd.notna(row["Harga 1"]) else 0.0,
+                            "Total Nilai (Rp)": stok_masuk * (float(row["Harga 1"]) if pd.notna(row["Harga 1"]) else 0.0),
+                            "Tanggal Kadaluarsa": pd.Timestamp(row["Tanggal Kadaluwarsa"]),
+                            "Keterangan": f"Entri Pembelian (No. Faktur: {no_faktur})"
+                        })
+                        
                     if jumlah_disimpan > 0:
                         st.session_state.inventory_data_cache = workbook_data
                         save_inventory_workbook(workbook_data)
+                        
+                        if new_history_rows:
+                            df_history = pd.concat([df_history, pd.DataFrame(new_history_rows)], ignore_index=True)
+                            save_data(df_history)
                         
                         st.session_state.df_beli = pd.DataFrame([
                             {
