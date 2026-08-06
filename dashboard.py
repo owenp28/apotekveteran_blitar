@@ -715,7 +715,7 @@ USERS = {
     # Mengganti role "Karyawan Apotek" menjadi "Kasir" agar sinkron dengan form st.selectbox di bawah
     "karyawan1@gmail.com": {"password": "karyawan1", "role": "Kasir", "name": "Karyawan 1 (Dian)"},
     "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Karyawan 2 (Julia)"},
-    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Kasir - Karyawan Apotek"},
+    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Karyawan Apotek"},
 }
 
 if "logged_in" not in st.session_state:
