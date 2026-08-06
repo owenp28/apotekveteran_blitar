@@ -1933,9 +1933,9 @@ elif menu == "🕒 Buka/Tutup Shift":
 
     # Logika filtering opsi kasir berdasarkan Role (Admin bisa melihat semua opsi)
     if st.session_state.role == "Admin":
-        kasir_options = ["Admin (Ivonne)", "Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
+        kasir_options = ["Ivonne", "Dian", "Julia"]
     else:
-        kasir_options = ["Karyawan 1 (Dian)", "Karyawan 2 (Julia)"]
+        kasir_options = ["Ivonne", "Dian", "Julia"]
 
     shift_options = ["Pagi", "Siang", "Sore", "Malam"]
 
