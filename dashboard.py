@@ -317,7 +317,7 @@ st.markdown(
 
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
-WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran_2.xlsx") # SESUAIKAN DENGAN FILE UTAMA
+WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran_2.xlsx")
 CSV_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.csv")
 SHIFT_LOG_PATH = os.path.join(os.path.dirname(__file__), "shift_log.csv")
 DEFAULT_SOURCE_URL = WORKBOOK_PATH
@@ -762,7 +762,6 @@ if not st.session_state.logged_in:
 if "retur_form_data" not in st.session_state:
     st.session_state.retur_form_data = {}
 if "retur_items" not in st.session_state:
-    # PERBAIKAN: Menyelaraskan daftar kolom dengan inisiasi item Retur sebenarnya
     st.session_state.retur_items = pd.DataFrame(columns=[
         "Nama produk", "Satuan", "Nomor Batch", "Tanggal Kadaluwarsa", 
         "Stok Sisa", "Jumlah Retur", "Harga 1", "Keterangan"
@@ -1626,13 +1625,13 @@ elif menu == "📦 Entri & Retur Pembelian":
                 num_rows="dynamic",
                 hide_index=True,
                 column_config={
-                    "Nama produk": st.column_config.TextColumn("Nama Produk", disabled=True, width="large"),
-                    "Satuan": st.column_config.TextColumn("Satuan", disabled=True, width="small"),
-                    "Nomor Batch": st.column_config.TextColumn("Nomor Batch", disabled=True, width="medium"),
-                    "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluwarsa", format="YYYY-MM-DD", disabled=True, width="medium"),
-                    "Stok Sisa": st.column_config.NumberColumn("Stok Sisa", disabled=True, width="small"),
+                    "Nama produk": st.column_config.TextColumn("Nama Produk", width="large"),
+                    "Satuan": st.column_config.TextColumn("Satuan", width="small"),
+                    "Nomor Batch": st.column_config.TextColumn("Nomor Batch", width="medium"),
+                    "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluwarsa", format="YYYY-MM-DD", width="medium"),
+                    "Stok Sisa": st.column_config.NumberColumn("Stok Sisa", width="small"),
                     "Jumlah Retur": st.column_config.NumberColumn("Jumlah Retur", min_value=0.0, step=1.0, width="small"),
-                    "Harga 1": st.column_config.NumberColumn("Harga 1", disabled=True, width="small"),
+                    "Harga 1": st.column_config.NumberColumn("Harga 1", width="small"),
                     "Keterangan": st.column_config.TextColumn("Keterangan", width="large"),
                 },
                 key="data_editor_retur"
@@ -1828,7 +1827,7 @@ elif menu == "📦 Entri & Retur Pembelian":
             num_rows="dynamic",
             hide_index=True,
             column_config={
-                "No.": st.column_config.NumberColumn("No.", disabled=True, width="small"),
+                "No.": st.column_config.NumberColumn("No.", width="small"),
                 "Worksheet": st.column_config.SelectboxColumn("Worksheet Tujuan", options=INVENTORY_SHEETS, width="small", required=True),
                 "Nama produk": st.column_config.TextColumn("Nama Produk", width="large", required=True),
                 "Satuan": st.column_config.TextColumn("Satuan", width="small"),
@@ -1842,7 +1841,6 @@ elif menu == "📦 Entri & Retur Pembelian":
             key="df_beli_editor"
         )
         
-        edited_df["No."] = range(1, len(edited_df) + 1)
         st.session_state.df_beli = edited_df
         
         col_simpan_beli, col_reset_beli = st.columns([1, 1])
