@@ -848,11 +848,23 @@ if menu == "🏠 Beranda":
     st.markdown("Selamat datang! Pilih fitur di sidebar untuk mulai mengelola stok obat.")
     st.markdown("---")
 
+    # ── PERBAIKAN: Memaksa reload dari file DatasetObat_ApotekVeteran.xlsx lokal agar perubahan eksternal selalu terbaca
+    if os.path.exists(WORKBOOK_PATH):
+        st.session_state.inventory_data_cache = load_inventory_workbook(DEFAULT_SOURCE_URL)
+
     all_items_df = build_inventory_print_dataframe()
     
     if all_items_df is None or all_items_df.empty:
         st.info("Dataset belum tersedia. Silakan upload dataset di menu **📋 Tampilkan Dan Ubah Stok Obat**.")
     else:
+        # ── PERBAIKAN: Bersihkan data (hapus baris kosong/nan) yang membuat data stok menipis berantakan
+        all_items_df["Nama produk"] = all_items_df["Nama produk"].astype(str).str.strip()
+        all_items_df = all_items_df[
+            (all_items_df["Nama produk"] != "") & 
+            (all_items_df["Nama produk"].str.lower() != "nan") &
+            (all_items_df["Nama produk"].notna())
+        ]
+        
         all_items_df["Stok Sisa"] = pd.to_numeric(all_items_df["Stok Sisa"], errors="coerce").fillna(0)
         all_items_df["Harga 1"] = pd.to_numeric(all_items_df["Harga 1"], errors="coerce").fillna(0)
         all_items_df["Tanggal Kadaluwarsa"] = pd.to_datetime(all_items_df["Tanggal Kadaluwarsa"], errors="coerce")
@@ -1958,14 +1970,14 @@ elif menu == "🕒 Buka/Tutup Shift":
                 with col_b1:
                     submit_buka = st.form_submit_button("✔ Buka Shift", type="primary", use_container_width=True)
 
-            if submit_buka:
-                st.session_state.shift_active = True
-                st.session_state.active_shift_context["saldo_awal"] = float(saldo_awal_buka)
-                st.session_state.active_shift_context["accumulated_sales_expected"] = 0.0
-                st.session_state.active_shift_context["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                st.session_state.active_shift_context["user_name"] = nama_user_buka
-                st.session_state.active_shift_context["shift_name"] = shift_pilih_buka
-                st.rerun()
+        if submit_buka:
+            st.session_state.shift_active = True
+            st.session_state.active_shift_context["saldo_awal"] = float(saldo_awal_buka)
+            st.session_state.active_shift_context["accumulated_sales_expected"] = 0.0
+            st.session_state.active_shift_context["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.active_shift_context["user_name"] = nama_user_buka
+            st.session_state.active_shift_context["shift_name"] = shift_pilih_buka
+            st.rerun()
 
     else:
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Tutup Shift</h2>", unsafe_allow_html=True)
