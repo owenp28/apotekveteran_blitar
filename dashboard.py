@@ -917,7 +917,7 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
     source_url = st.text_input(
         "Link Workbook / CSV Sumber",
         value=st.session_state.inventory_source_url,
-        help="Contoh: link OneDrive, Google Drive, atau URL file Excel/CSV yang bisa di-download langsung."
+        help="Contoh: https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
     )
     if source_url != st.session_state.inventory_source_url:
         st.session_state.inventory_source_url = source_url
