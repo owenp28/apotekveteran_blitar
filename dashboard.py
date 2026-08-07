@@ -1634,6 +1634,8 @@ elif menu == "📦 Entri & Retur Pembelian":
         st.markdown("---")
         st.subheader("🧾 Daftar Item Retur")
 
+        all_items_df = build_inventory_print_dataframe()
+
         if st.session_state.retur_items.empty:
             st.info("Belum ada item retur. Pilih produk di panel atas untuk menambah daftar retur.")
             edited_df = st.session_state.retur_items
@@ -1647,8 +1649,8 @@ elif menu == "📦 Entri & Retur Pembelian":
                 hide_index=True,
                 column_config={
                     "Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_r, width="large"),
-                    "Satuan": st.column_config.SelectboxColumn("Satuan", options=opsi_satuan_r, width="small"),
-                    "Nomor Batch": st.column_config.SelectboxColumn("Nomor Batch", options=opsi_batch_r, width="medium"),
+                    "Satuan": st.column_config.TextColumn("Satuan", width="small"),
+                    "Nomor Batch": st.column_config.TextColumn("Nomor Batch", width="medium"),
                     "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluwarsa", format="YYYY-MM-DD", width="medium"),
                     "Stok Sisa": st.column_config.NumberColumn("Stok Sisa", width="small"),
                     "Jumlah Retur": st.column_config.NumberColumn("Jumlah Retur", min_value=0.0, step=1.0, width="small"),
@@ -1657,7 +1659,32 @@ elif menu == "📦 Entri & Retur Pembelian":
                 },
                 key="data_editor_retur"
             )
-            st.session_state.retur_items = edited_df
+            
+            # ── AUTOFILL LOGIC RETUR ──
+            changed_retur = False
+            for i, row in edited_df.iterrows():
+                new_nama = str(row["Nama produk"]).strip()
+                old_nama = ""
+                if i in st.session_state.retur_items.index:
+                    old_nama = str(st.session_state.retur_items.loc[i, "Nama produk"]).strip()
+                    
+                if new_nama and new_nama.lower() != "none" and new_nama != old_nama:
+                    match = all_items_df[all_items_df["Nama produk"].astype(str).str.strip() == new_nama]
+                    if not match.empty:
+                        prod = match.iloc[0]
+                        edited_df.at[i, "Satuan"] = str(prod["Satuan"]) if pd.notna(prod["Satuan"]) else ""
+                        edited_df.at[i, "Nomor Batch"] = str(prod["Nomor Batch"]) if pd.notna(prod["Nomor Batch"]) else ""
+                        if pd.notna(prod["Tanggal Kadaluwarsa"]):
+                            edited_df.at[i, "Tanggal Kadaluwarsa"] = pd.Timestamp(prod["Tanggal Kadaluwarsa"])
+                        edited_df.at[i, "Stok Sisa"] = float(prod["Stok Sisa"]) if pd.notna(prod["Stok Sisa"]) else 0.0
+                        edited_df.at[i, "Harga 1"] = float(prod["Harga 1"]) if pd.notna(prod["Harga 1"]) else 0.0
+                        changed_retur = True
+
+            if changed_retur:
+                st.session_state.retur_items = edited_df
+                st.rerun()
+            else:
+                st.session_state.retur_items = edited_df
 
         total_retur = float((edited_df["Jumlah Retur"].fillna(0) * edited_df["Harga 1"].fillna(0)).sum()) if not edited_df.empty else 0.0
 
@@ -1850,7 +1877,7 @@ elif menu == "📦 Entri & Retur Pembelian":
                 }
             ])
             
-        opsi_produk_e, opsi_satuan_e, opsi_batch_e = get_dataset_options(st.session_state.df_beli)
+        opsi_produk_e, _, _ = get_dataset_options(st.session_state.df_beli)
 
         edited_df = st.data_editor(
             st.session_state.df_beli,
@@ -1861,8 +1888,8 @@ elif menu == "📦 Entri & Retur Pembelian":
                 "No.": st.column_config.NumberColumn("No.", width="small"),
                 "Worksheet": st.column_config.SelectboxColumn("Worksheet Tujuan", options=INVENTORY_SHEETS, width="small"),
                 "Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_e, width="large"),
-                "Satuan": st.column_config.SelectboxColumn("Satuan", options=opsi_satuan_e, width="small"),
-                "Nomor Batch": st.column_config.SelectboxColumn("Batch", options=opsi_batch_e, width="small"),
+                "Satuan": st.column_config.TextColumn("Satuan", width="small"),
+                "Nomor Batch": st.column_config.TextColumn("Batch", width="small"),
                 "Tanggal Kadaluwarsa": st.column_config.DateColumn("Exp Date", format="YYYY-MM-DD"),
                 "Stok Masuk": st.column_config.NumberColumn("Stok Masuk", min_value=0.0, width="small"),
                 "Harga 1": st.column_config.NumberColumn("Harga 1", min_value=0.0, width="medium"),
@@ -1872,7 +1899,32 @@ elif menu == "📦 Entri & Retur Pembelian":
             key="df_beli_editor"
         )
         
-        st.session_state.df_beli = edited_df
+        # ── AUTOFILL LOGIC ENTRI PEMBELIAN ──
+        changed_beli = False
+        for i, row in edited_df.iterrows():
+            new_nama = str(row["Nama produk"]).strip()
+            old_nama = ""
+            if i in st.session_state.df_beli.index:
+                old_nama = str(st.session_state.df_beli.loc[i, "Nama produk"]).strip()
+                
+            if new_nama and new_nama.lower() != "none" and new_nama != old_nama:
+                match = all_items_df[all_items_df["Nama produk"].astype(str).str.strip() == new_nama]
+                if not match.empty:
+                    prod = match.iloc[0]
+                    edited_df.at[i, "Worksheet"] = prod["Worksheet"]
+                    edited_df.at[i, "Satuan"] = str(prod["Satuan"]) if pd.notna(prod["Satuan"]) else ""
+                    edited_df.at[i, "Nomor Batch"] = str(prod["Nomor Batch"]) if pd.notna(prod["Nomor Batch"]) else ""
+                    if pd.notna(prod["Tanggal Kadaluwarsa"]):
+                        edited_df.at[i, "Tanggal Kadaluwarsa"] = pd.Timestamp(prod["Tanggal Kadaluwarsa"])
+                    edited_df.at[i, "Harga 1"] = float(prod["Harga 1"]) if pd.notna(prod["Harga 1"]) else 0.0
+                    edited_df.at[i, "Harga 2"] = float(prod["Harga 2"]) if pd.notna(prod["Harga 2"]) else 0.0
+                    changed_beli = True
+
+        if changed_beli:
+            st.session_state.df_beli = edited_df
+            st.rerun()
+        else:
+            st.session_state.df_beli = edited_df
         
         col_simpan_beli, col_reset_beli = st.columns([1, 1])
         with col_simpan_beli:
