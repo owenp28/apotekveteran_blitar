@@ -7,7 +7,6 @@ import os
 from io import BytesIO
 from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
 
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
 
@@ -15,300 +14,41 @@ st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon=
 st.markdown(
     """
     <style>
-    /* Reset default margin dan padding */
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-    
-    /* Dark Mode Background */
-    body {
-        background: #1a1a2e;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        color: #e0e0e0;
-    }
-    
-    /* Mengurangi padding di bagian atas sidebar */
-    [data-testid="stSidebar"] > div:first-child {
-        padding-top: 2rem !important;
-    }
-    
-    /* Mengurangi margin di bagian atas konten utama */
-    .block-container {
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        margin-top: 0rem !important;
-        padding-left: 20px !important;
-        padding-right: 20px !important;
-    }
-    
-    /* ── Header Aplikasi ────────────────────────────────────────────────────── */
-    .app-header {
-        text-align: center;
-        margin-bottom: 30px;
-        padding: 20px;
-        background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }
-    
-    .app-title {
-        font-size: 42px;
-        font-weight: 700;
-        color: #e94560;
-        margin-bottom: 10px;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-    
-    .app-subtitle {
-        font-size: 16px;
-        color: #a0a0a0;
-        font-weight: 400;
-    }
-    
-    /* ── Form Container ─────────────────────────────────────────────────────── */
-    .form-container {
-        background: #16213e;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        border: 1px solid #0f3460;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-    
-    .form-section-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #e94560;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #e94560;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    
-    /* ── Grid Layout ────────────────────────────────────────────────────────── */
-    .form-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 15px;
-        margin-bottom: 20px;
-    }
-    
-    .form-grid-4 {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 15px;
-        margin-bottom: 20px;
-    }
-    
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    
-    .form-label {
-        font-size: 14px;
-        font-weight: 500;
-        color: #a0a0a0;
-    }
-    
-    .form-input {
-        width: 100%;
-        padding: 10px 14px;
-        border: 1px solid #0f3460;
-        border-radius: 6px;
-        background: #1a1a2e;
-        color: #e0e0e0;
-        font-size: 14px;
-        transition: all 0.3s ease;
-    }
-    
-    .form-input:focus {
-        outline: none;
-        border-color: #e94560;
-        box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.2);
-    }
-    
-    .form-input:disabled {
-        background: #16213e;
-        color: #666;
-        cursor: not-allowed;
-        font-weight: 600;
-    }
-    
-    /* ── Tombol Custom ──────────────────────────────────────────────────────── */
-    .btn-custom {
-        padding: 12px 24px;
-        border-radius: 6px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border: none;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    
-    /* Tombol Cari - Coral/Merah */
-    .btn-cari {
-        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-        color: white;
-    }
-    
-    .btn-cari:hover {
-        background: linear-gradient(135deg, #ee5a24 0%, #d64520 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(238, 90, 36, 0.4);
-    }
-    
-    /* Tombol Simpan - Hijau */
-    .btn-save {
-        background: linear-gradient(135deg, #28a745 0%, #218838 100%);
-        color: white;
-    }
-    
-    .btn-save:hover {
-        background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
-    }
-    
-    /* Tombol Reset - Abu-abu */
-    .btn-reset {
-        background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
-        color: white;
-    }
-    
-    .btn-reset:hover {
-        background: linear-gradient(135deg, #5a6268 0%, #4e555b 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
-    }
-    
-    /* ── Total Nominal Container ────────────────────────────────────────────── */
-    .total-container {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 20px;
-        background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
-        border-radius: 12px;
-        margin: 20px 0;
-        border: 1px solid #0f3460;
-    }
-    
-    .total-label {
-        font-size: 16px;
-        color: #a0a0a0;
-        font-weight: 500;
-    }
-    
-    .total-value {
-        font-size: 42px;
-        font-weight: 700;
-        color: #e94560;
-        text-align: right;
-        font-family: 'Courier New', monospace;
-    }
-    
-    /* ── Tabel Data Editor ──────────────────────────────────────────────────── */
-    .table-container {
-        background: #16213e;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        border: 1px solid #0f3460;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-    
-    .table-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #e94560;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #e94560;
-    }
-    
-    /* Styling untuk data editor */
-    .stDataFrame {
-        background: #1a1a2e;
-        border-radius: 8px;
-        overflow: hidden;
-    }
-    
-    .stDataFrame th {
-        background: #0f3460;
-        color: #e0e0e0;
-        font-weight: 600;
-        font-size: 13px;
-        padding: 10px;
-    }
-    
-    .stDataFrame td {
-        color: #e0e0e0;
-        font-size: 13px;
-        padding: 8px;
-    }
-    
-    .stDataFrame tr:hover {
-        background: #1f3a5e;
-    }
-    
-    /* ── Info Box ───────────────────────────────────────────────────────────── */
-    .info-box {
-        background: #1f3a5e;
-        border-left: 4px solid #e94560;
-        padding: 12px 16px;
-        border-radius: 0 8px 8px 0;
-        margin-bottom: 15px;
-    }
-    
-    .info-box strong {
-        color: #e94560;
-    }
-    
-    /* ── Footer ─────────────────────────────────────────────────────────────── */
-    .app-footer {
-        text-align: center;
-        padding: 20px;
-        color: #666;
-        font-size: 14px;
-        margin-top: 30px;
-    }
-    
-    /* ── Action Buttons Container ───────────────────────────────────────────── */
-    .action-buttons {
-        display: flex;
-        gap: 15px;
-        margin-top: 20px;
-    }
-    
-    /* ── Responsive ─────────────────────────────────────────────────────────── */
-    @media (max-width: 768px) {
-        .form-grid {
-            grid-template-columns: 1fr;
-        }
-        
-        .form-grid-4 {
-            grid-template-columns: 1fr;
-        }
-        
-        .total-container {
-            flex-direction: column;
-            gap: 15px;
-        }
-        
-        .total-value {
-            text-align: center;
-        }
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a2e; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #e0e0e0; }
+    [data-testid="stSidebar"] > div:first-child { padding-top: 2rem !important; }
+    .block-container { padding-top: 0rem !important; padding-bottom: 0rem !important; margin-top: 0rem !important; padding-left: 20px !important; padding-right: 20px !important; }
+    .app-header { text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+    .app-title { font-size: 42px; font-weight: 700; color: #e94560; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+    .app-subtitle { font-size: 16px; color: #a0a0a0; font-weight: 400; }
+    .form-container, .table-container { background: #16213e; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #0f3460; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    .form-section-title, .table-title { font-size: 18px; font-weight: 600; color: #e94560; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e94560; display: flex; align-items: center; gap: 10px; }
+    .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+    .form-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    .form-label { font-size: 14px; font-weight: 500; color: #a0a0a0; }
+    .form-input { width: 100%; padding: 10px 14px; border: 1px solid #0f3460; border-radius: 6px; background: #1a1a2e; color: #e0e0e0; font-size: 14px; transition: all 0.3s ease; }
+    .form-input:focus { outline: none; border-color: #e94560; box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.2); }
+    .form-input:disabled { background: #16213e; color: #666; cursor: not-allowed; font-weight: 600; }
+    .btn-custom { padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 8px; border: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .btn-cari { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; }
+    .btn-cari:hover { background: linear-gradient(135deg, #ee5a24 0%, #d64520 100%); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(238, 90, 36, 0.4); }
+    .btn-save { background: linear-gradient(135deg, #28a745 0%, #218838 100%); color: white; }
+    .btn-save:hover { background: linear-gradient(135deg, #218838 0%, #1e7e34 100%); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4); }
+    .btn-reset { background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%); color: white; }
+    .btn-reset:hover { background: linear-gradient(135deg, #5a6268 0%, #4e555b 100%); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4); }
+    .total-container { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); border-radius: 12px; margin: 20px 0; border: 1px solid #0f3460; }
+    .total-label { font-size: 16px; color: #a0a0a0; font-weight: 500; }
+    .total-value { font-size: 42px; font-weight: 700; color: #e94560; text-align: right; font-family: 'Courier New', monospace; }
+    .stDataFrame { background: #1a1a2e; border-radius: 8px; overflow: hidden; }
+    .stDataFrame th { background: #0f3460; color: #e0e0e0; font-weight: 600; font-size: 13px; padding: 10px; }
+    .stDataFrame td { color: #e0e0e0; font-size: 13px; padding: 8px; }
+    .stDataFrame tr:hover { background: #1f3a5e; }
+    .info-box { background: #1f3a5e; border-left: 4px solid #e94560; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 15px; }
+    .info-box strong { color: #e94560; }
+    .app-footer { text-align: center; padding: 20px; color: #666; font-size: 14px; margin-top: 30px; }
+    .action-buttons { display: flex; gap: 15px; margin-top: 20px; }
+    @media (max-width: 768px) { .form-grid, .form-grid-4 { grid-template-columns: 1fr; } .total-container { flex-direction: column; gap: 15px; } .total-value { text-align: center; } }
     </style>
     """,
     unsafe_allow_html=True
@@ -318,54 +58,22 @@ st.markdown(
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
 WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran_3.xlsx")
-CSV_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.csv")
 SHIFT_LOG_PATH = os.path.join(os.path.dirname(__file__), "shift_log.csv")
-DEFAULT_SOURCE_URL = WORKBOOK_PATH
-DEFAULT_SOURCE_LABEL = WORKBOOK_PATH
+DEFAULT_LINK_ONEDRIVE = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
 
-INVENTORY_SHEETS = ["PCS", "SACHET", "BOTOL", "TAB", "BOX", "STRIP"]
+DEFAULT_SHEETS = ["PCS", "SACHET", "BOTOL", "TAB", "BOX", "STRIP"]
 INVENTORY_COLUMNS = [
-    "Nama produk",
-    "Satuan",
-    "Tanggal",
-    "Nomor Faktur",
-    "Nomor Batch",
-    "PBF",
-    "Tanggal Kadaluwarsa",
-    "Stok Masuk",
-    "Stok Keluar",
-    "Stok Sisa",
-    "Harga 1",
-    "Harga 2",
-    "Keterangan"
-]
-
-KOLOM_DATABASE_OBAT = [
-    "id_obat",
-    "nama_obat",
-    "kategori",
-    "satuan",           
-    "isi_per_strip",    
-    "isi_per_box",      
-    "harga_beli",       
-    "harga_1",          
-    "harga_2",          
-    "harga_3",
-    "stok_akhir",       
-    "tanggal_kadaluarsa"
+    "Nama produk", "Satuan", "Tanggal", "Nomor Faktur", "Nomor Batch", 
+    "PBF", "Tanggal Kadaluwarsa", "Stok Masuk", "Stok Keluar", "Stok Sisa", 
+    "Harga 1", "Harga 2", "Keterangan"
 ]
 
 KOLOM_WAJIB = [
-    "Tanggal", "Nama Obat", "Kategori", "Satuan",
-    "Stok Masuk", "Stok Keluar", "Stok Akhir",
-    "Harga Satuan (Rp)", "Total Nilai (Rp)",
-    "Tanggal Kadaluarsa", "Keterangan"
+    "Tanggal", "Nama Obat", "Kategori", "Satuan", "Stok Masuk", "Stok Keluar", 
+    "Stok Akhir", "Harga Satuan (Rp)", "Total Nilai (Rp)", "Tanggal Kadaluarsa", "Keterangan"
 ]
 
-RETUR_HISTORY_COLUMNS = [
-    "Nomor Faktur", "Tanggal Retur",
-    "Jumlah Item", "Total Nilai Retur", "Tanggal Disimpan"
-]
+RETUR_HISTORY_COLUMNS = ["Nomor Faktur", "Tanggal Retur", "Jumlah Item", "Total Nilai Retur", "Tanggal Disimpan"]
 
 def load_data():
     if os.path.exists(DATASET_PATH):
@@ -423,16 +131,14 @@ def normalize_inventory_df(df):
     renamed = {}
     for kolom in df.columns:
         nama_kolom = str(kolom).strip()
-        if nama_kolom == "Nama obat":
+        if nama_kolom.lower() == "nama obat":
             renamed[kolom] = "Nama produk"
-        elif nama_kolom == "Nama Produk":
+        elif nama_kolom.lower() == "nama produk":
             renamed[kolom] = "Nama produk"
-        elif nama_kolom == "PBF ":
+        elif nama_kolom.lower() == "pbf ":
             renamed[kolom] = "PBF"
-        elif nama_kolom == "Keterangan ":
+        elif nama_kolom.lower() == "keterangan ":
             renamed[kolom] = "Keterangan"
-        elif nama_kolom == "Nama produk":
-            renamed[kolom] = "Nama produk"
     if renamed:
         df = df.rename(columns=renamed)
     for kolom in INVENTORY_COLUMNS:
@@ -440,14 +146,7 @@ def normalize_inventory_df(df):
             df[kolom] = None
     df = df[INVENTORY_COLUMNS]
 
-    text_like_columns = [
-        "Nama produk",
-        "Satuan",
-        "Nomor Faktur",
-        "Nomor Batch",
-        "PBF",
-        "Keterangan"
-    ]
+    text_like_columns = ["Nama produk", "Satuan", "Nomor Faktur", "Nomor Batch", "PBF", "Keterangan"]
     for kolom in text_like_columns:
         if kolom in df.columns:
             df[kolom] = df[kolom].astype("string")
@@ -464,7 +163,6 @@ def normalize_inventory_df(df):
 
     return df
 
-
 def prepare_sheet_for_editor(df):
     df = normalize_inventory_df(df)
     for kolom in ["Nomor Faktur", "Nomor Batch", "PBF", "Keterangan", "Nama produk", "Satuan"]:
@@ -472,23 +170,11 @@ def prepare_sheet_for_editor(df):
             df[kolom] = df[kolom].astype("string")
     return df
 
-
 def _find_inventory_header_row(rows):
     known_headers = {
-        "nama produk",
-        "nama obat",
-        "satuan",
-        "tanggal",
-        "nomor faktur",
-        "nomor batch",
-        "pbf",
-        "tanggal kadaluarsa",
-        "stok masuk",
-        "stok keluar",
-        "stok sisa",
-        "harga 1",
-        "harga 2",
-        "keterangan"
+        "nama produk", "nama obat", "satuan", "tanggal", "nomor faktur", "nomor batch",
+        "pbf", "tanggal kadaluarsa", "stok masuk", "stok keluar", "stok sisa", 
+        "harga 1", "harga 2", "keterangan"
     }
     for index, row in enumerate(rows):
         cleaned = [str(cell).strip().lower() if cell is not None else "" for cell in row]
@@ -496,7 +182,6 @@ def _find_inventory_header_row(rows):
         if score >= 4:
             return index, list(row)
     return 0, list(rows[0]) if rows else []
-
 
 def load_inventory_sheet_dataframe(ws):
     rows = list(ws.iter_rows(values_only=True))
@@ -513,83 +198,72 @@ def load_inventory_sheet_dataframe(ws):
     df = pd.DataFrame(data_rows, columns=header)
     return normalize_inventory_df(df)
 
-
 def create_default_inventory_workbook():
     wb = Workbook()
     if "Sheet" in wb.sheetnames:
         wb.remove(wb["Sheet"])
-    for sheet_name in INVENTORY_SHEETS:
+    for sheet_name in DEFAULT_SHEETS:
         ws = wb.create_sheet(title=sheet_name)
         ws.append(INVENTORY_COLUMNS)
     wb.save(WORKBOOK_PATH)
 
-# --- PERBAIKAN: Fungsi Normalize URL agar kompatibel otomatis dengan link OneDrive ---
-def normalize_source_url(source_url):
-    source_url = (source_url or DEFAULT_SOURCE_URL).strip()
-    # Otomatis deteksi link OneDrive/SharePoint dan ubah menjadi format unduh langsung
-    if "1drv.ms" in source_url or "onedrive.live.com" in source_url or "sharepoint.com" in source_url:
-        if "?" in source_url:
-            return source_url.split("?")[0] + "?download=1"
-        return source_url + "?download=1"
-    
-    # Deteksi Google Drive
-    if "drive.google.com" in source_url and "/d/" in source_url:
-        try:
-            file_id = source_url.split("/d/")[1].split("/")[0]
-            return f"https://drive.google.com/uc?export=download&id={file_id}"
-        except:
-            pass
-            
-    if "download.aspx?UniqueId=" in source_url:
-        return source_url
-    if source_url.endswith(".csv") or source_url.endswith(".xlsx") or source_url.endswith(".xlsm"):
-        return source_url
-    return source_url
-
-
+# --- PERBAIKAN: Fungsi Unduh URL Paksa OneDrive agar langsung dapat format excel mentah ---
 def sync_inventory_from_source(source_url=None):
-    source_url = normalize_source_url(source_url)
+    source_url = (source_url or "").strip()
     if not source_url or not source_url.startswith("http"):
         return False
 
     try:
-        request = Request(
-            source_url,
+        # Menangani link OneDrive / SharePoint
+        if "1drv.ms" in source_url or "sharepoint.com" in source_url or "onedrive.live.com" in source_url:
+            if "?" in source_url:
+                download_url = source_url + "&download=1"
+            else:
+                download_url = source_url + "?download=1"
+        elif "drive.google.com" in source_url and "/d/" in source_url:
+            file_id = source_url.split("/d/")[1].split("/")[0]
+            download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        else:
+            download_url = source_url
+
+        req = Request(
+            download_url,
             headers={
-                "User-Agent": "Mozilla/5.0",
-                "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/octet-stream, */*"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
             }
         )
-        with urlopen(request, timeout=45) as response:
+        
+        with urlopen(req, timeout=45) as response:
             data = response.read()
 
         if not data or len(data) < 100:
-            raise ValueError("File download dari link sumber kosong atau tidak valid.")
+            raise ValueError("File kosong.")
+            
+        is_csv = download_url.lower().endswith(".csv")
+        # Jika bukan CSV dan bukan file zip/xlsx (Magic Number: PK)
+        if not is_csv and not data.startswith(b"PK"):
+            raise ValueError("Link memberikan tampilan Web HTML (Viewer). Pastikan ini adalah Direct Link Download.")
 
         with open(WORKBOOK_PATH, "wb") as f:
             f.write(data)
-        return os.path.exists(WORKBOOK_PATH)
-    except Exception:
-        if not os.path.exists(WORKBOOK_PATH):
-            create_default_inventory_workbook()
+        return True
+    except Exception as e:
+        st.error(f"⚠️ Gagal mengunduh dataset dari link: {e}")
         return False
 
-
+# --- PERBAIKAN: Baca SEMUA worksheet secara dinamis, bukan cuma yang ada di INVENTORY_SHEETS ---
 def load_inventory_from_bytes(file_bytes, filename):
     if filename.lower().endswith(".csv"):
         df = pd.read_csv(BytesIO(file_bytes))
-        return {sheet_name: normalize_inventory_df(df) for sheet_name in INVENTORY_SHEETS[:1]}
+        return {"Sheet1": normalize_inventory_df(df)}
 
     wb = load_workbook(BytesIO(file_bytes), data_only=True)
     workbook_data = {}
-    for sheet_name in INVENTORY_SHEETS:
-        if sheet_name not in wb.sheetnames:
-            continue
+    for sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
         workbook_data[sheet_name] = load_inventory_sheet_dataframe(ws)
     return workbook_data
 
-# --- PERBAIKAN: Prioritaskan web URL jika diisi oleh user melalui input "Link Dataset"
 def load_inventory_workbook(source_url=None, uploaded_file=None):
     if uploaded_file is not None:
         data = uploaded_file.getvalue()
@@ -597,17 +271,14 @@ def load_inventory_workbook(source_url=None, uploaded_file=None):
         if loaded:
             return loaded
 
-    # Bila source URL ada (dipicu tombol Download), ambil dulu dari internet
-    if source_url and source_url != DEFAULT_SOURCE_URL and source_url.startswith("http"):
+    if source_url and source_url.startswith("http"):
         sync_inventory_from_source(source_url)
 
     if os.path.exists(WORKBOOK_PATH):
         try:
             wb = load_workbook(WORKBOOK_PATH, data_only=True)
             workbook_data = {}
-            for sheet_name in INVENTORY_SHEETS:
-                if sheet_name not in wb.sheetnames:
-                    continue
+            for sheet_name in wb.sheetnames:
                 ws = wb[sheet_name]
                 workbook_data[sheet_name] = load_inventory_sheet_dataframe(ws)
             wb.close()
@@ -616,7 +287,6 @@ def load_inventory_workbook(source_url=None, uploaded_file=None):
             return {}
 
     return {}
-
 
 def sanitize_excel_value(value):
     if value is None:
@@ -638,34 +308,28 @@ def sanitize_excel_value(value):
         return value
     return str(value)
 
-
 def sanitize_excel_dataframe(df):
     df = df.copy()
     for kolom in df.columns:
         df[kolom] = df[kolom].apply(lambda v: sanitize_excel_value(v))
     return df
 
-
 def save_inventory_workbook(workbook_data):
     try:
         with pd.ExcelWriter(WORKBOOK_PATH, engine='openpyxl') as writer:
-            for sheet_name in INVENTORY_SHEETS:
-                df_sheet = workbook_data.get(sheet_name)
-                if df_sheet is None:
+            for sheet_name, df_sheet in workbook_data.items():
+                if df_sheet is None or df_sheet.empty:
                     df_sheet = pd.DataFrame(columns=INVENTORY_COLUMNS)
-                
                 df_sheet = sanitize_excel_dataframe(df_sheet)
                 df_sheet.to_excel(writer, sheet_name=sheet_name, index=False)
         return True
     except Exception as e:
-        st.error(f"Gagal menyimpan ke file Excel. Pastikan file tidak sedang dibuka di aplikasi lain. Error: {e}")
+        st.error(f"Gagal menyimpan ke file Excel. Error: {e}")
         return False
-
 
 def build_inventory_print_dataframe():
     workbook_data = st.session_state.get("inventory_data_cache")
     if not workbook_data:
-        # Panggil dari lokal jika cache kosong
         workbook_data = load_inventory_workbook()
         st.session_state.inventory_data_cache = workbook_data
 
@@ -686,7 +350,6 @@ def build_inventory_print_dataframe():
     combined_df["Worksheet"] = combined_df.get("Worksheet", pd.Series([None] * len(combined_df)))
     return combined_df
 
-
 def build_rtf_export(df):
     lines = ["{\\rtf1\\ansi\\deff0", "{\\fonttbl\\f0\\fswiss Arial;}", "\\viewkind4\\uc1"]
     lines.append("\\pard\\plain\\f0\\fs20 Laporan Stok Obat — Apotek Veteran Blitar\\par")
@@ -697,7 +360,6 @@ def build_rtf_export(df):
     lines.append("}")
     return "".join(lines).encode("utf-8")
 
-
 def parse_rupiah(val):
     try:
         if pd.isna(val):
@@ -707,6 +369,11 @@ def parse_rupiah(val):
     except:
         return 0
 
+def get_available_sheets():
+    cache = st.session_state.get("inventory_data_cache", {})
+    if cache:
+        return list(cache.keys())
+    return DEFAULT_SHEETS
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AUTENTIKASI — LOGIN & USER MAPPING
@@ -760,6 +427,8 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ── Session State (General & Shift) ───────────────────────────────────────────
+if "inventory_source_url" not in st.session_state:
+    st.session_state.inventory_source_url = DEFAULT_LINK_ONEDRIVE
 if "retur_form_data" not in st.session_state:
     st.session_state.retur_form_data = {}
 if "retur_items" not in st.session_state:
@@ -827,7 +496,6 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.logged_in = False
     st.session_state.role      = None
     st.session_state.username  = ""
-    # Reset Shift saat logout supaya safety
     st.session_state.shift_active = False
     st.session_state.active_shift_context = {
         "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
@@ -842,7 +510,6 @@ if menu == "🏠 Beranda":
     st.markdown("Selamat datang! Pilih fitur di sidebar untuk mulai mengelola stok obat.")
     st.markdown("---")
 
-    # ── PERBAIKAN: Hanya me-reload file lokal jika cache di sistem sedang kosong agar upload tidak tertimpa
     if "inventory_data_cache" not in st.session_state or not st.session_state.inventory_data_cache:
         st.session_state.inventory_data_cache = load_inventory_workbook()
 
@@ -909,14 +576,11 @@ if menu == "🏠 Beranda":
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
     st.title("📋 Tampilkan Dan Ubah Stok Obat")
-    st.caption("Tampilan sederhana dan bisa diedit langsung per worksheet sesuai satuan: PCS, SACHET, BOTOL, TAB, BOX, STRIP.")
+    st.caption("Tampilan sederhana dan bisa diedit langsung per worksheet sesuai satuan.")
 
-    if "inventory_source_url" not in st.session_state:
-        st.session_state.inventory_source_url = ""
     if "inventory_data_cache" not in st.session_state:
         st.session_state.inventory_data_cache = {}
 
-    # ── PERBAIKAN: Menambahkan kolom Link Dataset yang disebelahnya terdapat tombol "Submit Link"
     col_link, col_btn = st.columns([8, 2])
     with col_link:
         source_url = st.text_input(
@@ -933,13 +597,17 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
     if submit_link and source_url.strip():
         with st.spinner("Menganalisis link dan mengunduh dataset..."):
             st.session_state.inventory_source_url = source_url
-            wb_data = load_inventory_workbook(source_url=source_url)
-            if wb_data:
-                st.session_state.inventory_data_cache = wb_data
-                save_inventory_workbook(wb_data) # Otomatis simpan ke lokal untuk history
-                st.success("✅ Dataset berhasil diunduh dan dimuat!")
+            success = sync_inventory_from_source(source_url)
+            if success:
+                wb_data = load_inventory_workbook()
+                if wb_data:
+                    st.session_state.inventory_data_cache = wb_data
+                    st.success("✅ Dataset berhasil diunduh dan dimuat!")
+                    st.rerun()
+                else:
+                    st.error("❌ Gagal memuat data dari file yang diunduh.")
             else:
-                st.error("❌ Gagal mengunduh dataset. Periksa link atau izin akses file Anda.")
+                st.error("❌ Gagal mengunduh file. Periksa apakah link valid dan dapat diakses.")
 
     uploaded_inventory = st.file_uploader(
         "Atau upload file Excel/CSV langsung dari perangkat Anda:",
@@ -964,11 +632,13 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
         st.session_state.inventory_data_cache = workbook_data
 
     if not workbook_data:
-        st.info("Sumber file belum bisa dibaca, jadi sistem akan membuat struktur default untuk sheet PCS, SACHET, BOTOL, TAB, BOX, dan STRIP.")
+        st.info("Sumber file belum bisa dibaca, jadi sistem akan membuat struktur default.")
 
+    AVAILABLE_SHEETS = get_available_sheets()
+    
     sheet_name = st.selectbox(
         "Pilih Worksheet",
-        INVENTORY_SHEETS,
+        AVAILABLE_SHEETS,
         index=0,
         key="inventory_selected_sheet"
     )
@@ -1568,7 +1238,9 @@ elif menu == "📦 Entri & Retur Pembelian":
             st.stop()
 
         workbook_data = st.session_state.inventory_data_cache
-        sheet_name = st.selectbox("Pilih Worksheet", INVENTORY_SHEETS, index=0, key="retur_selected_sheet")
+        AVAILABLE_SHEETS = get_available_sheets()
+        sheet_name = st.selectbox("Pilih Worksheet", AVAILABLE_SHEETS, index=0, key="retur_selected_sheet")
+        
         if sheet_name not in workbook_data:
             st.warning(f"Worksheet **{sheet_name}** belum ada di dataset yang sedang aktif.")
             st.stop()
@@ -1901,6 +1573,7 @@ elif menu == "📦 Entri & Retur Pembelian":
             ])
             
         opsi_produk_e, _, _ = get_dataset_options(st.session_state.df_beli)
+        AVAILABLE_SHEETS = get_available_sheets()
 
         edited_df = st.data_editor(
             st.session_state.df_beli,
@@ -1909,7 +1582,7 @@ elif menu == "📦 Entri & Retur Pembelian":
             hide_index=True,
             column_config={
                 "No.": st.column_config.NumberColumn("No.", width="small"),
-                "Worksheet": st.column_config.SelectboxColumn("Worksheet Tujuan", options=INVENTORY_SHEETS, width="small"),
+                "Worksheet": st.column_config.SelectboxColumn("Worksheet Tujuan", options=AVAILABLE_SHEETS, width="small"),
                 "Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_e, width="large"),
                 "Satuan": st.column_config.TextColumn("Satuan", width="small"),
                 "Nomor Batch": st.column_config.TextColumn("Batch", width="small"),
@@ -2253,4 +1926,5 @@ elif menu == "🕒 Buka/Tutup Shift":
 # ══════════════════════════════════════════════════════════════════════════════
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
+st.sidebar.caption("© Apotek Veteran Blitar")
 st.sidebar.caption("© Apotek Veteran Blitar")
