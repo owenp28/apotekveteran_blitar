@@ -1619,6 +1619,7 @@ elif menu == "📦 Entri & Retur Pembelian":
             st.info("Belum ada item retur. Pilih produk di panel atas untuk menambah daftar retur.")
             edited_df = st.session_state.retur_items
         else:
+            # ── PERBAIKAN: Semua disabled=True dihilangkan untuk Daftar Item Retur
             edited_df = st.data_editor(
                 st.session_state.retur_items,
                 use_container_width=True,
@@ -1650,7 +1651,6 @@ elif menu == "📦 Entri & Retur Pembelian":
                     if sheet_name not in workbook_data:
                         st.error("Worksheet aktif tidak tersedia di data session.")
                     else:
-                        # PERBAIKAN: Menambahkan Logika untuk mencatat retur ke dalam History Database Stok (stok_obat.csv)
                         df_history = load_data()
                         if df_history is None:
                             df_history = pd.DataFrame(columns=KOLOM_WAJIB)
@@ -1658,36 +1658,48 @@ elif menu == "📦 Entri & Retur Pembelian":
 
                         active_df = workbook_data[sheet_name].copy()
                         active_df = prepare_sheet_for_editor(active_df)
+                        
+                        # ── PERBAIKAN: Penanganan tipe data baris secara dinamis agar tahan terhadap baris kosong (None)
                         for _, item in edited_df.iterrows():
-                            qty_retur_item = float(item["Jumlah Retur"] or 0)
+                            qty_retur_item = float(item["Jumlah Retur"]) if pd.notna(item["Jumlah Retur"]) else 0.0
                             if qty_retur_item <= 0:
                                 continue
+                                
+                            nama_item = str(item["Nama produk"]).strip() if pd.notna(item["Nama produk"]) else ""
+                            batch_item = str(item["Nomor Batch"]).strip() if pd.notna(item["Nomor Batch"]) else ""
+                            
                             mask = (
-                                (active_df["Nama produk"].fillna("").astype(str).str.lower() == str(item["Nama produk"]).strip().lower()) &
-                                (active_df["Nomor Batch"].fillna("").astype(str).str.lower() == str(item["Nomor Batch"]).strip().lower())
+                                (active_df["Nama produk"].fillna("").astype(str).str.lower() == nama_item.lower()) &
+                                (active_df["Nomor Batch"].fillna("").astype(str).str.lower() == batch_item.lower())
                             )
                             if not mask.any():
                                 continue
+                                
                             idx = active_df[mask].index[-1]
                             stok_sisa_lama = float(active_df.loc[idx, "Stok Sisa"] if pd.notna(active_df.loc[idx, "Stok Sisa"]) else 0)
                             stok_baru = max(stok_sisa_lama - qty_retur_item, 0)
                             active_df.loc[idx, "Stok Sisa"] = stok_baru
                             active_df.loc[idx, "Stok Keluar"] = float(active_df.loc[idx, "Stok Keluar"] if pd.notna(active_df.loc[idx, "Stok Keluar"]) else 0) + qty_retur_item
-                            active_df.loc[idx, "Keterangan"] = str(item["Keterangan"] or "") or active_df.loc[idx, "Keterangan"]
+                            
+                            ket_baru = str(item["Keterangan"]) if pd.notna(item["Keterangan"]) else ""
+                            active_df.loc[idx, "Keterangan"] = ket_baru or active_df.loc[idx, "Keterangan"]
 
-                            # Rekam ke log stok_obat.csv
+                            harga_1_item = float(item["Harga 1"]) if pd.notna(item["Harga 1"]) else 0.0
+                            tgl_exp_item = pd.Timestamp(item["Tanggal Kadaluwarsa"]) if pd.notna(item["Tanggal Kadaluwarsa"]) else pd.Timestamp(date.today())
+                            satuan_item = str(item["Satuan"]) if pd.notna(item["Satuan"]) else ""
+
                             new_history_rows.append({
                                 "Tanggal": pd.Timestamp(date.today()),
-                                "Nama Obat": str(item["Nama produk"]).strip(),
+                                "Nama Obat": nama_item,
                                 "Kategori": sheet_name,
-                                "Satuan": item["Satuan"],
+                                "Satuan": satuan_item,
                                 "Stok Masuk": 0.0,
                                 "Stok Keluar": qty_retur_item,
                                 "Stok Akhir": stok_baru,
-                                "Harga Satuan (Rp)": float(item["Harga 1"]) if pd.notna(item["Harga 1"]) else 0.0,
-                                "Total Nilai (Rp)": qty_retur_item * (float(item["Harga 1"]) if pd.notna(item["Harga 1"]) else 0.0),
-                                "Tanggal Kadaluarsa": pd.Timestamp(item["Tanggal Kadaluwarsa"]),
-                                "Keterangan": f"Retur Pembelian (Batch: {item['Nomor Batch']}) - {item['Keterangan']}"
+                                "Harga Satuan (Rp)": harga_1_item,
+                                "Total Nilai (Rp)": qty_retur_item * harga_1_item,
+                                "Tanggal Kadaluarsa": tgl_exp_item,
+                                "Keterangan": f"Retur Pembelian (Batch: {batch_item}) - {ket_baru}"
                             })
 
                         workbook_data[sheet_name] = normalize_inventory_df(active_df)
@@ -1762,7 +1774,6 @@ elif menu == "📦 Entri & Retur Pembelian":
             if not hasil.empty:
                 st.success(f"Ditemukan {len(hasil)} entri. Pilih salah satu baris di bawah, lalu klik Tambahkan:")
                 
-                # PERBAIKAN: Membawa Harga 2 ke preview tabel
                 tabel_cari_df = hasil[["Worksheet", "Nama produk", "Satuan", "Harga 1", "Harga 2", "Stok Sisa"]].drop_duplicates(subset=["Worksheet", "Nama produk"]).reset_index(drop=True)
                 
                 event_beli = st.dataframe(
@@ -1788,7 +1799,6 @@ elif menu == "📦 Entri & Retur Pembelian":
                             "Tanggal Kadaluwarsa": pd.Timestamp(date.today() + pd.Timedelta(days=365)),
                             "Stok Masuk": 0.0,
                             "Harga 1": float(selected_row["Harga 1"]) if pd.notna(selected_row["Harga 1"]) else 0.0,
-                            # PERBAIKAN: Memasukkan Harga 2 sesuai dengan data produk yang diklik
                             "Harga 2": float(selected_row["Harga 2"]) if pd.notna(selected_row["Harga 2"]) else 0.0,
                             "Keterangan": ""
                         }
@@ -1821,6 +1831,7 @@ elif menu == "📦 Entri & Retur Pembelian":
                 }
             ])
             
+        # ── PERBAIKAN: Semua disabled=True dihapus untuk mengizinkan edit bebas termasuk pada kolom No.
         edited_df = st.data_editor(
             st.session_state.df_beli,
             use_container_width=True,
@@ -1828,8 +1839,8 @@ elif menu == "📦 Entri & Retur Pembelian":
             hide_index=True,
             column_config={
                 "No.": st.column_config.NumberColumn("No.", width="small"),
-                "Worksheet": st.column_config.SelectboxColumn("Worksheet Tujuan", options=INVENTORY_SHEETS, width="small", required=True),
-                "Nama produk": st.column_config.TextColumn("Nama Produk", width="large", required=True),
+                "Worksheet": st.column_config.SelectboxColumn("Worksheet Tujuan", options=INVENTORY_SHEETS, width="small"),
+                "Nama produk": st.column_config.TextColumn("Nama Produk", width="large"),
                 "Satuan": st.column_config.TextColumn("Satuan", width="small"),
                 "Nomor Batch": st.column_config.TextColumn("Batch", width="small"),
                 "Tanggal Kadaluwarsa": st.column_config.DateColumn("Exp Date", format="YYYY-MM-DD"),
@@ -1841,65 +1852,79 @@ elif menu == "📦 Entri & Retur Pembelian":
             key="df_beli_editor"
         )
         
+        # ── PERBAIKAN: Membiarkan "No." bisa diedit dan tidak ditimpa, hanya memperbarui ke state.
         st.session_state.df_beli = edited_df
         
         col_simpan_beli, col_reset_beli = st.columns([1, 1])
         with col_simpan_beli:
             if st.button("💾 Simpan Pembelian ke Excel Dataset", type="primary", use_container_width=True):
-                if edited_df.empty or not edited_df["Nama produk"].astype(str).str.strip().any():
-                    st.warning("Tabel pembelian kosong atau nama produk belum diisi.")
+                # Mengecek apakah ada setidaknya 1 nama produk yang valid
+                has_valid_item = False
+                for _, row in edited_df.iterrows():
+                    if pd.notna(row["Nama produk"]) and str(row["Nama produk"]).strip() != "" and str(row["Nama produk"]).strip().lower() != "none":
+                        has_valid_item = True
+                        break
+
+                if edited_df.empty or not has_valid_item:
+                    st.warning("Tabel pembelian kosong atau nama produk belum diisi secara valid.")
                 else:
                     workbook_data = st.session_state.inventory_data_cache
                     jumlah_disimpan = 0
                     
-                    # PERBAIKAN: Menambahkan Logika untuk mencatat Entri Pembelian ke dalam History Database Stok (stok_obat.csv)
                     df_history = load_data()
                     if df_history is None:
                         df_history = pd.DataFrame(columns=KOLOM_WAJIB)
                     new_history_rows = []
                     
+                    # ── PERBAIKAN: Penanganan yang kuat jika ada kolom berisi None
                     for _, row in edited_df.iterrows():
-                        nama = str(row["Nama produk"]).strip()
-                        stok_masuk = float(row["Stok Masuk"]) if pd.notna(row["Stok Masuk"]) else 0
-                        ws_target = str(row["Worksheet"])
+                        nama = str(row["Nama produk"]).strip() if pd.notna(row["Nama produk"]) else ""
+                        stok_masuk = float(row["Stok Masuk"]) if pd.notna(row["Stok Masuk"]) else 0.0
+                        ws_target = str(row["Worksheet"]) if pd.notna(row["Worksheet"]) else ""
                         
-                        if not nama or stok_masuk <= 0 or ws_target not in workbook_data:
+                        if not nama or nama.lower() == "none" or stok_masuk <= 0 or ws_target not in workbook_data:
                             continue
                             
                         sheet_df = prepare_sheet_for_editor(workbook_data[ws_target].copy())
                         
+                        satuan_beli = str(row["Satuan"]) if pd.notna(row["Satuan"]) else ""
+                        batch_beli = str(row["Nomor Batch"]) if pd.notna(row["Nomor Batch"]) else ""
+                        harga1_beli = float(row["Harga 1"]) if pd.notna(row["Harga 1"]) else 0.0
+                        harga2_beli = float(row["Harga 2"]) if pd.notna(row["Harga 2"]) else 0.0
+                        ket_beli = str(row["Keterangan"]) if pd.notna(row["Keterangan"]) else ""
+                        tgl_exp = pd.Timestamp(row["Tanggal Kadaluwarsa"]) if pd.notna(row["Tanggal Kadaluwarsa"]) else pd.Timestamp(date.today() + pd.Timedelta(days=365))
+
                         new_buy = {
                             "Nama produk": nama,
-                            "Satuan": row["Satuan"],
+                            "Satuan": satuan_beli,
                             "Tanggal": pd.Timestamp(date.today()),
                             "Nomor Faktur": no_faktur,
-                            "Nomor Batch": row["Nomor Batch"],
+                            "Nomor Batch": batch_beli,
                             "PBF": pbf_default,
-                            "Tanggal Kadaluwarsa": pd.Timestamp(row["Tanggal Kadaluwarsa"]),
+                            "Tanggal Kadaluwarsa": tgl_exp,
                             "Stok Masuk": stok_masuk,
                             "Stok Keluar": 0.0,
                             "Stok Sisa": stok_masuk,
-                            "Harga 1": float(row["Harga 1"]) if pd.notna(row["Harga 1"]) else 0.0,
-                            "Harga 2": float(row["Harga 2"]) if pd.notna(row["Harga 2"]) else 0.0,
-                            "Keterangan": row["Keterangan"]
+                            "Harga 1": harga1_beli,
+                            "Harga 2": harga2_beli,
+                            "Keterangan": ket_beli
                         }
                         
                         sheet_df = pd.concat([sheet_df, pd.DataFrame([new_buy])], ignore_index=True)
                         workbook_data[ws_target] = normalize_inventory_df(sheet_df)
                         jumlah_disimpan += 1
                         
-                        # Rekam ke log stok_obat.csv
                         new_history_rows.append({
                             "Tanggal": pd.Timestamp(date.today()),
                             "Nama Obat": nama,
                             "Kategori": ws_target,
-                            "Satuan": row["Satuan"],
+                            "Satuan": satuan_beli,
                             "Stok Masuk": stok_masuk,
                             "Stok Keluar": 0.0,
                             "Stok Akhir": stok_masuk,
-                            "Harga Satuan (Rp)": float(row["Harga 1"]) if pd.notna(row["Harga 1"]) else 0.0,
-                            "Total Nilai (Rp)": stok_masuk * (float(row["Harga 1"]) if pd.notna(row["Harga 1"]) else 0.0),
-                            "Tanggal Kadaluarsa": pd.Timestamp(row["Tanggal Kadaluwarsa"]),
+                            "Harga Satuan (Rp)": harga1_beli,
+                            "Total Nilai (Rp)": stok_masuk * harga1_beli,
+                            "Tanggal Kadaluarsa": tgl_exp,
                             "Keterangan": f"Entri Pembelian (No. Faktur: {no_faktur})"
                         })
                         
@@ -1928,7 +1953,7 @@ elif menu == "📦 Entri & Retur Pembelian":
                         st.success(f"✅ {jumlah_disimpan} entri pembelian berhasil disimpan langsung ke worksheet masing-masing!")
                         st.rerun()
                     else:
-                        st.warning("Tidak ada item valid (Stok Masuk > 0) untuk disimpan.")
+                        st.warning("Tidak ada item valid (Stok Masuk > 0 / Worksheet Tersedia / Nama Produk Valid) untuk disimpan.")
 
         with col_reset_beli:
             if st.button("🗑️ Reset Tabel Pembelian", type="secondary", use_container_width=True):
