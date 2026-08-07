@@ -317,7 +317,7 @@ st.markdown(
 
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
-WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran_2.xlsx")
+WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran_3.xlsx")
 CSV_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.csv")
 SHIFT_LOG_PATH = os.path.join(os.path.dirname(__file__), "shift_log.csv")
 DEFAULT_SOURCE_URL = WORKBOOK_PATH
@@ -1508,6 +1508,25 @@ elif menu == "📦 Entri & Retur Pembelian":
     )
     st.write("---")
 
+    # ── MENGAMBIL DAFTAR OPSI DARI DATASET UNTUK DROPDOWN (AUTOCOMPLETE) ──
+    def get_dataset_options(df_current=None):
+        df_inv = build_inventory_print_dataframe()
+        prods, sats, batches = [], [], []
+        if df_inv is not None and not df_inv.empty:
+            prods = [str(x).strip() for x in df_inv["Nama produk"].dropna().unique() if str(x).strip()]
+            sats = [str(x).strip() for x in df_inv["Satuan"].dropna().unique() if str(x).strip()]
+            batches = [str(x).strip() for x in df_inv["Nomor Batch"].dropna().unique() if str(x).strip()]
+            
+        if df_current is not None and not df_current.empty:
+            if "Nama produk" in df_current.columns:
+                prods += [str(x).strip() for x in df_current["Nama produk"].dropna().unique() if str(x).strip()]
+            if "Satuan" in df_current.columns:
+                sats += [str(x).strip() for x in df_current["Satuan"].dropna().unique() if str(x).strip()]
+            if "Nomor Batch" in df_current.columns:
+                batches += [str(x).strip() for x in df_current["Nomor Batch"].dropna().unique() if str(x).strip()]
+                
+        return sorted(list(set(prods))), sorted(list(set(sats))), sorted(list(set(batches)))
+
     tab_retur, tab_entri = st.tabs(["🏥 Retur Pembelian", "🛍️ Entri Pembelian"])
 
     with tab_retur:
@@ -1619,16 +1638,17 @@ elif menu == "📦 Entri & Retur Pembelian":
             st.info("Belum ada item retur. Pilih produk di panel atas untuk menambah daftar retur.")
             edited_df = st.session_state.retur_items
         else:
-            # ── PERBAIKAN: Semua disabled=True dihilangkan untuk Daftar Item Retur
+            opsi_produk_r, opsi_satuan_r, opsi_batch_r = get_dataset_options(st.session_state.retur_items)
+            
             edited_df = st.data_editor(
                 st.session_state.retur_items,
                 use_container_width=True,
                 num_rows="dynamic",
                 hide_index=True,
                 column_config={
-                    "Nama produk": st.column_config.TextColumn("Nama Produk", width="large"),
-                    "Satuan": st.column_config.TextColumn("Satuan", width="small"),
-                    "Nomor Batch": st.column_config.TextColumn("Nomor Batch", width="medium"),
+                    "Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_r, width="large"),
+                    "Satuan": st.column_config.SelectboxColumn("Satuan", options=opsi_satuan_r, width="small"),
+                    "Nomor Batch": st.column_config.SelectboxColumn("Nomor Batch", options=opsi_batch_r, width="medium"),
                     "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluwarsa", format="YYYY-MM-DD", width="medium"),
                     "Stok Sisa": st.column_config.NumberColumn("Stok Sisa", width="small"),
                     "Jumlah Retur": st.column_config.NumberColumn("Jumlah Retur", min_value=0.0, step=1.0, width="small"),
@@ -1659,7 +1679,6 @@ elif menu == "📦 Entri & Retur Pembelian":
                         active_df = workbook_data[sheet_name].copy()
                         active_df = prepare_sheet_for_editor(active_df)
                         
-                        # ── PERBAIKAN: Penanganan tipe data baris secara dinamis agar tahan terhadap baris kosong (None)
                         for _, item in edited_df.iterrows():
                             qty_retur_item = float(item["Jumlah Retur"]) if pd.notna(item["Jumlah Retur"]) else 0.0
                             if qty_retur_item <= 0:
@@ -1745,7 +1764,7 @@ elif menu == "📦 Entri & Retur Pembelian":
             """
             <div class='app-header'>
                 <div class='app-title'>🛍️ Entri Pembelian Obat</div>
-                <div class='app-subtitle'>Catat pembelian secara ringkas, dan simpan langsung ke worksheet DatasetObat_ApotekVeteran_2.xlsx.</div>
+                <div class='app-subtitle'>Catat pembelian secara ringkas, dan simpan langsung ke worksheet DatasetObat_ApotekVeteran_3.xlsx.</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -1831,7 +1850,8 @@ elif menu == "📦 Entri & Retur Pembelian":
                 }
             ])
             
-        # ── PERBAIKAN: Semua disabled=True dihapus untuk mengizinkan edit bebas termasuk pada kolom No.
+        opsi_produk_e, opsi_satuan_e, opsi_batch_e = get_dataset_options(st.session_state.df_beli)
+
         edited_df = st.data_editor(
             st.session_state.df_beli,
             use_container_width=True,
@@ -1840,9 +1860,9 @@ elif menu == "📦 Entri & Retur Pembelian":
             column_config={
                 "No.": st.column_config.NumberColumn("No.", width="small"),
                 "Worksheet": st.column_config.SelectboxColumn("Worksheet Tujuan", options=INVENTORY_SHEETS, width="small"),
-                "Nama produk": st.column_config.TextColumn("Nama Produk", width="large"),
-                "Satuan": st.column_config.TextColumn("Satuan", width="small"),
-                "Nomor Batch": st.column_config.TextColumn("Batch", width="small"),
+                "Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_e, width="large"),
+                "Satuan": st.column_config.SelectboxColumn("Satuan", options=opsi_satuan_e, width="small"),
+                "Nomor Batch": st.column_config.SelectboxColumn("Batch", options=opsi_batch_e, width="small"),
                 "Tanggal Kadaluwarsa": st.column_config.DateColumn("Exp Date", format="YYYY-MM-DD"),
                 "Stok Masuk": st.column_config.NumberColumn("Stok Masuk", min_value=0.0, width="small"),
                 "Harga 1": st.column_config.NumberColumn("Harga 1", min_value=0.0, width="medium"),
@@ -1852,13 +1872,11 @@ elif menu == "📦 Entri & Retur Pembelian":
             key="df_beli_editor"
         )
         
-        # ── PERBAIKAN: Membiarkan "No." bisa diedit dan tidak ditimpa, hanya memperbarui ke state.
         st.session_state.df_beli = edited_df
         
         col_simpan_beli, col_reset_beli = st.columns([1, 1])
         with col_simpan_beli:
             if st.button("💾 Simpan Pembelian ke Excel Dataset", type="primary", use_container_width=True):
-                # Mengecek apakah ada setidaknya 1 nama produk yang valid
                 has_valid_item = False
                 for _, row in edited_df.iterrows():
                     if pd.notna(row["Nama produk"]) and str(row["Nama produk"]).strip() != "" and str(row["Nama produk"]).strip().lower() != "none":
@@ -1876,7 +1894,6 @@ elif menu == "📦 Entri & Retur Pembelian":
                         df_history = pd.DataFrame(columns=KOLOM_WAJIB)
                     new_history_rows = []
                     
-                    # ── PERBAIKAN: Penanganan yang kuat jika ada kolom berisi None
                     for _, row in edited_df.iterrows():
                         nama = str(row["Nama produk"]).strip() if pd.notna(row["Nama produk"]) else ""
                         stok_masuk = float(row["Stok Masuk"]) if pd.notna(row["Stok Masuk"]) else 0.0
