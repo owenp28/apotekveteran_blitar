@@ -523,21 +523,33 @@ def create_default_inventory_workbook():
         ws.append(INVENTORY_COLUMNS)
     wb.save(WORKBOOK_PATH)
 
-
+# --- PERBAIKAN: Fungsi Normalize URL agar kompatibel otomatis dengan link OneDrive ---
 def normalize_source_url(source_url):
     source_url = (source_url or DEFAULT_SOURCE_URL).strip()
-    if "1drv.ms" in source_url or "onedrive.live.com/:x:" in source_url:
-        return DEFAULT_SOURCE_URL
+    # Otomatis deteksi link OneDrive/SharePoint dan ubah menjadi format unduh langsung
+    if "1drv.ms" in source_url or "onedrive.live.com" in source_url or "sharepoint.com" in source_url:
+        if "?" in source_url:
+            return source_url.split("?")[0] + "?download=1"
+        return source_url + "?download=1"
+    
+    # Deteksi Google Drive
+    if "drive.google.com" in source_url and "/d/" in source_url:
+        try:
+            file_id = source_url.split("/d/")[1].split("/")[0]
+            return f"https://drive.google.com/uc?export=download&id={file_id}"
+        except:
+            pass
+            
     if "download.aspx?UniqueId=" in source_url:
         return source_url
     if source_url.endswith(".csv") or source_url.endswith(".xlsx") or source_url.endswith(".xlsm"):
         return source_url
-    return DEFAULT_SOURCE_URL
+    return source_url
 
 
 def sync_inventory_from_source(source_url=None):
     source_url = normalize_source_url(source_url)
-    if not source_url:
+    if not source_url or not source_url.startswith("http"):
         return False
 
     try:
@@ -551,8 +563,8 @@ def sync_inventory_from_source(source_url=None):
         with urlopen(request, timeout=45) as response:
             data = response.read()
 
-        if not data:
-            raise ValueError("File download dari link sumber kosong.")
+        if not data or len(data) < 100:
+            raise ValueError("File download dari link sumber kosong atau tidak valid.")
 
         with open(WORKBOOK_PATH, "wb") as f:
             f.write(data)
@@ -560,7 +572,7 @@ def sync_inventory_from_source(source_url=None):
     except Exception:
         if not os.path.exists(WORKBOOK_PATH):
             create_default_inventory_workbook()
-        return os.path.exists(WORKBOOK_PATH)
+        return False
 
 
 def load_inventory_from_bytes(file_bytes, filename):
@@ -577,13 +589,17 @@ def load_inventory_from_bytes(file_bytes, filename):
         workbook_data[sheet_name] = load_inventory_sheet_dataframe(ws)
     return workbook_data
 
-
+# --- PERBAIKAN: Prioritaskan web URL jika diisi oleh user melalui input "Link Dataset"
 def load_inventory_workbook(source_url=None, uploaded_file=None):
     if uploaded_file is not None:
         data = uploaded_file.getvalue()
         loaded = load_inventory_from_bytes(data, uploaded_file.name)
         if loaded:
             return loaded
+
+    # Bila source URL ada (dipicu tombol Download), ambil dulu dari internet
+    if source_url and source_url != DEFAULT_SOURCE_URL and source_url.startswith("http"):
+        sync_inventory_from_source(source_url)
 
     if os.path.exists(WORKBOOK_PATH):
         try:
@@ -599,22 +615,7 @@ def load_inventory_workbook(source_url=None, uploaded_file=None):
         except Exception:
             return {}
 
-    sync_inventory_from_source(source_url)
-    if not os.path.exists(WORKBOOK_PATH):
-        return {}
-
-    try:
-        wb = load_workbook(WORKBOOK_PATH, data_only=True)
-        workbook_data = {}
-        for sheet_name in INVENTORY_SHEETS:
-            if sheet_name not in wb.sheetnames:
-                continue
-            ws = wb[sheet_name]
-            workbook_data[sheet_name] = load_inventory_sheet_dataframe(ws)
-        wb.close()
-        return workbook_data
-    except Exception:
-        return {}
+    return {}
 
 
 def sanitize_excel_value(value):
@@ -664,8 +665,8 @@ def save_inventory_workbook(workbook_data):
 def build_inventory_print_dataframe():
     workbook_data = st.session_state.get("inventory_data_cache")
     if not workbook_data:
-        source_url = st.session_state.get("inventory_source_url", DEFAULT_SOURCE_LABEL)
-        workbook_data = load_inventory_workbook(source_url)
+        # Panggil dari lokal jika cache kosong
+        workbook_data = load_inventory_workbook()
         st.session_state.inventory_data_cache = workbook_data
 
     if not workbook_data:
@@ -841,8 +842,9 @@ if menu == "🏠 Beranda":
     st.markdown("Selamat datang! Pilih fitur di sidebar untuk mulai mengelola stok obat.")
     st.markdown("---")
 
-    if os.path.exists(WORKBOOK_PATH):
-        st.session_state.inventory_data_cache = load_inventory_workbook(DEFAULT_SOURCE_URL)
+    # ── PERBAIKAN: Hanya me-reload file lokal jika cache di sistem sedang kosong agar upload tidak tertimpa
+    if "inventory_data_cache" not in st.session_state or not st.session_state.inventory_data_cache:
+        st.session_state.inventory_data_cache = load_inventory_workbook()
 
     all_items_df = build_inventory_print_dataframe()
     
@@ -910,35 +912,56 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
     st.caption("Tampilan sederhana dan bisa diedit langsung per worksheet sesuai satuan: PCS, SACHET, BOTOL, TAB, BOX, STRIP.")
 
     if "inventory_source_url" not in st.session_state:
-        st.session_state.inventory_source_url = DEFAULT_SOURCE_LABEL
+        st.session_state.inventory_source_url = ""
     if "inventory_data_cache" not in st.session_state:
         st.session_state.inventory_data_cache = {}
 
-    source_url = st.text_input(
-        "Link Workbook / CSV Sumber",
-        value=st.session_state.inventory_source_url,
-        help="Contoh: link OneDrive, Google Drive, atau URL file Excel/CSV yang bisa di-download langsung."
-    )
-    if source_url != st.session_state.inventory_source_url:
-        st.session_state.inventory_source_url = source_url
-        if source_url.strip():
-            st.session_state.inventory_data_cache = load_inventory_workbook(source_url)
+    # ── PERBAIKAN: Menambahkan kolom Link Dataset yang disebelahnya terdapat tombol "Submit Link"
+    col_link, col_btn = st.columns([8, 2])
+    with col_link:
+        source_url = st.text_input(
+            "Link Dataset",
+            value=st.session_state.inventory_source_url,
+            placeholder="Masukkan tautan OneDrive Anda di sini...",
+            help="Contoh: link OneDrive (https://1drv.ms/x/...), Google Drive, atau URL file Excel/CSV."
+        )
+    with col_btn:
+        st.write("")
+        st.write("")
+        submit_link = st.button("📥 Submit Link", use_container_width=True)
+
+    if submit_link and source_url.strip():
+        with st.spinner("Menganalisis link dan mengunduh dataset..."):
+            st.session_state.inventory_source_url = source_url
+            wb_data = load_inventory_workbook(source_url=source_url)
+            if wb_data:
+                st.session_state.inventory_data_cache = wb_data
+                save_inventory_workbook(wb_data) # Otomatis simpan ke lokal untuk history
+                st.success("✅ Dataset berhasil diunduh dan dimuat!")
+            else:
+                st.error("❌ Gagal mengunduh dataset. Periksa link atau izin akses file Anda.")
 
     uploaded_inventory = st.file_uploader(
-        "Upload file Excel/CSV langsung dari web",
+        "Atau upload file Excel/CSV langsung dari perangkat Anda:",
         type=["xlsx", "xlsm", "csv"],
         key="upload_inventory_source"
     )
 
     if uploaded_inventory is not None:
-        workbook_data = load_inventory_workbook(source_url, uploaded_inventory)
+        file_id = f"{uploaded_inventory.name}_{uploaded_inventory.size}"
+        if st.session_state.get("last_uploaded_file") != file_id:
+            workbook_data = load_inventory_workbook(uploaded_file=uploaded_inventory)
+            if workbook_data:
+                st.session_state.inventory_data_cache = workbook_data
+                save_inventory_workbook(workbook_data)
+                st.session_state["last_uploaded_file"] = file_id
+                st.success("✅ Data berhasil dimuat langsung dari file upload.")
+                st.rerun()
+
+    workbook_data = st.session_state.inventory_data_cache
+    if not workbook_data:
+        workbook_data = load_inventory_workbook()
         st.session_state.inventory_data_cache = workbook_data
-        st.success("✅ Data berhasil dimuat langsung dari file upload.")
-    else:
-        workbook_data = st.session_state.inventory_data_cache
-        if not workbook_data:
-            workbook_data = load_inventory_workbook(source_url)
-            st.session_state.inventory_data_cache = workbook_data
 
     if not workbook_data:
         st.info("Sumber file belum bisa dibaca, jadi sistem akan membuat struktur default untuk sheet PCS, SACHET, BOTOL, TAB, BOX, dan STRIP.")
