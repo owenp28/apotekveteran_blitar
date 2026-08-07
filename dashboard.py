@@ -7,6 +7,7 @@ import os
 from io import BytesIO
 from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
 
@@ -26,12 +27,16 @@ st.markdown(
     /* Mengurangi margin di bagian atas konten utama */
     .block-container { padding-top: 0rem !important; padding-bottom: 0rem !important; margin-top: 0rem !important; padding-left: 20px !important; padding-right: 20px !important; }
     
+    /* ── Header Aplikasi ────────────────────────────────────────────────────── */
     .app-header { text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
     .app-title { font-size: 42px; font-weight: 700; color: #e94560; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
     .app-subtitle { font-size: 16px; color: #a0a0a0; font-weight: 400; }
     
+    /* ── Form Container ─────────────────────────────────────────────────────── */
     .form-container { background: #16213e; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #0f3460; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
     .form-section-title { font-size: 18px; font-weight: 600; color: #e94560; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e94560; display: flex; align-items: center; gap: 10px; }
+    
+    /* ── Grid Layout ────────────────────────────────────────────────────────── */
     .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
     .form-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
     .form-group { display: flex; flex-direction: column; gap: 8px; }
@@ -40,6 +45,7 @@ st.markdown(
     .form-input:focus { outline: none; border-color: #e94560; box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.2); }
     .form-input:disabled { background: #16213e; color: #666; cursor: not-allowed; font-weight: 600; }
     
+    /* ── Tombol Custom ──────────────────────────────────────────────────────── */
     .btn-custom { padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 8px; border: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     .btn-cari { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; }
     .btn-cari:hover { background: linear-gradient(135deg, #ee5a24 0%, #d64520 100%); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(238, 90, 36, 0.4); }
@@ -48,10 +54,12 @@ st.markdown(
     .btn-reset { background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%); color: white; }
     .btn-reset:hover { background: linear-gradient(135deg, #5a6268 0%, #4e555b 100%); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4); }
     
+    /* ── Total Nominal Container ────────────────────────────────────────────── */
     .total-container { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); border-radius: 12px; margin: 20px 0; border: 1px solid #0f3460; }
     .total-label { font-size: 16px; color: #a0a0a0; font-weight: 500; }
     .total-value { font-size: 42px; font-weight: 700; color: #e94560; text-align: right; font-family: 'Courier New', monospace; }
     
+    /* ── Tabel Data Editor ──────────────────────────────────────────────────── */
     .table-container { background: #16213e; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #0f3460; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
     .table-title { font-size: 18px; font-weight: 600; color: #e94560; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e94560; }
     .stDataFrame { background: #1a1a2e; border-radius: 8px; overflow: hidden; }
@@ -59,11 +67,15 @@ st.markdown(
     .stDataFrame td { color: #e0e0e0; font-size: 13px; padding: 8px; }
     .stDataFrame tr:hover { background: #1f3a5e; }
     
+    /* ── Info Box ───────────────────────────────────────────────────────────── */
     .info-box { background: #1f3a5e; border-left: 4px solid #e94560; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 15px; }
     .info-box strong { color: #e94560; }
+    
+    /* ── Footer ─────────────────────────────────────────────────────────────── */
     .app-footer { text-align: center; padding: 20px; color: #666; font-size: 14px; margin-top: 30px; }
     .action-buttons { display: flex; gap: 15px; margin-top: 20px; }
     
+    /* ── Responsive ─────────────────────────────────────────────────────────── */
     @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } .form-grid-4 { grid-template-columns: 1fr; } .total-container { flex-direction: column; gap: 15px; } .total-value { text-align: center; } }
     </style>
     """,
@@ -73,9 +85,10 @@ st.markdown(
 
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
-WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran.xlsx")
+WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran_3.xlsx")
+CSV_PATH = os.path.join(os.path.dirname(__file__), "apotek_realtime.csv")
 SHIFT_LOG_PATH = os.path.join(os.path.dirname(__file__), "shift_log.csv")
-DEFAULT_LINK_ONEDRIVE = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=V5jQMP"
+DEFAULT_LINK_ONEDRIVE = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=HQFgyj"
 DEFAULT_SOURCE_URL = WORKBOOK_PATH
 DEFAULT_SOURCE_LABEL = WORKBOOK_PATH
 
@@ -84,6 +97,12 @@ INVENTORY_COLUMNS = [
     "Nama produk", "Satuan", "Tanggal", "Nomor Faktur", "Nomor Batch", 
     "PBF", "Tanggal Kadaluwarsa", "Stok Masuk", "Stok Keluar", "Stok Sisa", 
     "Harga 1", "Harga 2", "Keterangan"
+]
+
+KOLOM_DATABASE_OBAT = [
+    "id_obat", "nama_obat", "kategori", "satuan", "isi_per_strip", 
+    "isi_per_box", "harga_beli", "harga_1", "harga_2", "harga_3",
+    "stok_akhir", "tanggal_kadaluarsa"
 ]
 
 KOLOM_WAJIB = [
@@ -143,26 +162,6 @@ def format_rupiah(val):
     except:
         return val
 
-# ── PERBAIKAN: Fungsi khusus agar 1970-01-01 dan cell kosong (NaN/0) ditangani dengan benar
-def parse_date_custom(val):
-    if pd.isna(val) or str(val).strip() in ["", "-", "nan", "None", "NaT"]:
-        return None
-    if isinstance(val, (datetime, date)):
-        d = val.date() if isinstance(val, datetime) else val
-        return d if d.year > 1971 else None
-    
-    try:
-        f_val = float(val)
-        if f_val > 10000: # Kemungkinan Serial Date Excel (misal: 45000)
-            d = (pd.Timestamp('1899-12-30') + pd.Timedelta(days=f_val)).date()
-            return d if d.year > 1971 else None
-        return None
-    except ValueError:
-        try:
-            d = pd.to_datetime(val).date()
-            return d if d.year > 1971 else None
-        except:
-            return None
 
 def normalize_inventory_df(df):
     df = df.copy()
@@ -195,22 +194,51 @@ def normalize_inventory_df(df):
         if kolom in df.columns:
             df[kolom] = pd.to_numeric(df[kolom], errors="coerce")
 
-    # Menerapkan parsing tanggal
+    # ── PERBAIKAN: Fungsi parsing khusus untuk membaca Excel Serial Number (seperti 45488) dan String Murni
+    def parse_excel_date(val):
+        if pd.isna(val):
+            return None
+        val_str = str(val).strip()
+        if val_str in ["", "-", "nan", "None", "NaT", "0", "0.0"]:
+            return None
+        
+        # Jika sudah berbentuk tanggal asli
+        if isinstance(val, (datetime, date)):
+            d = val.date() if isinstance(val, datetime) else val
+            return d if d.year > 1970 else None
+            
+        # Jika nilai berbentuk Serial Number Excel (contoh: 45488 untuk tahun 2024+)
+        try:
+            f_val = float(val)
+            if f_val > 10000: # Batas aman untuk angka serial hari excel modern
+                d = (pd.Timestamp('1899-12-30') + pd.Timedelta(days=f_val)).date()
+                return d if d.year > 1970 else None
+            return None
+        except Exception:
+            pass
+            
+        # Jika berbentuk String tanggal standar atau singkat ('Sep-28')
+        try:
+            d = pd.to_datetime(val).date()
+            return d if d.year > 1970 else None
+        except Exception:
+            return None
+
+    # Menerapkan parsing tanggal pintar
     for col in ["Tanggal", "Tanggal Kadaluwarsa"]:
         if col in df.columns:
-            df[col] = df[col].apply(parse_date_custom)
+            df[col] = df[col].apply(parse_excel_date)
 
     return df
+
 
 def prepare_sheet_for_editor(df):
     df = normalize_inventory_df(df)
     for kolom in ["Nomor Faktur", "Nomor Batch", "PBF", "Keterangan", "Nama produk", "Satuan"]:
         if kolom in df.columns:
             df[kolom] = df[kolom].astype("string")
-            
-    # Mengkonversi ke object dan merubah NaT/NaN jadi None agar tabel Streamlit kosong (bukan 1970)
-    df = df.astype(object).where(pd.notna(df), None)
     return df
+
 
 def _find_inventory_header_row(rows):
     known_headers = {
@@ -224,6 +252,7 @@ def _find_inventory_header_row(rows):
         if score >= 4:
             return index, list(row)
     return 0, list(rows[0]) if rows else []
+
 
 def load_inventory_sheet_dataframe(ws):
     rows = list(ws.iter_rows(values_only=True))
@@ -240,6 +269,7 @@ def load_inventory_sheet_dataframe(ws):
     df = pd.DataFrame(data_rows, columns=header)
     return normalize_inventory_df(df)
 
+
 def create_default_inventory_workbook():
     wb = Workbook()
     if "Sheet" in wb.sheetnames:
@@ -248,6 +278,7 @@ def create_default_inventory_workbook():
         ws = wb.create_sheet(title=sheet_name)
         ws.append(INVENTORY_COLUMNS)
     wb.save(WORKBOOK_PATH)
+
 
 def normalize_source_url(source_url):
     source_url = (source_url or DEFAULT_SOURCE_URL).strip()
@@ -268,6 +299,7 @@ def normalize_source_url(source_url):
     if source_url.endswith(".csv") or source_url.endswith(".xlsx") or source_url.endswith(".xlsm"):
         return source_url
     return source_url
+
 
 def sync_inventory_from_source(source_url=None):
     source_url = normalize_source_url(source_url)
@@ -290,7 +322,6 @@ def sync_inventory_from_source(source_url=None):
 
         is_csv = source_url.lower().split("?")[0].endswith(".csv")
         if not is_csv and not data.startswith(b"PK"):
-            # PERBAIKAN: Jika download dihalangi menjadi format web HTML, tampilkan peringatan tanpa traceback panjang
             st.error("⚠️ OneDrive memblokir download otomatis untuk link ini. Silakan gunakan fitur **Upload file Excel/CSV** di bawah.")
             return False
 
@@ -300,6 +331,7 @@ def sync_inventory_from_source(source_url=None):
     except Exception as e:
         st.error(f"⚠️ Link tidak valid atau tidak bisa diakses otomatis. Gunakan menu Upload File.")
         return False
+
 
 def load_inventory_from_bytes(file_bytes, filename):
     if filename.lower().endswith(".csv"):
@@ -312,6 +344,7 @@ def load_inventory_from_bytes(file_bytes, filename):
         ws = wb[sheet_name]
         workbook_data[sheet_name] = load_inventory_sheet_dataframe(ws)
     return workbook_data
+
 
 def load_inventory_workbook(source_url=None, uploaded_file=None):
     if uploaded_file is not None:
@@ -337,6 +370,7 @@ def load_inventory_workbook(source_url=None, uploaded_file=None):
 
     return {}
 
+
 def sanitize_excel_value(value):
     if value is None:
         return None
@@ -357,11 +391,13 @@ def sanitize_excel_value(value):
         return value
     return str(value)
 
+
 def sanitize_excel_dataframe(df):
     df = df.copy()
     for kolom in df.columns:
         df[kolom] = df[kolom].apply(lambda v: sanitize_excel_value(v))
     return df
+
 
 def save_inventory_workbook(workbook_data):
     try:
@@ -374,13 +410,15 @@ def save_inventory_workbook(workbook_data):
                 df_sheet.to_excel(writer, sheet_name=sheet_name, index=False)
         return True
     except Exception as e:
-        st.error(f"Gagal menyimpan ke file Excel. Error: {e}")
+        st.error(f"Gagal menyimpan ke file Excel. Pastikan file tidak sedang dibuka di aplikasi lain. Error: {e}")
         return False
+
 
 def build_inventory_print_dataframe():
     workbook_data = st.session_state.get("inventory_data_cache")
     if not workbook_data:
-        workbook_data = load_inventory_workbook()
+        source_url = st.session_state.get("inventory_source_url", DEFAULT_SOURCE_LABEL)
+        workbook_data = load_inventory_workbook(source_url)
         st.session_state.inventory_data_cache = workbook_data
 
     if not workbook_data:
@@ -400,6 +438,7 @@ def build_inventory_print_dataframe():
     combined_df["Worksheet"] = combined_df.get("Worksheet", pd.Series([None] * len(combined_df)))
     return combined_df
 
+
 def build_rtf_export(df):
     lines = ["{\\rtf1\\ansi\\deff0", "{\\fonttbl\\f0\\fswiss Arial;}", "\\viewkind4\\uc1"]
     lines.append("\\pard\\plain\\f0\\fs20 Laporan Stok Obat — Apotek Veteran Blitar\\par")
@@ -409,6 +448,7 @@ def build_rtf_export(df):
         lines.append("\\pard\\plain\\f0\\fs18 " + row_text + "\\par")
     lines.append("}")
     return "".join(lines).encode("utf-8")
+
 
 def parse_rupiah(val):
     try:
@@ -1313,7 +1353,7 @@ elif menu == "📦 Entri & Retur Pembelian":
             st.stop()
 
         st.subheader("📦 Pilih Produk untuk Retur")
-        # Format preview UI saja yang diubah menjadi text agar rapi, tabel aslinya tetap object tanggal
+        
         preview_df = filtered_df[["Nama produk", "Nomor Batch", "Satuan", "Tanggal Kadaluwarsa", "Stok Sisa", "Harga 1", "Keterangan"]].copy()
         preview_df["Tanggal Kadaluwarsa"] = preview_df["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
         
@@ -1379,7 +1419,6 @@ elif menu == "📦 Entri & Retur Pembelian":
         else:
             opsi_produk_r, opsi_satuan_r, opsi_batch_r = get_dataset_options(st.session_state.retur_items)
             
-            # Format DataFrame ke object agar dapat menerima nilai blank (None) di UI st.data_editor
             df_render = st.session_state.retur_items.astype(object).where(pd.notna(st.session_state.retur_items), None)
             
             edited_df = st.data_editor(
@@ -1582,7 +1621,7 @@ elif menu == "📦 Entri & Retur Pembelian":
                             "Nama produk": selected_row["Nama produk"],
                             "Satuan": selected_row["Satuan"],
                             "Nomor Batch": "",
-                            "Tanggal Kadaluwarsa": (date.today() + pd.Timedelta(days=365)),
+                            "Tanggal Kadaluwarsa": pd.Timestamp(date.today() + pd.Timedelta(days=365)),
                             "Stok Masuk": 0.0,
                             "Harga 1": float(selected_row["Harga 1"]) if pd.notna(selected_row["Harga 1"]) else 0.0,
                             "Harga 2": float(selected_row["Harga 2"]) if pd.notna(selected_row["Harga 2"]) else 0.0,
@@ -1609,7 +1648,7 @@ elif menu == "📦 Entri & Retur Pembelian":
                     "Nama produk": "",
                     "Satuan": "TAB",
                     "Nomor Batch": "",
-                    "Tanggal Kadaluwarsa": (date.today()),
+                    "Tanggal Kadaluwarsa": pd.Timestamp(date.today()),
                     "Stok Masuk": 0.0,
                     "Harga 1": 0.0,
                     "Harga 2": 0.0,
