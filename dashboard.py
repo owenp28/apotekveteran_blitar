@@ -563,7 +563,7 @@ st.sidebar.markdown("---")
 if _role == "Admin":
     _menu_options = [
         "🏠 Beranda",
-        "📋 Tampilkan Dan Ubah Stok Obat",
+        "📋 Tampilkan & Ubah Stok Obat",
         "🖨️ Cetak & Print Stok Obat",
         "📦 Entri & Retur Pembelian",
         "🛒 Kasir Pembelian Obat",
