@@ -571,10 +571,10 @@ if _role == "Admin":
     ]
 else:  
     _menu_options = [
-        "🏠 Beranda",
-        "📋 Tampilkan Dan Ubah Stok Obat",
-        "🛒 Kasir Pembelian Obat",
-        "🕒 Buka/Tutup Shift"
+        "🏠 Dashboard",
+        "📋 Kelola Stok",
+        "🛒 Kasir Utama",
+        "🕒 Sesi Shift"
     ]
 
 menu = st.sidebar.radio("Pilih Fitur", _menu_options, index=0)
@@ -590,9 +590,9 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# BERANDA
+# DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
-if menu == "🏠 Beranda":
+if menu == "🏠 Dashboard":
     st.title("💊 Dashboard Apotek Veteran Blitar")
     st.markdown("Selamat datang! Pilih fitur di sidebar untuk mulai mengelola stok obat.")
     st.markdown("---")
@@ -603,7 +603,7 @@ if menu == "🏠 Beranda":
     all_items_df = build_inventory_print_dataframe()
     
     if all_items_df is None or all_items_df.empty:
-        st.info("Dataset belum tersedia. Silakan upload dataset di menu **📋 Tampilkan Dan Ubah Stok Obat**.")
+        st.info("Dataset belum tersedia. Silakan upload dataset di menu **📋 Kelola Stok**.")
     else:
         all_items_df["Nama produk"] = all_items_df["Nama produk"].astype(str).str.strip()
         all_items_df = all_items_df[
@@ -658,10 +658,10 @@ if menu == "🏠 Beranda":
                 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 1 — TAMPILKAN DAN UBAH STOK OBAT
+# FITUR 1 — KELOLA STOK
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
-    st.title("📋 Tampilkan Dan Ubah Stok Obat")
+elif menu == "📋 Kelola Stok":
+    st.title("📋 Kelola Stok")
     st.caption("Tampilan sederhana dan bisa diedit langsung per worksheet sesuai satuan.")
 
     if "inventory_data_cache" not in st.session_state:
@@ -873,14 +873,14 @@ elif menu == "📋 Tampilkan Dan Ubah Stok Obat":
                 st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 3 — CETAK & PRINT STOK OBAT
+# FITUR 3 — REKAP DATA
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "🖨️ Cetak & Print Stok Obat":
-    st.title("🖨️ Cetak & Print Stok Obat")
+elif menu == "🖨️ Rekap Data":
+    st.title("🖨️ Rekap Data")
 
     df_inventory = build_inventory_print_dataframe()
     if df_inventory is None or df_inventory.empty:
-        st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **📋 Tampilkan Dan Ubah Stok Obat**.")
+        st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **📋 Kelola Stok**.")
         st.stop()
 
     st.subheader("Pilih Opsi Cetak")
@@ -1010,13 +1010,13 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     col_d4.caption("Buka file HTML → klik tombol Print → pilih 'Save as PDF'")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 4 — KASIR PEMBELIAN OBAT
+# FITUR 4 — KASIR UTAMA
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "🛒 Kasir Pembelian Obat":
-    st.title("🛒 Kasir Pembelian Obat")
+elif menu == "🛒 Kasir Utama":
+    st.title("🛒 Kasir Utama")
 
     if "inventory_data_cache" not in st.session_state or not st.session_state.inventory_data_cache:
-        st.warning("Dataset Excel belum tersedia. Silakan upload terlebih dahulu di menu **📋 Tampilkan Dan Ubah Stok Obat**.")
+        st.warning("Dataset Excel belum tersedia. Silakan upload terlebih dahulu di menu **📋 Kelola Stok**.")
         st.stop()
         
     all_items_df = build_inventory_print_dataframe()
@@ -1272,11 +1272,11 @@ elif menu == "🛒 Kasir Pembelian Obat":
             st.info("Keranjang kosong. Tambahkan obat dari form di sebelah kiri.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR BERSAMA — ENTRI & RETUR PEMBELIAN
+# FITUR BERSAMA — SUPLAI & RETUR
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "📦 Entri & Retur Pembelian":
+elif menu == "📦 Suplai & Retur":
     st.markdown(
-        "<h2 style='text-align: center; color: #333333;'>Entri & Retur Pembelian Obat</h2>",
+        "<h2 style='text-align: center; color: #333333;'>Suplai & Retur Pembelian</h2>",
         unsafe_allow_html=True
     )
     st.write("---")
@@ -1299,13 +1299,13 @@ elif menu == "📦 Entri & Retur Pembelian":
                 
         return sorted(list(set(prods))), sorted(list(set(sats))), sorted(list(set(batches)))
 
-    tab_retur, tab_entri = st.tabs(["🏥 Retur Pembelian", "🛍️ Entri Pembelian"])
+    tab_retur, tab_entri = st.tabs(["🏥 Retur Suplai", "🛍️ Entri Suplai"])
 
     with tab_retur:
         st.markdown(
             """
             <div class='app-header'>
-                <div class='app-title'>🏥 Retur Pembelian Obat</div>
+                <div class='app-title'>🏥 Retur Suplai Obat</div>
                 <div class='app-subtitle'>Pilih produk dari worksheet yang sudah diupload, lalu buat retur sesuai stok real-time.</div>
             </div>
             """,
@@ -1313,7 +1313,7 @@ elif menu == "📦 Entri & Retur Pembelian":
         )
 
         if "inventory_data_cache" not in st.session_state or not st.session_state.inventory_data_cache:
-            st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **📋 Tampilkan Dan Ubah Stok Obat**.")
+            st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **📋 Kelola Stok**.")
             st.stop()
 
         workbook_data = st.session_state.inventory_data_cache
@@ -1565,15 +1565,15 @@ elif menu == "📦 Entri & Retur Pembelian":
         st.markdown(
             """
             <div class='app-header'>
-                <div class='app-title'>🛍️ Entri Pembelian Obat</div>
-                <div class='app-subtitle'>Catat pembelian secara ringkas, dan simpan langsung ke worksheet DatasetObat_ApotekVeteran_4.xlsx.</div>
+                <div class='app-title'>🛍️ Entri Suplai Obat</div>
+                <div class='app-subtitle'>Catat suplai/restok secara ringkas, dan simpan langsung ke worksheet Dataset.</div>
             </div>
             """,
             unsafe_allow_html=True
         )
 
         if "inventory_data_cache" not in st.session_state or not st.session_state.inventory_data_cache:
-            st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **📋 Tampilkan Dan Ubah Stok Obat**.")
+            st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **📋 Kelola Stok**.")
             st.stop()
             
         st.caption("Pencarian obat dilakukan dari seluruh worksheet. Entri pembelian ini akan langsung menambah riwayat pada worksheet tujuan masing-masing.")
@@ -1610,7 +1610,7 @@ elif menu == "📦 Entri & Retur Pembelian":
                     idx = event_beli.selection.rows[0]
                     selected_row = tabel_cari_df.iloc[idx]
                     
-                    if st.button(f"➕ Tambahkan '{selected_row['Nama produk']}' ke Tabel Pembelian", key="tambah_ke_pembelian"):
+                    if st.button(f"➕ Tambahkan '{selected_row['Nama produk']}' ke Tabel Suplai", key="tambah_ke_pembelian"):
                         new_row = {
                             "No.": len(st.session_state.df_beli) + 1,
                             "Worksheet": selected_row["Worksheet"],
@@ -1629,11 +1629,11 @@ elif menu == "📦 Entri & Retur Pembelian":
                             st.session_state.df_beli = pd.DataFrame([new_row])
                         else:
                             st.session_state.df_beli = pd.concat([df_existing, pd.DataFrame([new_row])], ignore_index=True)
-                        st.success(f"{selected_row['Nama produk']} ditambahkan ke tabel pembelian!")
+                        st.success(f"{selected_row['Nama produk']} ditambahkan ke tabel suplai!")
                         st.rerun()
 
         st.markdown("---")
-        st.subheader("📦 Rincian Item Pembelian")
+        st.subheader("📦 Rincian Item Suplai")
         st.caption("Pilih worksheet tujuan. Stok baru akan dicatat sebagai entri baru yang menambah ketersediaan stok Anda di Dataset.")
 
         if "df_beli" not in st.session_state:
@@ -1706,7 +1706,7 @@ elif menu == "📦 Entri & Retur Pembelian":
         
         col_simpan_beli, col_reset_beli = st.columns([1, 1])
         with col_simpan_beli:
-            if st.button("💾 Simpan Pembelian ke Excel Dataset", type="primary", use_container_width=True):
+            if st.button("💾 Simpan Suplai ke Excel Dataset", type="primary", use_container_width=True):
                 has_valid_item = False
                 for _, row in edited_df.iterrows():
                     if pd.notna(row["Nama produk"]) and str(row["Nama produk"]).strip() != "" and str(row["Nama produk"]).strip().lower() != "none":
@@ -1714,7 +1714,7 @@ elif menu == "📦 Entri & Retur Pembelian":
                         break
 
                 if edited_df.empty or not has_valid_item:
-                    st.warning("Tabel pembelian kosong atau nama produk belum diisi secara valid.")
+                    st.warning("Tabel suplai kosong atau nama produk belum diisi secara valid.")
                 else:
                     workbook_data = st.session_state.inventory_data_cache
                     jumlah_disimpan = 0
@@ -1797,13 +1797,13 @@ elif menu == "📦 Entri & Retur Pembelian":
                                 "Keterangan": ""
                             }
                         ])
-                        st.success(f"✅ {jumlah_disimpan} entri pembelian berhasil disimpan langsung ke worksheet masing-masing!")
+                        st.success(f"✅ {jumlah_disimpan} entri suplai berhasil disimpan langsung ke worksheet masing-masing!")
                         st.rerun()
                     else:
                         st.warning("Tidak ada item valid (Stok Masuk > 0 / Worksheet Tersedia / Nama Produk Valid) untuk disimpan.")
 
         with col_reset_beli:
-            if st.button("🗑️ Reset Tabel Pembelian", type="secondary", use_container_width=True):
+            if st.button("🗑️ Reset Tabel Suplai", type="secondary", use_container_width=True):
                 st.session_state.df_beli = pd.DataFrame([
                     {
                         "No.": 1,
@@ -1822,9 +1822,9 @@ elif menu == "📦 Entri & Retur Pembelian":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR BARU — BUKA / TUTUP SHIFT KASIR
+# FITUR BARU — SESI SHIFT
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "🕒 Buka/Tutup Shift":
+elif menu == "🕒 Sesi Shift":
 
     def format_angka_erp(val):
         try:
