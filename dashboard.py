@@ -640,29 +640,50 @@ if menu == "🏠 Dashboard":
         with col_low:
             st.markdown("#### 📉 Stok Menipis (≤ 20)")
             
+            # --- FITUR PENCARIAN STOK MENIPIS ---
+            cari_low = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_low", placeholder="Cari obat stok menipis...")
+            
             stok_df = all_items_df.copy()
+            
+            # Filter berdasarkan pencarian SEBELUM dikelompokkan
+            if cari_low.strip():
+                mask_low = stok_df.astype(str).apply(lambda col: col.str.contains(cari_low.strip(), case=False, na=False)).any(axis=1)
+                stok_df = stok_df[mask_low]
+                
             stok_df["Worksheet"] = stok_df["Worksheet"].fillna("-")
             
             stok_summary = stok_df.groupby(["Worksheet", "Nama produk"])["Stok Sisa"].sum().reset_index()
-            
             stok_menipis = stok_summary[stok_summary["Stok Sisa"] <= 20].sort_values("Stok Sisa")
             
             if stok_menipis.empty:
-                st.success("Tidak ada obat dengan stok menipis.")
+                st.success("Tidak ada obat dengan stok menipis atau yang cocok dengan pencarian.")
             else:
                 st.dataframe(
                     stok_menipis.rename(columns={"Nama produk": "Nama Obat", "Stok Sisa": "Total Stok"}),
                     use_container_width=True, hide_index=True
                 )
+                
         with col_exp:
             st.markdown("#### ⏰ Segera Kadaluarsa (≤30 hari)")
-            if exp_soon_df.empty:
-                st.success("Tidak ada obat yang mendekati tanggal kadaluarsa.")
+            
+            # --- FITUR PENCARIAN SEGERA KADALUARSA ---
+            cari_exp = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_exp", placeholder="Cari obat segera kadaluarsa...")
+            
+            exp_df = exp_soon_df.copy()
+            
+            # Filter berdasarkan pencarian
+            if cari_exp.strip():
+                mask_exp = exp_df.astype(str).apply(lambda col: col.str.contains(cari_exp.strip(), case=False, na=False)).any(axis=1)
+                exp_df = exp_df[mask_exp]
+                
+            if exp_df.empty:
+                st.success("Tidak ada obat yang mendekati tanggal kadaluarsa atau yang cocok dengan pencarian.")
             else:
-                exp_show = exp_soon_df[["Nama produk", "Worksheet", "Tanggal Kadaluwarsa", "Stok Sisa"]].copy()
+                # Kolom Nomor Batch ditambahkan agar pencarian berdasarkan batch terlihat jelas
+                exp_show = exp_df[["Nama produk", "Worksheet", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa"]].copy()
                 exp_show["Tanggal Kadaluwarsa"] = exp_show["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(
-                    exp_show.rename(columns={"Nama produk": "Nama Obat", "Tanggal Kadaluwarsa": "Tgl Expired"}),
+                    exp_show.rename(columns={"Nama produk": "Nama Obat", "Tanggal Kadaluwarsa": "Tgl Expired", "Nomor Batch": "Batch"}),
                     use_container_width=True, hide_index=True
                 )
 
