@@ -812,65 +812,6 @@ elif menu == "📋 Kelola Stok":
                     df_render[col] = df_render[col].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
             st.dataframe(df_render, use_container_width=True, hide_index=True)
 
-    st.markdown("---")
-    with st.expander("🕘 Riwayat Transaksi Stok Kasir (Pembelian & Penjualan)"):
-        df = load_data()
-        if df is None or df.empty:
-            st.info("Belum ada riwayat transaksi Kasir.")
-        else:
-            col_r1, col_r2 = st.columns(2)
-            with col_r1:
-                bulan_list = sorted(df["Tanggal"].dt.to_period("M").unique().astype(str).tolist(), reverse=True)
-                bulan_sel = st.selectbox("Pilih Bulan", ["Semua"] + bulan_list, key="riwayat_bulan")
-            with col_r2:
-                cari_riwayat = st.text_input("🔎 Cari Transaksi (Nama Obat, Kategori, Keterangan, dll)", key="riwayat_cari")
-
-            df_riwayat = df.copy()
-            if bulan_sel != "Semua":
-                df_riwayat = df_riwayat[df_riwayat["Tanggal"].dt.to_period("M").astype(str) == bulan_sel]
-                
-            if cari_riwayat.strip():
-                mask = df_riwayat.astype(str).apply(lambda col: col.str.contains(cari_riwayat.strip(), case=False, na=False)).any(axis=1)
-                df_riwayat = df_riwayat[mask]
-
-            riwayat_display = df_riwayat.sort_values("Tanggal", ascending=False).copy()
-            riwayat_display["Tanggal"] = riwayat_display["Tanggal"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
-            riwayat_display["Tanggal Kadaluarsa"] = riwayat_display["Tanggal Kadaluarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
-            riwayat_display["Harga Satuan (Rp)"] = riwayat_display["Harga Satuan (Rp)"].apply(format_rupiah)
-            riwayat_display["Total Nilai (Rp)"] = riwayat_display["Total Nilai (Rp)"].apply(format_rupiah)
-            st.dataframe(riwayat_display, use_container_width=True, height=350)
-            st.caption(f"Menampilkan {len(df_riwayat)} baris riwayat transaksi")
-
-        st.markdown("---")
-        st.markdown("**📂 Import Riwayat Transaksi dari CSV (opsional — lewati saja jika data Anda sudah dicatat lewat Entri Pembelian & Kasir)**")
-        uploaded = st.file_uploader("Pilih file CSV", type=["csv"], key="upload_riwayat")
-        if uploaded:
-            file_id_riwayat = f"{uploaded.name}_{uploaded.size}"
-
-            if st.session_state.get("last_import_riwayat_id") == file_id_riwayat:
-                st.info("✅ File ini sudah pernah diimpor. Hapus file dari kotak upload lalu upload file BARU jika ingin mengimpor lagi (supaya data tidak dobel).")
-            else:
-                try:
-                    df_up = pd.read_csv(uploaded, parse_dates=["Tanggal", "Tanggal Kadaluarsa"])
-                    missing = [c for c in KOLOM_WAJIB if c not in df_up.columns]
-                    if missing:
-                        st.error(f"Kolom berikut tidak ditemukan: {missing}")
-                    else:
-                        df_up = df_up[KOLOM_WAJIB]
-                        df_current = load_data()
-                        df_gabungan = pd.concat([df_current, df_up], ignore_index=True) if df_current is not None else df_up
-                        save_data(df_gabungan)
-                        st.session_state.last_import_riwayat_id = file_id_riwayat
-                        st.success("Riwayat transaksi berhasil diimpor!")
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Gagal membaca file: {e}")
-
-        if st.button("🗑️ Hapus Seluruh Riwayat Transaksi", type="secondary"):
-            if os.path.exists(DATASET_PATH):
-                os.remove(DATASET_PATH)
-                st.success("Riwayat transaksi dihapus.")
-                st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 3 — REKAP DATA
