@@ -430,8 +430,12 @@ def build_inventory_print_dataframe():
         return pd.DataFrame(columns=INVENTORY_COLUMNS + ["Worksheet"])
 
     combined_df = pd.concat(frames, ignore_index=True)
+    
+    # --- PERBAIKAN: Amankan kolom Worksheet agar tidak ikut terbuang ---
+    worksheet_series = combined_df["Worksheet"].copy()
     combined_df = normalize_inventory_df(combined_df)
-    combined_df["Worksheet"] = combined_df.get("Worksheet", pd.Series([None] * len(combined_df)))
+    combined_df["Worksheet"] = worksheet_series
+    
     return combined_df
 
 
@@ -636,15 +640,11 @@ if menu == "🏠 Dashboard":
         with col_low:
             st.markdown("#### 📉 Stok Menipis (≤ 20)")
             
-            # --- PERBAIKAN ---
-            # Mengisi nilai NaN/None dengan teks "-" agar tidak di-drop oleh groupby
             stok_df = all_items_df.copy()
             stok_df["Worksheet"] = stok_df["Worksheet"].fillna("-")
             
-            # Mengelompokkan dan menjumlahkan stok
             stok_summary = stok_df.groupby(["Worksheet", "Nama produk"])["Stok Sisa"].sum().reset_index()
             
-            # Filter stok yang <= 20
             stok_menipis = stok_summary[stok_summary["Stok Sisa"] <= 20].sort_values("Stok Sisa")
             
             if stok_menipis.empty:
