@@ -635,7 +635,16 @@ if menu == "🏠 Dashboard":
         col_low, col_exp = st.columns(2)
         with col_low:
             st.markdown("#### 📉 Stok Menipis (≤ 20)")
-            stok_summary = all_items_df.groupby(["Worksheet", "Nama produk"])["Stok Sisa"].sum().reset_index()
+            
+            # --- PERBAIKAN ---
+            # Mengisi nilai NaN/None dengan teks "-" agar tidak di-drop oleh groupby
+            stok_df = all_items_df.copy()
+            stok_df["Worksheet"] = stok_df["Worksheet"].fillna("-")
+            
+            # Mengelompokkan dan menjumlahkan stok
+            stok_summary = stok_df.groupby(["Worksheet", "Nama produk"])["Stok Sisa"].sum().reset_index()
+            
+            # Filter stok yang <= 20
             stok_menipis = stok_summary[stok_summary["Stok Sisa"] <= 20].sort_values("Stok Sisa")
             
             if stok_menipis.empty:
