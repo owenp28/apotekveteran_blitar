@@ -565,7 +565,7 @@ if _role == "Admin":
         "🏠 Dashboard",
         "📋 Kelola Stok",
         "🖨️ Rekap Data",
-        "📦 Suplai & Retur",
+        "📦 Retur & Entry",
         "🛒 Kasir Utama",
         "🕒 Sesi Shift"
     ]
@@ -1213,11 +1213,11 @@ elif menu == "🛒 Kasir Utama":
             st.info("Keranjang kosong. Tambahkan obat dari form di sebelah kiri.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR BERSAMA — SUPLAI & RETUR
+# FITUR BERSAMA — RETUR & ENTRY
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "📦 Suplai & Retur":
+elif menu == "📦 Retur & Entry":
     st.markdown(
-        "<h2 style='text-align: center; color: #333333;'>Suplai & Retur Pembelian</h2>",
+        "<h2 style='text-align: center; color: #333333;'>Retur & Entry Pembelian</h2>",
         unsafe_allow_html=True
     )
     st.write("---")
@@ -1240,13 +1240,13 @@ elif menu == "📦 Suplai & Retur":
                 
         return sorted(list(set(prods))), sorted(list(set(sats))), sorted(list(set(batches)))
 
-    tab_retur, tab_entri = st.tabs(["🏥 Retur Suplai", "🛍️ Entri Suplai"])
+    tab_retur, tab_entri = st.tabs(["🏥 Retur Pembelian", "🛍️ Entry Pembelian"])
 
     with tab_retur:
         st.markdown(
             """
             <div class='app-header'>
-                <div class='app-title'>🏥 Retur Suplai Obat</div>
+                <div class='app-title'>🏥 Retur Pembelian Obat</div>
                 <div class='app-subtitle'>Pilih produk dari worksheet yang sudah diupload, lalu buat retur sesuai stok real-time.</div>
             </div>
             """,
@@ -1506,8 +1506,8 @@ elif menu == "📦 Suplai & Retur":
         st.markdown(
             """
             <div class='app-header'>
-                <div class='app-title'>🛍️ Entri Suplai Obat</div>
-                <div class='app-subtitle'>Catat suplai/restok secara ringkas, dan simpan langsung ke worksheet Dataset.</div>
+                <div class='app-title'>🛍️ Entry Pembelian Obat</div>
+                <div class='app-subtitle'>Catat restok secara ringkas, dan simpan langsung ke worksheet Dataset.</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -1517,7 +1517,7 @@ elif menu == "📦 Suplai & Retur":
             st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **📋 Kelola Stok**.")
             st.stop()
             
-        st.caption("Pencarian obat dilakukan dari seluruh worksheet. Entri pembelian ini akan langsung menambah riwayat pada worksheet tujuan masing-masing.")
+        st.caption("Pencarian obat dilakukan dari seluruh worksheet. Entry pembelian ini akan langsung menambah riwayat pada worksheet tujuan masing-masing.")
         no_faktur = st.text_input("No. Faktur Pembelian", key="no_faktur_pembelian")
         pbf_default = st.text_input("PBF (Distributor) Default", key="pbf_pembelian")
         
@@ -1551,7 +1551,7 @@ elif menu == "📦 Suplai & Retur":
                     idx = event_beli.selection.rows[0]
                     selected_row = tabel_cari_df.iloc[idx]
                     
-                    if st.button(f"➕ Tambahkan '{selected_row['Nama produk']}' ke Tabel Suplai", key="tambah_ke_pembelian"):
+                    if st.button(f"➕ Tambahkan '{selected_row['Nama produk']}' ke Tabel Entry", key="tambah_ke_pembelian"):
                         new_row = {
                             "No.": len(st.session_state.df_beli) + 1,
                             "Worksheet": selected_row["Worksheet"],
@@ -1570,11 +1570,11 @@ elif menu == "📦 Suplai & Retur":
                             st.session_state.df_beli = pd.DataFrame([new_row])
                         else:
                             st.session_state.df_beli = pd.concat([df_existing, pd.DataFrame([new_row])], ignore_index=True)
-                        st.success(f"{selected_row['Nama produk']} ditambahkan ke tabel suplai!")
+                        st.success(f"{selected_row['Nama produk']} ditambahkan ke tabel entry!")
                         st.rerun()
 
         st.markdown("---")
-        st.subheader("📦 Rincian Item Suplai")
+        st.subheader("📦 Rincian Item Entry")
         st.caption("Pilih worksheet tujuan. Stok baru akan dicatat sebagai entri baru yang menambah ketersediaan stok Anda di Dataset.")
 
         if "df_beli" not in st.session_state:
@@ -1647,7 +1647,7 @@ elif menu == "📦 Suplai & Retur":
         
         col_simpan_beli, col_reset_beli = st.columns([1, 1])
         with col_simpan_beli:
-            if st.button("💾 Simpan Suplai ke Excel Dataset", type="primary", use_container_width=True):
+            if st.button("💾 Simpan Entry ke Excel Dataset", type="primary", use_container_width=True):
                 has_valid_item = False
                 for _, row in edited_df.iterrows():
                     if pd.notna(row["Nama produk"]) and str(row["Nama produk"]).strip() != "" and str(row["Nama produk"]).strip().lower() != "none":
@@ -1655,7 +1655,7 @@ elif menu == "📦 Suplai & Retur":
                         break
 
                 if edited_df.empty or not has_valid_item:
-                    st.warning("Tabel suplai kosong atau nama produk belum diisi secara valid.")
+                    st.warning("Tabel entry kosong atau nama produk belum diisi secara valid.")
                 else:
                     workbook_data = st.session_state.inventory_data_cache
                     jumlah_disimpan = 0
@@ -1738,13 +1738,13 @@ elif menu == "📦 Suplai & Retur":
                                 "Keterangan": ""
                             }
                         ])
-                        st.success(f"✅ {jumlah_disimpan} entri suplai berhasil disimpan langsung ke worksheet masing-masing!")
+                        st.success(f"✅ {jumlah_disimpan} entri berhasil disimpan langsung ke worksheet masing-masing!")
                         st.rerun()
                     else:
                         st.warning("Tidak ada item valid (Stok Masuk > 0 / Worksheet Tersedia / Nama Produk Valid) untuk disimpan.")
 
         with col_reset_beli:
-            if st.button("🗑️ Reset Tabel Suplai", type="secondary", use_container_width=True):
+            if st.button("🗑️ Reset Tabel Entry", type="secondary", use_container_width=True):
                 st.session_state.df_beli = pd.DataFrame([
                     {
                         "No.": 1,
