@@ -7,7 +7,6 @@ import os
 from io import BytesIO
 from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
 
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
 
@@ -98,6 +97,12 @@ INVENTORY_COLUMNS = [
     "Harga 1", "Harga 2", "Keterangan"
 ]
 
+KOLOM_DATABASE_OBAT = [
+    "id_obat", "nama_obat", "kategori", "satuan", "isi_per_strip", 
+    "isi_per_box", "harga_beli", "harga_1", "harga_2", "harga_3",
+    "stok_akhir", "tanggal_kadaluarsa"
+]
+
 KOLOM_WAJIB = [
     "Tanggal", "Nama Obat", "Kategori", "Satuan", "Stok Masuk", "Stok Keluar", 
     "Stok Akhir", "Harga Satuan (Rp)", "Total Nilai (Rp)", "Tanggal Kadaluarsa", "Keterangan"
@@ -156,7 +161,6 @@ def format_rupiah(val):
         return val
 
 
-# ── PERBAIKAN: Fungsi parsing khusus untuk mendeteksi tipe Serial Number Excel
 def parse_excel_date(val):
     if pd.isna(val):
         return pd.NaT
@@ -164,22 +168,19 @@ def parse_excel_date(val):
     if val_str in ["", "-", "nan", "None", "NaT", "0", "0.0"]:
         return pd.NaT
     
-    # 1. Jika memang sudah berbentuk datetime object bawaan openpyxl
     if isinstance(val, (datetime, date)):
         d = val.date() if isinstance(val, datetime) else val
         return pd.Timestamp(d) if d.year > 1970 else pd.NaT
         
-    # 2. Parsing cerdas apabila file Excel mengubahnya menjadi float/integer (contoh: 46218 = 15 Juli 2026)
     try:
         f_val = float(val)
-        if f_val > 10000: # Batasan aman angka serial
+        if f_val > 10000:
             d = (pd.Timestamp('1899-12-30') + pd.Timedelta(days=f_val)).date()
             return pd.Timestamp(d) if d.year > 1970 else pd.NaT
         return pd.NaT
     except Exception:
         pass
         
-    # 3. Fallback: jika formatnya teks seperti "Sep-28" atau string standard
     try:
         d = pd.to_datetime(val)
         return pd.Timestamp(d) if d.year > 1970 else pd.NaT
@@ -218,7 +219,6 @@ def normalize_inventory_df(df):
         if kolom in df.columns:
             df[kolom] = pd.to_numeric(df[kolom], errors="coerce")
 
-    # Menerapkan parsing tanggal yang sudah diperbaiki ke Dataset
     for col in ["Tanggal", "Tanggal Kadaluwarsa"]:
         if col in df.columns:
             df[col] = df[col].apply(parse_excel_date)
@@ -232,7 +232,6 @@ def prepare_sheet_for_editor(df):
         if kolom in df.columns:
             df[kolom] = df[kolom].astype("string")
             
-    # Mengkonversi ke object dan merubah NaT/NaN jadi None murni
     df = df.astype(object).where(pd.notna(df), None)
     return df
 
@@ -943,10 +942,6 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
     col_d1, col_d2, col_d3, col_d4 = st.columns(4)
 
     csv_buf = df_print.copy()
-    if "Tanggal" in csv_buf.columns:
-        csv_buf["Tanggal"] = csv_buf["Tanggal"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
-    if "Tanggal Kadaluwarsa" in csv_buf.columns:
-        csv_buf["Tanggal Kadaluwarsa"] = csv_buf["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
     csv_data = csv_buf.to_csv(index=False).encode("utf-8-sig")
     col_d1.download_button(
         label="📄 Unduh CSV",
@@ -960,10 +955,6 @@ elif menu == "🖨️ Cetak & Print Stok Obat":
         xlsx_buf = io.BytesIO()
         with pd.ExcelWriter(xlsx_buf, engine="openpyxl") as writer:
             excel_df = df_print.copy()
-            if "Tanggal" in excel_df.columns:
-                excel_df["Tanggal"] = excel_df["Tanggal"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
-            if "Tanggal Kadaluwarsa" in excel_df.columns:
-                excel_df["Tanggal Kadaluwarsa"] = excel_df["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
             excel_df.to_excel(writer, index=False, sheet_name="Stok Obat")
         col_d2.download_button(
             label="📊 Unduh Excel (XLSX)",
@@ -1961,22 +1952,17 @@ elif menu == "🕒 Buka/Tutup Shift":
         else:
             st.success(f"✅ Saldo Balance! Tidak ada selisih (Rp 0). Data siap diproses.")
 
-        c1, c2 = st.columns([3, 7])
-        with c2:
-            st.markdown(
-                "<div style='font-size: 12px; color: #a0a0a0; padding-top: 4px;'>"
-                "Apabila ada <b>selisih saldo shift</b>, silakan isi kolom catatan untuk memberi penjelasan ke Admin agar tidak terjadi salah paham."
-                "</div>", unsafe_allow_html=True
-            )
+        st.markdown(
+            "<div style='font-size: 13px; color: #a0a0a0; padding-top: 5px; margin-bottom: 20px;'>"
+            "Apabila ada <b>selisih saldo shift</b>, silakan isi kolom catatan untuk memberi penjelasan ke Admin agar tidak terjadi salah paham."
+            "</div>", unsafe_allow_html=True
+        )
 
-        st.write("")
-        st.write("")
-        
         c_btn1, c_btn2 = st.columns([3, 7])
         with c_btn2:
-            col_b1, col_b2 = st.columns([1, 4])
+            col_b1, col_b2 = st.columns([1.5, 4])
             with col_b1:
-                submit_tutup = st.button("✔ Proses", type="primary", use_container_width=True)
+                submit_tutup = st.button("✔ Submit", type="primary", use_container_width=True)
 
         if submit_tutup:
             log_df = load_shift_log()
