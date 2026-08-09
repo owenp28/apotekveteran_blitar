@@ -431,7 +431,7 @@ def build_inventory_print_dataframe():
 
     combined_df = pd.concat(frames, ignore_index=True)
     
-    # --- PERBAIKAN: Amankan kolom Worksheet agar tidak ikut terbuang ---
+    # Amankan kolom Worksheet agar tidak ikut terbuang saat normalisasi
     worksheet_series = combined_df["Worksheet"].copy()
     combined_df = normalize_inventory_df(combined_df)
     combined_df["Worksheet"] = worksheet_series
@@ -559,8 +559,15 @@ st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
 st.sidebar.title("💊 Apotek Veteran Blitar")
 st.sidebar.markdown("---")
 
-_role = st.session_state.role
-_name = USERS[st.session_state.username]["name"]
+_role = st.session_state.get("role", "Unknown")
+_username = st.session_state.get("username", "")
+
+# Mencegah KeyError jika username tidak ada di data USERS akibat error session
+if _username in USERS:
+    _name = USERS[_username]["name"]
+else:
+    _name = "Pengguna"
+
 st.sidebar.markdown(f"👤 **{_name}** — *{_role}*")
 st.sidebar.markdown("---")
 
@@ -640,12 +647,11 @@ if menu == "🏠 Dashboard":
         with col_low:
             st.markdown("#### 📉 Stok Menipis (≤ 20)")
             
-            # --- FITUR PENCARIAN STOK MENIPIS ---
+            # FITUR PENCARIAN STOK MENIPIS
             cari_low = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_low", placeholder="Cari obat stok menipis...")
             
             stok_df = all_items_df.copy()
             
-            # Filter berdasarkan pencarian SEBELUM dikelompokkan
             if cari_low.strip():
                 mask_low = stok_df.astype(str).apply(lambda col: col.str.contains(cari_low.strip(), case=False, na=False)).any(axis=1)
                 stok_df = stok_df[mask_low]
@@ -666,12 +672,11 @@ if menu == "🏠 Dashboard":
         with col_exp:
             st.markdown("#### ⏰ Segera Kadaluarsa (≤30 hari)")
             
-            # --- FITUR PENCARIAN SEGERA KADALUARSA ---
+            # FITUR PENCARIAN SEGERA KADALUARSA
             cari_exp = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_exp", placeholder="Cari obat segera kadaluarsa...")
             
             exp_df = exp_soon_df.copy()
             
-            # Filter berdasarkan pencarian
             if cari_exp.strip():
                 mask_exp = exp_df.astype(str).apply(lambda col: col.str.contains(cari_exp.strip(), case=False, na=False)).any(axis=1)
                 exp_df = exp_df[mask_exp]
