@@ -232,7 +232,7 @@ def prepare_sheet_for_editor(df):
         if kolom in df.columns:
             df[kolom] = df[kolom].astype("string")
             
-    df = df.astype(object).where(pd.notna(df), None)
+    # Dihapus astype(object) untuk mencegah error PyArrow pada saat edit data campuran
     return df
 
 
@@ -473,8 +473,7 @@ USERS = {
     "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
     "karyawan1@gmail.com": {"password": "karyawan1", "role": "Kasir", "name": "Karyawan 1 (Dian)"},
     "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Karyawan 2 (Julia)"},
-    # PERBAIKAN: Typo password kasir12 menjadi kasir123 agar sesuai dengan emailnya
-    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Karyawan Apotek"},
+    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Kasir - Karyawan Apotek"},
 }
 
 if "logged_in" not in st.session_state:
@@ -485,7 +484,6 @@ if "username" not in st.session_state:
     st.session_state.username = ""
 
 if not st.session_state.logged_in:
-    # PERBAIKAN UI LOGIN: Menggunakan kolom agar berada di tengah dan menyatu dengan form
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
@@ -647,7 +645,6 @@ if menu == "🏠 Dashboard":
         with col_low:
             st.markdown("#### 📉 Stok Menipis (≤ 20)")
             
-            # FITUR PENCARIAN STOK MENIPIS
             cari_low = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_low", placeholder="Cari obat stok menipis...")
             
             stok_df = all_items_df.copy()
@@ -672,7 +669,6 @@ if menu == "🏠 Dashboard":
         with col_exp:
             st.markdown("#### ⏰ Segera Kadaluarsa (≤30 hari)")
             
-            # FITUR PENCARIAN SEGERA KADALUARSA
             cari_exp = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_exp", placeholder="Cari obat segera kadaluarsa...")
             
             exp_df = exp_soon_df.copy()
@@ -684,7 +680,6 @@ if menu == "🏠 Dashboard":
             if exp_df.empty:
                 st.success("Tidak ada obat yang mendekati tanggal kadaluarsa atau yang cocok dengan pencarian.")
             else:
-                # Kolom Nomor Batch ditambahkan agar pencarian berdasarkan batch terlihat jelas
                 exp_show = exp_df[["Nama produk", "Worksheet", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa"]].copy()
                 exp_show["Tanggal Kadaluwarsa"] = exp_show["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(
@@ -1367,7 +1362,7 @@ elif menu == "📦 Retur & Entry":
                         "Nama produk": selected_row["Nama produk"],
                         "Satuan": selected_row["Satuan"],
                         "Nomor Batch": selected_batch,
-                        "Tanggal Kadaluwarsa": selected_row["Tanggal Kadaluwarsa"],
+                        "Tanggal Kadaluwarsa": pd.Timestamp(selected_row["Tanggal Kadaluwarsa"]).date() if pd.notna(selected_row["Tanggal Kadaluwarsa"]) else date.today(),
                         "Stok Sisa": float(selected_row["Stok Sisa"] if pd.notna(selected_row["Stok Sisa"]) else 0),
                         "Jumlah Retur": float(qty_retur),
                         "Harga 1": float(selected_row["Harga 1"] if pd.notna(selected_row["Harga 1"]) else 0),
@@ -1391,7 +1386,7 @@ elif menu == "📦 Retur & Entry":
         else:
             opsi_produk_r, opsi_satuan_r, opsi_batch_r = get_dataset_options(st.session_state.retur_items)
             
-            df_render = st.session_state.retur_items.astype(object).where(pd.notna(st.session_state.retur_items), None)
+            df_render = st.session_state.retur_items.copy()
             
             edited_df = st.data_editor(
                 df_render,
@@ -1593,7 +1588,7 @@ elif menu == "📦 Retur & Entry":
                             "Nama produk": selected_row["Nama produk"],
                             "Satuan": selected_row["Satuan"],
                             "Nomor Batch": "",
-                            "Tanggal Kadaluwarsa": pd.Timestamp(date.today() + pd.Timedelta(days=365)),
+                            "Tanggal Kadaluwarsa": (pd.Timestamp.now() + pd.Timedelta(days=365)).date(),
                             "Stok Masuk": 0.0,
                             "Harga 1": float(selected_row["Harga 1"]) if pd.notna(selected_row["Harga 1"]) else 0.0,
                             "Harga 2": float(selected_row["Harga 2"]) if pd.notna(selected_row["Harga 2"]) else 0.0,
@@ -1620,7 +1615,7 @@ elif menu == "📦 Retur & Entry":
                     "Nama produk": "",
                     "Satuan": "TAB",
                     "Nomor Batch": "",
-                    "Tanggal Kadaluwarsa": pd.Timestamp(date.today()),
+                    "Tanggal Kadaluwarsa": date.today(),
                     "Stok Masuk": 0.0,
                     "Harga 1": 0.0,
                     "Harga 2": 0.0,
@@ -1631,7 +1626,7 @@ elif menu == "📦 Retur & Entry":
         opsi_produk_e, _, _ = get_dataset_options(st.session_state.df_beli)
         AVAILABLE_SHEETS = get_available_sheets()
 
-        df_render_beli = st.session_state.df_beli.astype(object).where(pd.notna(st.session_state.df_beli), None)
+        df_render_beli = st.session_state.df_beli.copy()
 
         edited_df = st.data_editor(
             df_render_beli,
@@ -1766,7 +1761,7 @@ elif menu == "📦 Retur & Entry":
                                 "Nama produk": "",
                                 "Satuan": "",
                                 "Nomor Batch": "",
-                                "Tanggal Kadaluwarsa": pd.Timestamp(date.today()),
+                                "Tanggal Kadaluwarsa": date.today(),
                                 "Stok Masuk": 0.0,
                                 "Harga 1": 0.0,
                                 "Harga 2": 0.0,
@@ -1787,7 +1782,7 @@ elif menu == "📦 Retur & Entry":
                         "Nama produk": "",
                         "Satuan": "",
                         "Nomor Batch": "",
-                        "Tanggal Kadaluwarsa": pd.Timestamp(date.today()),
+                        "Tanggal Kadaluwarsa": date.today(),
                         "Stok Masuk": 0.0,
                         "Harga 1": 0.0,
                         "Harga 2": 0.0,
