@@ -473,7 +473,8 @@ USERS = {
     "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
     "karyawan1@gmail.com": {"password": "karyawan1", "role": "Kasir", "name": "Karyawan 1 (Dian)"},
     "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Karyawan 2 (Julia)"},
-    "kasir123@gmail.com": {"password": "kasir12", "role": "Kasir", "name": "Kasir - Karyawan Apotek"},
+    # PERBAIKAN: Typo password kasir12 menjadi kasir123 agar sesuai dengan emailnya
+    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Kasir - Karyawan Apotek"},
 }
 
 if "logged_in" not in st.session_state:
@@ -484,37 +485,36 @@ if "username" not in st.session_state:
     st.session_state.username = ""
 
 if not st.session_state.logged_in:
-    st.markdown(
-        """
-        <div style='max-width:380px; margin:80px auto 0 auto; padding:32px 36px;
-                    border:1px solid #dde3ed; border-radius:12px;
-                    box-shadow:0 4px 18px rgba(44,123,229,0.10); background:#fff;'>
-            <div style='text-align:center; margin-bottom:18px;'>
-                <img src='https://img.icons8.com/color/96/pharmacy-shop.png' width='64'/>
-                <h2 style='margin:8px 0 2px 0; color:#2c7be5;'>Apotek Veteran Blitar</h2>
-                <p style='color:#888; font-size:13px; margin:0;'>Silakan login untuk melanjutkan</p>
+    # PERBAIKAN UI LOGIN: Menggunakan kolom agar berada di tengah dan menyatu dengan form
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    with col2:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div style='text-align:center; padding: 25px 20px 10px 20px; background-color: #16213e; 
+                        border-radius: 12px 12px 0 0; border: 1px solid #0f3460; border-bottom: none;'>
+                <img src='https://img.icons8.com/color/96/pharmacy-shop.png' width='72'/>
+                <h2 style='color: #e94560; margin-top: 10px; margin-bottom: 5px;'>Apotek Veteran Blitar</h2>
+                <p style='color: #a0a0a0; font-size: 14px; margin-bottom: 0;'>Silakan login untuk melanjutkan</p>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    with st.form("form_login"):
-        st.markdown("<div style='max-width:380px; margin:0 auto;'>", unsafe_allow_html=True)
-        role_pilih = st.selectbox("Login sebagai", ["Admin", "Kasir"])
-        username   = st.text_input("Username")
-        password   = st.text_input("Password", type="password")
-        login_btn  = st.form_submit_button("🔐 Login", use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+            """, unsafe_allow_html=True
+        )
+        with st.form("form_login"):
+            role_pilih = st.selectbox("Login sebagai", ["Admin", "Kasir"])
+            username   = st.text_input("Username")
+            password   = st.text_input("Password", type="password")
+            st.markdown("<br>", unsafe_allow_html=True)
+            login_btn  = st.form_submit_button("🔐 Login", use_container_width=True)
 
-        if login_btn:
-            uname = username.strip()
-            if uname in USERS and USERS[uname]["password"] == password and USERS[uname]["role"] == role_pilih:
-                st.session_state.logged_in = True
-                st.session_state.role      = role_pilih
-                st.session_state.username  = uname
-                st.rerun()
-            else:
-                st.error("Username, password, atau role tidak sesuai.")
+            if login_btn:
+                uname = username.strip()
+                if uname in USERS and USERS[uname]["password"] == password and USERS[uname]["role"] == role_pilih:
+                    st.session_state.logged_in = True
+                    st.session_state.role      = role_pilih
+                    st.session_state.username  = uname
+                    st.rerun()
+                else:
+                    st.error("❌ Username, password, atau role tidak sesuai.")
     st.stop()
 
 # ── Session State (General & Shift) ───────────────────────────────────────────
