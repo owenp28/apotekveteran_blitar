@@ -552,6 +552,12 @@ if "active_shift_context" not in st.session_state:
         "shift_name": "Pagi"
     }
 
+# SESSION STATE KHUSUS TUTUP SHIFT 2 LANGKAH
+if "step_tutup_shift" not in st.session_state:
+    st.session_state.step_tutup_shift = 1
+if "input_saldo_kasir" not in st.session_state:
+    st.session_state.input_saldo_kasir = 0.0
+
 # ── Sidebar navigasi ──────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
 st.sidebar.title("💊 Apotek Veteran Blitar")
@@ -612,6 +618,8 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.active_shift_context = {
         "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
     }
+    st.session_state.step_tutup_shift = 1
+    st.session_state.input_saldo_kasir = 0.0
     if "current_menu" in st.session_state:
         del st.session_state["current_menu"]
     st.rerun()
@@ -1901,80 +1909,101 @@ elif menu == "🕒 Sesi Shift":
 
     else:
         st.markdown("<h2 style='text-align: center; margin-bottom: 20px; color: #e0e0e0;'>Tutup Shift</h2>", unsafe_allow_html=True)
-        st.info("Masukkan saldo fisik kasir. Jika terdapat selisih, mohon berikan keterangan pada kolom Catatan.")
-
+        
         nama_user = st.session_state.active_shift_context["user_name"]
         waktu_mulai = st.session_state.active_shift_context["start_time"]
         saldo_awal_context = st.session_state.active_shift_context["saldo_awal"]
         penjualan_sistem = st.session_state.active_shift_context["accumulated_sales_expected"]
-        
+        shift_context_name = st.session_state.active_shift_context.get("shift_name", "Pagi")
         total_pendapatan_calc = saldo_awal_context + penjualan_sistem
         saldo_akhir_calc = total_pendapatan_calc
 
-        render_row_erp("Saldo Awal", val_num=saldo_awal_context, disabled=True, widget="number", key_suffix="ts_awal")
-        render_row_erp("Hasil Penjualan", val_num=penjualan_sistem, disabled=True, widget="number", key_suffix="ts_jual")
-        render_row_erp("Total Pendapatan", val_num=total_pendapatan_calc, disabled=True, widget="number", key_suffix="ts_pendapatan")
-        render_row_erp("Saldo Akhir", val_num=saldo_akhir_calc, disabled=True, widget="number", key_suffix="ts_akhir")
+        if st.session_state.step_tutup_shift == 1:
+            st.info("💡 Langkah 1: Masukkan jumlah total uang tunai yang ada di laci kasir saat ini.")
+            with st.form("form_input_fisik"):
+                saldo_kasir_in = st.number_input("Saldo Kasir (Hitungan Fisik Laci)", min_value=0.0, step=1000.0, value=0.0)
+                st.write("")
+                submit_fisik = st.form_submit_button("Lanjutkan ➡️", type="primary")
+                if submit_fisik:
+                    st.session_state.input_saldo_kasir = saldo_kasir_in
+                    st.session_state.step_tutup_shift = 2
+                    st.rerun()
 
-        st.write("")
-        st.write("")
+        elif st.session_state.step_tutup_shift == 2:
+            saldo_kasir_in = st.session_state.input_saldo_kasir
+            selisih_calc = saldo_kasir_in - saldo_akhir_calc
 
-        saldo_kasir_in = render_row_erp("Saldo Kasir (Hitungan Fisik)", val_num=0.0, disabled=False, widget="number", key_suffix="ts_kasir")
-        
-        selisih_calc = saldo_kasir_in - saldo_akhir_calc
-        render_row_erp("Selisih Saldo", val_num=selisih_calc, disabled=True, widget="number", key_suffix="ts_selisih")
+            st.info("💡 Langkah 2: Verifikasi rekapitulasi sistem. Pastikan data sesuai sebelum melakukan submit final.")
 
-        diserahkan_kepada_opsi = ["Ivonne", "Dian", "Julia"]
-        diserahkan_kepada = render_row_erp("Diserahkan Kepada", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="ts_serah")
-        catatan = render_row_erp("Catatan", disabled=False, widget="text", key_suffix="ts_catatan")
+            st.markdown("#### 🔒 Rekapitulasi Sistem (Auto-Lock)")
+            render_row_erp("Saldo Awal", val_num=saldo_awal_context, disabled=True, widget="number", key_suffix="ts_awal")
+            render_row_erp("Hasil Penjualan", val_num=penjualan_sistem, disabled=True, widget="number", key_suffix="ts_jual")
+            render_row_erp("Total Pendapatan", val_num=total_pendapatan_calc, disabled=True, widget="number", key_suffix="ts_pendapatan")
+            render_row_erp("Saldo Akhir", val_num=saldo_akhir_calc, disabled=True, widget="number", key_suffix="ts_akhir")
+            render_row_erp("Saldo Kasir", val_num=saldo_kasir_in, disabled=True, widget="number", key_suffix="ts_kasir_lock")
+            render_row_erp("Selisih Saldo", val_num=selisih_calc, disabled=True, widget="number", key_suffix="ts_selisih")
 
-        st.write("")
-        if selisih_calc < 0:
-            st.error(f"⚠️ Minus: {format_rupiah(selisih_calc)}. Jangan lupa isi catatan penyebab minus.")
-        elif selisih_calc > 0:
-            st.warning(f"⚠️ Plus (Lebih): {format_rupiah(selisih_calc)}. Jangan lupa isi catatan.")
-        else:
-            st.success(f"✅ Balance (Sesuai). Data siap diproses.")
+            st.markdown("---")
+            st.markdown("#### ✍️ Keterangan Tambahan")
+            diserahkan_kepada_opsi = ["Ivonne", "Dian", "Julia"]
+            diserahkan_kepada = render_row_erp("Diserahkan Kepada", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="ts_serah")
+            catatan = render_row_erp("Catatan", disabled=False, widget="text", key_suffix="ts_catatan")
 
-        st.write("")
-        c_btn1, c_btn2 = st.columns([3, 7])
-        with c_btn2:
-            col_b1, col_b2 = st.columns([1.5, 4])
-            with col_b1:
+            st.write("")
+            if selisih_calc < 0:
+                st.error(f"⚠️ Minus: {format_rupiah(selisih_calc)}. Jangan lupa isi catatan penyebab minus.")
+            elif selisih_calc > 0:
+                st.warning(f"⚠️ Plus (Lebih): {format_rupiah(selisih_calc)}. Jangan lupa isi catatan.")
+            else:
+                st.success(f"✅ Balance (Sesuai). Data siap diproses.")
+
+            st.write("")
+            c_btn1, c_btn2, c_btn3 = st.columns([2, 1, 4])
+            with c_btn1:
+                if st.button("⬅️ Hitung Ulang Saldo Kasir", use_container_width=True):
+                    st.session_state.step_tutup_shift = 1
+                    st.rerun()
+            with c_btn3:
                 submit_tutup = st.button("✔ Submit Tutup Shift", type="primary", use_container_width=True)
 
-        if submit_tutup:
-            log_df = load_shift_log()
-            new_log = pd.DataFrame([{
-                "Waktu Buka": st.session_state.active_shift_context["start_time"],
-                "Waktu Tutup": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "Shift": st.session_state.active_shift_context.get("shift_name", "Pagi"),
-                "Nama Kasir": nama_user,
-                "Saldo Awal": saldo_awal_context,
-                "Hasil Penjualan": penjualan_sistem,
-                "Piutang": 0.0,
-                "Pendapatan Jurnal": 0.0,
-                "Total Pendapatan": total_pendapatan_calc,
-                "Retur Penjualan": 0.0,
-                "Pengeluaran Jurnal": 0.0,
-                "Total Pengeluaran": 0.0,
-                "Saldo Akhir": saldo_akhir_calc,
-                "Fisik Kasir": saldo_kasir_in,
-                "Selisih": selisih_calc,
-                "Diserahkan Ke": diserahkan_kepada,
-                "Nama Penyerah": nama_user,
-                "Catatan": catatan
-            }])
-            log_df = pd.concat([log_df, new_log], ignore_index=True)
-            save_shift_log(log_df)
+            if submit_tutup:
+                # Validasi: Jika ada selisih, Catatan wajib diisi
+                if selisih_calc != 0 and str(catatan).strip() == "":
+                    st.error("❌ Karena terdapat selisih saldo, Anda WAJIB mengisi kolom Catatan!")
+                else:
+                    log_df = load_shift_log()
+                    new_log = pd.DataFrame([{
+                        "Waktu Buka": waktu_mulai,
+                        "Waktu Tutup": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "Shift": shift_context_name,
+                        "Nama Kasir": nama_user,
+                        "Saldo Awal": saldo_awal_context,
+                        "Hasil Penjualan": penjualan_sistem,
+                        "Piutang": 0.0,
+                        "Pendapatan Jurnal": 0.0,
+                        "Total Pendapatan": total_pendapatan_calc,
+                        "Retur Penjualan": 0.0,
+                        "Pengeluaran Jurnal": 0.0,
+                        "Total Pengeluaran": 0.0,
+                        "Saldo Akhir": saldo_akhir_calc,
+                        "Fisik Kasir": saldo_kasir_in,
+                        "Selisih": selisih_calc,
+                        "Diserahkan Ke": diserahkan_kepada,
+                        "Nama Penyerah": nama_user,
+                        "Catatan": catatan
+                    }])
+                    log_df = pd.concat([log_df, new_log], ignore_index=True)
+                    save_shift_log(log_df)
 
-            st.session_state.shift_active = False
-            st.session_state.active_shift_context = {
-                "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
-            }
-            st.session_state.target_menu = "🏠 Dashboard"
-            st.success("✅ Shift berhasil ditutup. Data tercatat dengan aman.")
-            st.rerun()
+                    st.session_state.shift_active = False
+                    st.session_state.active_shift_context = {
+                        "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
+                    }
+                    st.session_state.step_tutup_shift = 1
+                    st.session_state.input_saldo_kasir = 0.0
+                    st.session_state.target_menu = "🏠 Dashboard"
+                    st.success("✅ Shift berhasil ditutup. Data tercatat dengan aman.")
+                    st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ── Footer ────────────────────────────────────────────────────────────────────
