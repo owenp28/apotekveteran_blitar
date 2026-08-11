@@ -1172,7 +1172,7 @@ Blitar 66111<br>
 <b>081331808585</b>
 </div>
 <div style="margin-bottom: 10px; font-size: 12px; color: #555; text-align: left;">
-{tgl_today} <span id="clock_print_realtime"></span> {kasir_nama}
+{tgl_today} <span id="clock_kasir_realtime"></span> &nbsp;&nbsp; {kasir_nama}
 </div>
 <div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
 {items_html}
@@ -1182,9 +1182,8 @@ Blitar 66111<br>
 <div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
 </div>
 <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #777;">
-- Terima Kasih Semoga Lekas Sembuh -<br>
-- Belanja Tanpa Struk/Nota = Gratis -<br>
-- Harga Sudah Termasuk PPN -
+- Belanja tanpa struk/nota gratis -<br>
+- Harga sudah termasuk PPN -
 </div>
 </div>
 <script>
@@ -1193,16 +1192,9 @@ function updateClock() {{
     var h = String(d.getHours()).padStart(2, '0');
     var m = String(d.getMinutes()).padStart(2, '0');
     var s = String(d.getSeconds()).padStart(2, '0');
-    
     var timeStr = h + ":" + m + ":" + s;
-    var el1 = document.getElementById('clock_kasir_realtime');
-    if (el1) {{ el1.innerHTML = timeStr; }}
-    
-    var parentDoc = window.parent.document;
-    if (parentDoc) {{
-        var el2 = parentDoc.getElementById('clock_kasir_realtime');
-        if (el2) {{ el2.innerHTML = timeStr; }}
-    }}
+    var el = document.getElementById('clock_kasir_realtime');
+    if (el) {{ el.innerHTML = timeStr; }}
 }}
 setInterval(updateClock, 1000);
 updateClock();
@@ -1232,7 +1224,7 @@ updateClock();
                 </div>
                 <div class="border-dash"></div>
                 <div style="margin-bottom: 8px; text-align: left;">
-                    {tgl_today} <span id="clock_print_realtime"></span> {kasir_nama}
+                    {tgl_today} <span id="clock_print_realtime"></span> &nbsp;&nbsp; {kasir_nama}
                 </div>
                 <div class="border-dash"></div>
                 {items_html}
@@ -1242,9 +1234,7 @@ updateClock();
                 <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
                 <div class="border-dash"></div>
                 <div class="text-center" style="font-size: 10px;">
-                    - Terima Kasih Semoga Lekas Sembuh -<br>
-                    - Belanja Tanpa Struk/Nota = Gratis -<br>
-                    - Harga Sudah Termasuk PPN -
+                    - Terima Kasih Semoga Lekas Sembuh -
                 </div>
             </div>
             <br>
@@ -2024,7 +2014,7 @@ elif menu == "🕒 Sesi Shift":
         </style>
         </head><body>
         <h2>Laporan Tutup Shift — Apotek Veteran Blitar</h2>
-        <div class="subtitle">Dicetak: {datetime.now().strftime('%d-%m-%Y %H:%M')}</div>
+        <div class="subtitle">Waktu Tutup Shift: {df_report['Waktu Tutup'].iloc[0]}</div>
         <table>
           <tbody>
              {html_rows}
