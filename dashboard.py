@@ -597,18 +597,12 @@ if "target_menu" in st.session_state:
     target = st.session_state.target_menu
     del st.session_state.target_menu
     if target in _menu_options:
-        st.session_state.current_menu = target
+        st.session_state.main_menu = target
 
-if "current_menu" not in st.session_state:
-    st.session_state.current_menu = _menu_options[0]
+if "main_menu" not in st.session_state or st.session_state.main_menu not in _menu_options:
+    st.session_state.main_menu = _menu_options[0]
 
-try:
-    menu_idx = _menu_options.index(st.session_state.current_menu)
-except ValueError:
-    menu_idx = 0
-
-menu = st.sidebar.radio("Pilih Fitur", _menu_options, index=menu_idx)
-st.session_state.current_menu = menu
+menu = st.sidebar.radio("Pilih Fitur", _menu_options, key="main_menu")
 
 if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.logged_in = False
@@ -620,8 +614,6 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     }
     st.session_state.step_tutup_shift = 1
     st.session_state.input_saldo_kasir = 0.0
-    if "current_menu" in st.session_state:
-        del st.session_state["current_menu"]
     st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1057,7 +1049,6 @@ elif menu == "🛒 Kasir Utama":
         if available_items.empty:
             st.info("Tidak ada obat dengan stok tersedia (>0).")
         else:
-            # PERBAIKAN TAMPILAN LABEL PENJUALAN: Format nama produk | satuan | stok
             available_items["Label"] = available_items.apply(
                 lambda x: f"{str(x['Nama produk']).strip()} | {str(x['Satuan']).strip() if pd.notna(x['Satuan']) and str(x['Satuan']).strip() != '' else str(x['Worksheet']).strip()} | Stok: {int(x['Stok Sisa'])}",
                 axis=1
