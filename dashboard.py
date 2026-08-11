@@ -1172,7 +1172,7 @@ Blitar 66111<br>
 <b>081331808585</b>
 </div>
 <div style="margin-bottom: 10px; font-size: 12px; color: #555; text-align: left;">
-{tgl_today} <span id="clock_kasir_realtime"></span> {kasir_nama}
+{tgl_today} <span id="clock_print_realtime"></span> {kasir_nama}
 </div>
 <div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
 {items_html}
@@ -1182,8 +1182,9 @@ Blitar 66111<br>
 <div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
 </div>
 <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #777;">
-- Belanja tanpa struk/nota gratis -<br>
-- Harga sudah termasuk PPN -
+- Terima Kasih Semoga Lekas Sembuh -<br>
+- Belanja Tanpa Struk/Nota = Gratis -<br>
+- Harga Sudah Termasuk PPN -
 </div>
 </div>
 <script>
@@ -1241,7 +1242,9 @@ updateClock();
                 <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
                 <div class="border-dash"></div>
                 <div class="text-center" style="font-size: 10px;">
-                    - Terima Kasih Semoga Lekas Sembuh -
+                    - Terima Kasih Semoga Lekas Sembuh -<br>
+                    - Belanja Tanpa Struk/Nota = Gratis -<br>
+                    - Harga Sudah Termasuk PPN -
                 </div>
             </div>
             <br>
