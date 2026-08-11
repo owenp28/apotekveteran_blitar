@@ -1911,13 +1911,14 @@ elif menu == "🕒 Sesi Shift":
         total_pendapatan_calc = saldo_awal_context + penjualan_sistem
         saldo_akhir_calc = total_pendapatan_calc
 
-        st.markdown("#### 🔒 Rincian Sistem (Tidak bisa diedit)")
         render_row_erp("Saldo Awal", val_num=saldo_awal_context, disabled=True, widget="number", key_suffix="ts_awal")
         render_row_erp("Hasil Penjualan", val_num=penjualan_sistem, disabled=True, widget="number", key_suffix="ts_jual")
         render_row_erp("Total Pendapatan", val_num=total_pendapatan_calc, disabled=True, widget="number", key_suffix="ts_pendapatan")
         render_row_erp("Saldo Akhir", val_num=saldo_akhir_calc, disabled=True, widget="number", key_suffix="ts_akhir")
 
-        st.markdown("#### ✍️ Input Kasir")
+        st.write("")
+        st.write("")
+
         saldo_kasir_in = render_row_erp("Saldo Kasir (Hitungan Fisik)", val_num=0.0, disabled=False, widget="number", key_suffix="ts_kasir")
         
         selisih_calc = saldo_kasir_in - saldo_akhir_calc
