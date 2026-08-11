@@ -470,8 +470,7 @@ def get_available_sheets():
 USERS = {
     "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
     "karyawan1@gmail.com": {"password": "karyawan1", "role": "Kasir", "name": "Dian"},
-    "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Julia"},
-    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Kasir"},
+    "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Julia"}
 }
 
 if "logged_in" not in st.session_state:
@@ -1157,7 +1156,7 @@ elif menu == "🛒 Kasir Utama":
             bayar_tunai = st.session_state.bayar_tunai if st.session_state.nota_confirmed else 0
             kembali = bayar_tunai - total_belanja
             tgl_today = datetime.now().strftime("%d/%m/%Y")
-            kasir_nama = st.session_state.active_shift_context.get("user_name", USERS.get(st.session_state.get("username", ""), {}).get("name", "Kasir"))
+            kasir_nama = st.session_state.active_shift_context.get("user_name", USERS.get(st.session_state.get("username", ""), {}).get("name", ""))
 
             items_html = ""
             for item in st.session_state.cart:
@@ -1172,7 +1171,7 @@ Blitar 66111<br>
 <b>081331808585</b>
 </div>
 <div style="margin-bottom: 10px; font-size: 12px; color: #555; text-align: left;">
-{tgl_today} <span id="clock_print_realtime"></span> &nbsp;&nbsp; {kasir_nama}
+{tgl_today} <span id="clock_kasir_realtime"></span> {kasir_nama}
 </div>
 <div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
 {items_html}
@@ -1182,9 +1181,8 @@ Blitar 66111<br>
 <div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
 </div>
 <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #777;">
-- Terimakasih Atas Kunjungan Anda -<br>
-- Belanja Tanpa Struk/Nota = Gratis -<br>
-- Harga Sudah Termasuk PPN -
+- Belanja tanpa struk/nota gratis -<br>
+- Harga sudah termasuk PPN -
 </div>
 </div>
 <script>
@@ -1194,8 +1192,14 @@ function updateClock() {{
     var m = String(d.getMinutes()).padStart(2, '0');
     var s = String(d.getSeconds()).padStart(2, '0');
     var timeStr = h + ":" + m + ":" + s;
-    var el = document.getElementById('clock_kasir_realtime');
-    if (el) {{ el.innerHTML = timeStr; }}
+    var el1 = document.getElementById('clock_kasir_realtime');
+    if (el1) {{ el1.innerHTML = timeStr; }}
+    
+    var parentDoc = window.parent.document;
+    if (parentDoc) {{
+        var el2 = parentDoc.getElementById('clock_kasir_realtime');
+        if (el2) {{ el2.innerHTML = timeStr; }}
+    }}
 }}
 setInterval(updateClock, 1000);
 updateClock();
@@ -1225,7 +1229,7 @@ updateClock();
                 </div>
                 <div class="border-dash"></div>
                 <div style="margin-bottom: 8px; text-align: left;">
-                    {tgl_today} <span id="clock_print_realtime"></span> &nbsp;&nbsp; {kasir_nama}
+                    {tgl_today} <span id="clock_print_realtime"></span> {kasir_nama}
                 </div>
                 <div class="border-dash"></div>
                 {items_html}
@@ -1235,9 +1239,7 @@ updateClock();
                 <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
                 <div class="border-dash"></div>
                 <div class="text-center" style="font-size: 10px;">
-                    - Terimakasih Atas Kunjungan Anda -<br>
-                    - Belanja Tanpa Struk/Nota = Gratis -<br>
-                    - Harga Sudah Termasuk PPN -
+                    - Terima Kasih Semoga Lekas Sembuh -
                 </div>
             </div>
             <br>
@@ -1940,7 +1942,7 @@ elif menu == "🕒 Sesi Shift":
     if st.session_state.role == "Admin":
         kasir_options = ["Ivonne", "Dian", "Julia"]
     else:
-        kasir_options = ["Ivonne", "Dian", "Julia"]
+        kasir_options = ["Dian", "Julia"]
 
     shift_options = ["Pagi", "Siang", "Sore", "Malam"]
 
@@ -2130,7 +2132,6 @@ elif menu == "🕒 Sesi Shift":
                 submit_tutup = st.button("✔ Submit Tutup Shift", type="primary", use_container_width=True)
 
             if submit_tutup:
-                # Validasi: Jika ada selisih, Catatan wajib diisi
                 if selisih_calc != 0 and str(catatan).strip() == "":
                     st.error("❌ Karena terdapat selisih saldo, Anda WAJIB mengisi kolom Catatan!")
                 else:
