@@ -23,8 +23,8 @@ st.markdown(
     /* Mengurangi padding di bagian atas sidebar */
     [data-testid="stSidebar"] > div:first-child { padding-top: 2rem !important; }
     
-    /* Mengurangi margin di bagian atas konten utama */
-    .block-container { padding-top: 0rem !important; padding-bottom: 0rem !important; margin-top: 0rem !important; padding-left: 20px !important; padding-right: 20px !important; }
+    /* PERBAIKAN: Memberikan ruang di atas agar judul tidak terpotong */
+    .block-container { padding-top: 3rem !important; padding-bottom: 2rem !important; padding-left: 20px !important; padding-right: 20px !important; }
     
     /* ── Header Aplikasi ────────────────────────────────────────────────────── */
     .app-header { text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
@@ -1935,7 +1935,6 @@ elif menu == "🕒 Sesi Shift":
 
             st.info("💡 Langkah 2: Verifikasi rekapitulasi sistem. Pastikan data sesuai sebelum melakukan submit final.")
 
-            st.markdown("#### 🔒 Rekapitulasi Sistem (Auto-Lock)")
             render_row_erp("Saldo Awal", val_num=saldo_awal_context, disabled=True, widget="number", key_suffix="ts_awal")
             render_row_erp("Hasil Penjualan", val_num=penjualan_sistem, disabled=True, widget="number", key_suffix="ts_jual")
             render_row_erp("Total Pendapatan", val_num=total_pendapatan_calc, disabled=True, widget="number", key_suffix="ts_pendapatan")
@@ -1944,7 +1943,6 @@ elif menu == "🕒 Sesi Shift":
             render_row_erp("Selisih Saldo", val_num=selisih_calc, disabled=True, widget="number", key_suffix="ts_selisih")
 
             st.markdown("---")
-            st.markdown("#### ✍️ Keterangan Tambahan")
             diserahkan_kepada_opsi = ["Ivonne", "Dian", "Julia"]
             diserahkan_kepada = render_row_erp("Diserahkan Kepada", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="ts_serah")
             catatan = render_row_erp("Catatan", disabled=False, widget="text", key_suffix="ts_catatan")
