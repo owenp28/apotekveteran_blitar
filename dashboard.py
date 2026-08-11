@@ -1235,7 +1235,8 @@ updateClock();
                 <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
                 <div class="border-dash"></div>
                 <div class="text-center" style="font-size: 10px;">
-                    - Terima Kasih Semoga Lekas Sembuh -
+                    - Belanja tanpa struk atau nota, gratis -
+                    - Harga sudah termasuk dalam PPN -
                 </div>
             </div>
             <br>
