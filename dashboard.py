@@ -469,9 +469,9 @@ def get_available_sheets():
 # ══════════════════════════════════════════════════════════════════════════════
 USERS = {
     "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
-    "karyawan1@gmail.com": {"password": "karyawan1", "role": "Kasir", "name": "Karyawan 1 (Dian)"},
-    "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Karyawan 2 (Julia)"},
-    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Kasir - Karyawan Apotek"},
+    "karyawan1@gmail.com": {"password": "karyawan1", "role": "Kasir", "name": "Dian"},
+    "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Julia"},
+    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Kasir"},
 }
 
 if "logged_in" not in st.session_state:
@@ -1163,7 +1163,6 @@ elif menu == "🛒 Kasir Utama":
             for item in st.session_state.cart:
                 items_html += f"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'><span style='flex: 2; text-align: left;'>{item['qty']} {item['nama']}</span><span style='flex: 1; text-align: center;'>{format_rupiah(item['harga_per_satuan'])}</span><span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span></div>"
 
-            # PERBAIKAN REVISI KLIEN: Jam real-time & Nama Kasir aktif di lingkaran hijau
             nota_html = f"""<div style="font-family: 'Courier New', Courier, monospace; font-size: 13px; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto; background-color: #f8f9fa; color: #333; box-shadow: 0px 4px 12px rgba(0,0,0,0.1);">
 <div style="text-align: center; border-bottom: 1px dashed #666; padding-bottom: 10px; margin-bottom: 10px;">
 <b style="font-size: 16px; color: #222;">APOTEK VETERAN SEHAT BLITAR</b><br>
@@ -1173,7 +1172,7 @@ Blitar 66111<br>
 <b>081331808585</b>
 </div>
 <div style="margin-bottom: 10px; font-size: 12px; color: #555; text-align: left;">
-{tgl_today} <span id="clock_kasir_realtime"></span> &nbsp;&nbsp; <b>Kasir: {kasir_nama}</b>
+{tgl_today} <span id="clock_kasir_realtime"></span> &nbsp;&nbsp; {kasir_nama}
 </div>
 <div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
 {items_html}
@@ -1225,8 +1224,8 @@ updateClock();
                     081331808585
                 </div>
                 <div class="border-dash"></div>
-                <div style="margin-bottom: 8px;">
-                    {tgl_today} {datetime.now().strftime('%H:%M:%S')} &nbsp;&nbsp; <b>Kasir: {kasir_nama}</b>
+                <div style="margin-bottom: 8px; text-align: left;">
+                    {tgl_today} {datetime.now().strftime('%H:%M:%S')} &nbsp;&nbsp; {kasir_nama}
                 </div>
                 <div class="border-dash"></div>
                 {items_html}
