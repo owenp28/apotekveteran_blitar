@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import io
 import re
@@ -1046,7 +1047,6 @@ elif menu == "🛒 Kasir Utama":
     with col_input:
         st.subheader("🛒 Input Penjualan")
         
-        # DROPDOWN PILIH KASIR YANG BERTUGAS
         if st.session_state.role == "Admin":
             pilihan_kasir = ["Ivonne", "Dian", "Julia"]
         else:
@@ -1170,15 +1170,23 @@ elif menu == "🛒 Kasir Utama":
             total_belanja = sum(item["subtotal"] for item in st.session_state.cart)
             bayar_tunai = st.session_state.bayar_tunai if st.session_state.nota_confirmed else 0
             kembali = bayar_tunai - total_belanja
-            
-            tgl_jam_today = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            tgl_today = datetime.now().strftime("%d/%m/%Y")
             kasir_nama_nota = st.session_state.active_shift_context.get("user_name", "")
 
             items_html = ""
             for item in st.session_state.cart:
                 items_html += f"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'><span style='flex: 2; text-align: left;'>{item['qty']} {item['nama']}</span><span style='flex: 1; text-align: center;'>{format_rupiah(item['harga_per_satuan'])}</span><span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span></div>"
 
-            nota_html = f"""<div style="font-family: 'Courier New', Courier, monospace; font-size: 13px; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto; background-color: #f8f9fa; color: #333; box-shadow: 0px 4px 12px rgba(0,0,0,0.1);">
+            nota_html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body {{ margin: 0; padding: 10px; background-color: transparent; }}
+</style>
+</head>
+<body>
+<div style="font-family: 'Courier New', Courier, monospace; font-size: 13px; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto; background-color: #f8f9fa; color: #333; box-shadow: 0px 4px 12px rgba(0,0,0,0.1);">
 <div style="text-align: center; border-bottom: 1px dashed #666; padding-bottom: 10px; margin-bottom: 10px;">
 <b style="font-size: 16px; color: #222;">APOTEK VETERAN SEHAT BLITAR</b><br>
 Jl. Veteran no 64B Blitar Kota<br> 
@@ -1187,7 +1195,7 @@ Blitar 66111<br>
 <b>081331808585</b>
 </div>
 <div style="margin-bottom: 10px; font-size: 12px; color: #555; text-align: left;">
-{tgl_jam_today} {kasir_nama_nota}
+{tgl_today} <span id="clock_kasir_realtime"></span> {kasir_nama_nota}
 </div>
 <div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
 {items_html}
@@ -1200,9 +1208,25 @@ Blitar 66111<br>
 - Belanja tanpa struk/nota gratis -<br>
 - Harga sudah termasuk PPN -
 </div>
-</div>"""
+</div>
+<script>
+function updateClock() {{
+    var d = new Date();
+    var h = String(d.getHours()).padStart(2, '0');
+    var m = String(d.getMinutes()).padStart(2, '0');
+    var s = String(d.getSeconds()).padStart(2, '0');
+    var timeStr = h + ":" + m + ":" + s;
+    var el1 = document.getElementById('clock_kasir_realtime');
+    if (el1) {{ el1.innerHTML = timeStr; }}
+}}
+setInterval(updateClock, 1000);
+updateClock();
+</script>
+</body>
+</html>
+"""
             
-            st.markdown(nota_html, unsafe_allow_html=True)
+            components.html(nota_html, height=500, scrolling=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -1226,7 +1250,7 @@ Blitar 66111<br>
                 </div>
                 <div class="border-dash"></div>
                 <div style="margin-bottom: 8px; text-align: left;">
-                    {tgl_jam_today} {kasir_nama_nota}
+                    {tgl_today} <span id="clock_print_realtime"></span> {kasir_nama_nota}
                 </div>
                 <div class="border-dash"></div>
                 {items_html}
@@ -1243,6 +1267,18 @@ Blitar 66111<br>
             <div class="text-center">
                 <button onclick="window.print()" style="padding: 6px 15px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
             </div>
+            <script>
+            function updatePrintClock() {{
+                var d = new Date();
+                var h = String(d.getHours()).padStart(2, '0');
+                var m = String(d.getMinutes()).padStart(2, '0');
+                var s = String(d.getSeconds()).padStart(2, '0');
+                var el = document.getElementById('clock_print_realtime');
+                if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
+            }}
+            setInterval(updatePrintClock, 1000);
+            updatePrintClock();
+            </script>
             </body></html>
             """
             
