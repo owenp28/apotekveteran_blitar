@@ -232,7 +232,6 @@ def prepare_sheet_for_editor(df):
         if kolom in df.columns:
             df[kolom] = df[kolom].astype("string")
             
-    # Dihapus astype(object) untuk mencegah error PyArrow pada saat edit data campuran
     return df
 
 
@@ -645,6 +644,7 @@ if menu == "🏠 Dashboard":
         with col_low:
             st.markdown("#### 📉 Stok Menipis (≤ 20)")
             
+            # FITUR PENCARIAN STOK MENIPIS
             cari_low = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_low", placeholder="Cari obat stok menipis...")
             
             stok_df = all_items_df.copy()
@@ -669,6 +669,7 @@ if menu == "🏠 Dashboard":
         with col_exp:
             st.markdown("#### ⏰ Segera Kadaluarsa (≤30 hari)")
             
+            # FITUR PENCARIAN SEGERA KADALUARSA
             cari_exp = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_exp", placeholder="Cari obat segera kadaluarsa...")
             
             exp_df = exp_soon_df.copy()
@@ -680,6 +681,7 @@ if menu == "🏠 Dashboard":
             if exp_df.empty:
                 st.success("Tidak ada obat yang mendekati tanggal kadaluarsa atau yang cocok dengan pencarian.")
             else:
+                # Kolom Nomor Batch ditambahkan agar pencarian berdasarkan batch terlihat jelas
                 exp_show = exp_df[["Nama produk", "Worksheet", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa"]].copy()
                 exp_show["Tanggal Kadaluwarsa"] = exp_show["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(
@@ -909,7 +911,9 @@ elif menu == "🖨️ Rekap Data":
     st.caption(f"{len(df_print)} baris data siap dicetak")
 
     st.markdown("---")
-    st.subheader("⬇️ Unduh File")
+    st.subheader("⬇️ Unduh File Laporan")
+    st.markdown("Pilih format file untuk mengunduh laporan stok obat sesuai dengan filter yang telah diterapkan.")
+    
     col_d1, col_d2, col_d3, col_d4 = st.columns(4)
 
     csv_buf = df_print.copy()
@@ -918,7 +922,8 @@ elif menu == "🖨️ Rekap Data":
         label="📄 Unduh CSV",
         data=csv_data,
         file_name=f"stok_obat_{tgl_awal}_{tgl_akhir}.csv",
-        mime="text/csv"
+        mime="text/csv",
+        use_container_width=True
     )
 
     try:
@@ -931,7 +936,8 @@ elif menu == "🖨️ Rekap Data":
             label="📊 Unduh Excel (XLSX)",
             data=xlsx_buf.getvalue(),
             file_name=f"stok_obat_{tgl_awal}_{tgl_akhir}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
         )
     except ImportError:
         col_d2.info("Install `openpyxl` untuk ekspor Excel.")
@@ -941,10 +947,10 @@ elif menu == "🖨️ Rekap Data":
         label="📝 Unduh RTF (Word)",
         data=rtf_bytes,
         file_name=f"stok_obat_{tgl_awal}_{tgl_akhir}.rtf",
-        mime="application/rtf"
+        mime="application/rtf",
+        use_container_width=True
     )
 
-    col_d4.markdown("#### 🖨️ Print / PDF")
     html_rows = ""
     for _, row in preview_df.iterrows():
         html_rows += "<tr>" + "".join(f"<td>{v}</td>" for v in row.values) + "</tr>"
@@ -976,9 +982,11 @@ elif menu == "🖨️ Rekap Data":
         label="🖨️ Unduh HTML (Print/PDF)",
         data=html_bytes,
         file_name=f"stok_obat_{tgl_awal}_{tgl_akhir}.html",
-        mime="text/html"
+        mime="text/html",
+        use_container_width=True
     )
-    col_d4.caption("Buka file HTML → klik tombol Print → pilih 'Save as PDF'")
+    
+    st.info("💡 **Tips Cetak PDF:** Unduh file HTML di atas, buka di browser, lalu tekan **Ctrl + P** (atau klik tombol Print di dalam file) dan pilih opsi **'Save as PDF'**.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 4 — KASIR UTAMA
