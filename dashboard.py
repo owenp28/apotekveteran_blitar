@@ -508,7 +508,7 @@ if not st.session_state.logged_in:
                     st.session_state.logged_in = True
                     st.session_state.role      = role_pilih
                     st.session_state.username  = uname
-                    st.session_state.target_menu = "🏠 Dashboard" # Otomatis redirect ke home
+                    st.session_state.target_menu = "🏠 Dashboard" 
                     st.rerun()
                 else:
                     st.error("❌ Username, password, atau role tidak sesuai.")
@@ -1172,9 +1172,8 @@ Jl. Veteran no 64B Blitar Kota<br>
 Blitar 66111<br>
 <b>081331808585</b>
 </div>
-<div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px; color: #555;">
-<span>{tgl_today} <span id="clock_kasir_realtime"></span></span>
-<b style="color: #222;">{kasir_nama}</b>
+<div style="margin-bottom: 10px; font-size: 12px; color: #555; text-align: left;">
+{tgl_today} <span id="clock_kasir_realtime"></span> &nbsp;&nbsp; <b>Kasir: {kasir_nama}</b>
 </div>
 <div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
 {items_html}
@@ -1226,9 +1225,8 @@ updateClock();
                     081331808585
                 </div>
                 <div class="border-dash"></div>
-                <div class="flex-between">
-                    <span>{tgl_today} {datetime.now().strftime('%H:%M:%S')}</span>
-                    <span><b>{kasir_nama}</b></span>
+                <div style="margin-bottom: 8px;">
+                    {tgl_today} {datetime.now().strftime('%H:%M:%S')} &nbsp;&nbsp; <b>Kasir: {kasir_nama}</b>
                 </div>
                 <div class="border-dash"></div>
                 {items_html}
