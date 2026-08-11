@@ -644,7 +644,6 @@ if menu == "🏠 Dashboard":
         with col_low:
             st.markdown("#### 📉 Stok Menipis (≤ 20)")
             
-            # FITUR PENCARIAN STOK MENIPIS
             cari_low = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_low", placeholder="Cari obat stok menipis...")
             
             stok_df = all_items_df.copy()
@@ -669,7 +668,6 @@ if menu == "🏠 Dashboard":
         with col_exp:
             st.markdown("#### ⏰ Segera Kadaluarsa (≤30 hari)")
             
-            # FITUR PENCARIAN SEGERA KADALUARSA
             cari_exp = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_exp", placeholder="Cari obat segera kadaluarsa...")
             
             exp_df = exp_soon_df.copy()
@@ -681,7 +679,6 @@ if menu == "🏠 Dashboard":
             if exp_df.empty:
                 st.success("Tidak ada obat yang mendekati tanggal kadaluarsa atau yang cocok dengan pencarian.")
             else:
-                # Kolom Nomor Batch ditambahkan agar pencarian berdasarkan batch terlihat jelas
                 exp_show = exp_df[["Nama produk", "Worksheet", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa"]].copy()
                 exp_show["Tanggal Kadaluwarsa"] = exp_show["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(
@@ -1022,8 +1019,9 @@ elif menu == "🛒 Kasir Utama":
         if available_items.empty:
             st.info("Tidak ada obat dengan stok tersedia (>0).")
         else:
+            # ── PERUBAHAN LABEL: Disingkat menjadi "Nama | Satuan | Stok" ──
             available_items["Label"] = available_items.apply(
-                lambda x: f"Nama: {str(x['Nama produk']).strip()} | Batch: {str(x['Nomor Batch']).strip() if pd.notna(x['Nomor Batch']) and str(x['Nomor Batch']).strip() != '' else '-'} | Faktur: {str(x['Nomor Faktur']).strip() if pd.notna(x['Nomor Faktur']) and str(x['Nomor Faktur']).strip() != '' else '-'} | Exp: {x['Tanggal Kadaluwarsa'].strftime('%d-%m-%Y') if pd.notna(x['Tanggal Kadaluwarsa']) else '-'} | Sisa: {int(x['Stok Sisa'])} ({str(x['Worksheet']).strip()})",
+                lambda x: f"{str(x['Nama produk']).strip()} | {str(x['Satuan']).strip() if pd.notna(x['Satuan']) and str(x['Satuan']).strip() != '' else str(x['Worksheet']).strip()} | Stok: {int(x['Stok Sisa'])}",
                 axis=1
             )
 
