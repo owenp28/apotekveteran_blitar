@@ -509,7 +509,7 @@ if not st.session_state.logged_in:
                     st.session_state.logged_in = True
                     st.session_state.role      = role_pilih
                     st.session_state.username  = uname
-                    st.session_state.main_menu = "🏠 Dashboard" # Otomatis redirect ke home
+                    st.session_state.target_menu = "🏠 Dashboard" # Otomatis redirect ke home
                     st.rerun()
                 else:
                     st.error("❌ Username, password, atau role tidak sesuai.")
@@ -586,11 +586,23 @@ else:
         "🕒 Sesi Shift"
     ]
 
-# Setup session state key untuk mengatur perpindahan menu secara otomatis
-if "main_menu" not in st.session_state:
-    st.session_state.main_menu = _menu_options[0]
+# Sistem pengalihan halaman (Redirect) untuk menghindari StreamlitAPIException
+if "target_menu" in st.session_state:
+    target = st.session_state.target_menu
+    del st.session_state.target_menu
+    if target in _menu_options:
+        st.session_state.current_menu = target
 
-menu = st.sidebar.radio("Pilih Fitur", _menu_options, key="main_menu")
+if "current_menu" not in st.session_state:
+    st.session_state.current_menu = _menu_options[0]
+
+try:
+    menu_idx = _menu_options.index(st.session_state.current_menu)
+except ValueError:
+    menu_idx = 0
+
+menu = st.sidebar.radio("Pilih Fitur", _menu_options, index=menu_idx)
+st.session_state.current_menu = menu
 
 if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.logged_in = False
@@ -600,8 +612,8 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.active_shift_context = {
         "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
     }
-    if "main_menu" in st.session_state:
-        del st.session_state["main_menu"]
+    if "current_menu" in st.session_state:
+        del st.session_state["current_menu"]
     st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1005,7 +1017,7 @@ elif menu == "🛒 Kasir Utama":
     if not st.session_state.shift_active:
         st.warning("⚠️ Anda belum membuka shift! Buka shift terlebih dahulu agar transaksi kasir dapat direkap dengan benar ke dalam sistem.")
         if st.button("🕒 Menuju Halaman Buka Shift", type="primary"):
-            st.session_state.main_menu = "🕒 Sesi Shift"
+            st.session_state.target_menu = "🕒 Sesi Shift"
             st.rerun()
         st.stop()
 
@@ -1884,7 +1896,7 @@ elif menu == "🕒 Sesi Shift":
             st.session_state.active_shift_context["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             st.session_state.active_shift_context["user_name"] = nama_user_buka
             st.session_state.active_shift_context["shift_name"] = shift_pilih_buka
-            st.session_state.main_menu = "🛒 Kasir Utama"
+            st.session_state.target_menu = "🛒 Kasir Utama"
             st.rerun()
 
     else:
@@ -1892,6 +1904,7 @@ elif menu == "🕒 Sesi Shift":
         st.info("Masukkan saldo fisik kasir. Jika terdapat selisih, mohon berikan keterangan pada kolom Catatan.")
 
         nama_user = st.session_state.active_shift_context["user_name"]
+        waktu_mulai = st.session_state.active_shift_context["start_time"]
         saldo_awal_context = st.session_state.active_shift_context["saldo_awal"]
         penjualan_sistem = st.session_state.active_shift_context["accumulated_sales_expected"]
         
@@ -1958,7 +1971,7 @@ elif menu == "🕒 Sesi Shift":
             st.session_state.active_shift_context = {
                 "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
             }
-            st.session_state.main_menu = "🏠 Dashboard"
+            st.session_state.target_menu = "🏠 Dashboard"
             st.success("✅ Shift berhasil ditutup. Data tercatat dengan aman.")
             st.rerun()
 
