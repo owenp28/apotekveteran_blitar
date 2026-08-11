@@ -23,7 +23,7 @@ st.markdown(
     /* Mengurangi padding di bagian atas sidebar */
     [data-testid="stSidebar"] > div:first-child { padding-top: 2rem !important; }
     
-    /* PERBAIKAN: Memberikan ruang di atas agar judul tidak terpotong */
+    /* Mengurangi margin di bagian atas konten utama */
     .block-container { padding-top: 3rem !important; padding-bottom: 2rem !important; padding-left: 20px !important; padding-right: 20px !important; }
     
     /* ── Header Aplikasi ────────────────────────────────────────────────────── */
@@ -1109,10 +1109,11 @@ elif menu == "🛒 Kasir Utama":
                             st.success(f"{nama_obat} ({jumlah} {satuan_jual}) ditambah ke nota!")
 
                 if st.session_state.cart:
-                    st.markdown("**🧾 Item dalam keranjang:**")
+                    st.markdown("---")
+                    st.markdown("#### 🛒 Rincian Keranjang")
                     for i, item in enumerate(st.session_state.cart):
-                        c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
-                        c1.write(f"{item['nama']} ({item['skema_harga']})")
+                        c1, c2, c3, c4 = st.columns([4, 2, 2, 2])
+                        c1.write(f"**{item['nama']}**")
                         c2.write(f"x{item['qty']} {item['satuan_jual']}")
                         c3.write(format_rupiah(item['subtotal']))
                         with c4:
@@ -1132,22 +1133,23 @@ elif menu == "🛒 Kasir Utama":
                                     st.session_state.cart.pop(i)
                                     st.rerun()
                     st.markdown("")
-                    if st.button("✅ Selesai Menambah Item", type="primary"):
+                    if st.button("✅ Lanjut ke Pembayaran", type="primary", use_container_width=True):
                         st.session_state.checkout_mode = True
                         st.rerun()
             else:
-                st.info(f"🛒 {len(st.session_state.cart)} item dalam keranjang. Masukkan nominal bayar.")
-                bayar_input = st.number_input("Nominal Bayar (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
+                st.info(f"🛒 **{len(st.session_state.cart)} item** dalam keranjang. Silakan masukkan nominal bayar.")
+                bayar_input = st.number_input("Nominal Bayar Uang Fisik (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
                 st.session_state.bayar_tunai = bayar_input
 
+                st.markdown("<br>", unsafe_allow_html=True)
                 col_teliti, col_submit = st.columns(2)
                 with col_teliti:
-                    if st.button("🔍 Teliti Kembali", type="secondary", use_container_width=True):
+                    if st.button("🔍 Teliti Kembali Keranjang", type="secondary", use_container_width=True):
                         st.session_state.checkout_mode = False
                         st.session_state.nota_confirmed = False
                         st.rerun()
                 with col_submit:
-                    if st.button("✅ Submit Pembayaran", type="primary", use_container_width=True):
+                    if st.button("✅ Konfirmasi Pembayaran", type="primary", use_container_width=True):
                         if st.session_state.bayar_tunai <= 0:
                             st.error("Nominal bayar harus diisi!")
                         else:
@@ -1165,43 +1167,35 @@ elif menu == "🛒 Kasir Utama":
 
             items_html = ""
             for item in st.session_state.cart:
-                items_html += f"""
-                <div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>
-                    <span style='flex: 2;'>{item['qty']} {item['nama']}</span>
-                    <span style='flex: 1; text-align: center;'>{format_rupiah(item['harga_per_satuan'])}</span>
-                    <span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span>
-                </div>
-                """
+                items_html += f"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'><span style='flex: 2; text-align: left;'>{item['qty']} {item['nama']}</span><span style='flex: 1; text-align: center;'>{format_rupiah(item['harga_per_satuan'])}</span><span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span></div>"
 
-            nota_html = f"""
-            <div style="font-family: monospace; font-size: 13px; border: 1px solid #ccc;
-                        padding: 16px; border-radius: 8px; max-width: 360px;">
-                <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px;">
-                    <b style="font-size: 15px;">APOTEK VETERAN SEHAT BLITAR</b><br>
-                    Jl. Veteran no 64B Blitar Kota<br> 
-                    (Sebelah Gang Srigading)<br> 
-                    Blitar 66111<br>
-                    <b>081331808585</b>
-                </div>
-                <div style="margin: 10px 0; font-size: 12px;">
-                    {tgl_nota}<br>
-                    -------------------------------------
-                </div>
-                {items_html}
-                <div style="border-top: 1px dashed #000; margin-top: 10px; padding-top: 5px;">
-                    <div style='display: flex; justify-content: space-between;'><b>Total</b> <b>{format_rupiah(total_belanja)}</b></div>
-                    <div style='display: flex; justify-content: space-between;'>Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
-                    <div style='display: flex; justify-content: space-between;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
-                </div>
-                <div style="text-align: center; margin-top: 20px; font-size: 10px;">
-                    - Belanja tanpa struk/nota gratis -<br>
-                    - Harga sudah termasuk PPN -
-                </div>
-            </div>
-            """
+            nota_html = f"""<div style="font-family: 'Courier New', Courier, monospace; font-size: 13px; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto; background-color: #f8f9fa; color: #333; box-shadow: 0px 4px 12px rgba(0,0,0,0.1);">
+<div style="text-align: center; border-bottom: 1px dashed #666; padding-bottom: 10px; margin-bottom: 10px;">
+<b style="font-size: 16px; color: #222;">APOTEK VETERAN SEHAT BLITAR</b><br>
+Jl. Veteran no 64B Blitar Kota<br> 
+(Sebelah Gang Srigading)<br> 
+Blitar 66111<br>
+<b>081331808585</b>
+</div>
+<div style="margin-bottom: 10px; font-size: 12px; color: #555;">
+{tgl_nota}<br>
+</div>
+<div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
+{items_html}
+<div style="border-top: 1px dashed #666; margin-top: 10px; padding-top: 10px;">
+<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'><b style="font-size: 14px; color: #222;">Total</b> <b style="font-size: 14px; color: #e94560;">{format_rupiah(total_belanja)}</b></div>
+<div style='display: flex; justify-content: space-between; margin-bottom: 4px; color: #444;'>Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
+<div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
+</div>
+<div style="text-align: center; margin-top: 20px; font-size: 11px; color: #777;">
+- Belanja tanpa struk/nota gratis -<br>
+- Harga sudah termasuk PPN -
+</div>
+</div>"""
+            
             st.markdown(nota_html, unsafe_allow_html=True)
 
-            st.markdown("")
+            st.markdown("<br>", unsafe_allow_html=True)
             if st.session_state.nota_confirmed:
                 col_simpan, col_reset = st.columns(2)
                 with col_simpan:
@@ -1269,14 +1263,14 @@ elif menu == "🛒 Kasir Utama":
                         st.success("✅ Transaksi berhasil disimpan! Stok Excel dan Saldo Shift sudah diperbarui secara real-time.")
                         st.rerun()
                 with col_reset:
-                    if st.button("🗑️ Kosongkan Keranjang", type="secondary", use_container_width=True):
+                    if st.button("🗑️ Batalkan & Kosongkan Keranjang", type="secondary", use_container_width=True):
                         st.session_state.cart = []
                         st.session_state.checkout_mode = False
                         st.session_state.bayar_tunai = 0
                         st.session_state.nota_confirmed = False
                         st.rerun()
             else:
-                if st.button("🗑️ Kosongkan Keranjang", type="secondary"):
+                if st.button("🗑️ Batalkan & Kosongkan Keranjang", type="secondary"):
                     st.session_state.cart = []
                     st.session_state.checkout_mode = False
                     st.session_state.bayar_tunai = 0
@@ -1284,7 +1278,7 @@ elif menu == "🛒 Kasir Utama":
                     st.rerun()
 
         else:
-            st.info("Keranjang kosong. Tambahkan obat dari form di sebelah kiri.")
+            st.info("Keranjang masih kosong. Tambahkan obat dari form di sebelah kiri.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR BERSAMA — RETUR & ENTRY
@@ -1935,6 +1929,7 @@ elif menu == "🕒 Sesi Shift":
 
             st.info("💡 Langkah 2: Verifikasi rekapitulasi sistem. Pastikan data sesuai sebelum melakukan submit final.")
 
+            st.markdown("#### 🔒 Rekapitulasi Sistem (Auto-Lock)")
             render_row_erp("Saldo Awal", val_num=saldo_awal_context, disabled=True, widget="number", key_suffix="ts_awal")
             render_row_erp("Hasil Penjualan", val_num=penjualan_sistem, disabled=True, widget="number", key_suffix="ts_jual")
             render_row_erp("Total Pendapatan", val_num=total_pendapatan_calc, disabled=True, widget="number", key_suffix="ts_pendapatan")
@@ -1943,6 +1938,7 @@ elif menu == "🕒 Sesi Shift":
             render_row_erp("Selisih Saldo", val_num=selisih_calc, disabled=True, widget="number", key_suffix="ts_selisih")
 
             st.markdown("---")
+            st.markdown("#### ✍️ Keterangan Tambahan")
             diserahkan_kepada_opsi = ["Ivonne", "Dian", "Julia"]
             diserahkan_kepada = render_row_erp("Diserahkan Kepada", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="ts_serah")
             catatan = render_row_erp("Catatan", disabled=False, widget="text", key_suffix="ts_catatan")
