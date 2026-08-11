@@ -1172,7 +1172,7 @@ Blitar 66111<br>
 <b>081331808585</b>
 </div>
 <div style="margin-bottom: 10px; font-size: 12px; color: #555; text-align: left;">
-{tgl_today} {datetime.now().strftime('%H:%M:%S')} &nbsp;&nbsp; {kasir_nama}
+{tgl_today} {datetime.now().strftime('%H:%M:%S')} &nbsp;&nbsp;{kasir_nama}
 </div>
 <div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
 {items_html}
@@ -1225,7 +1225,7 @@ updateClock();
                 </div>
                 <div class="border-dash"></div>
                 <div style="margin-bottom: 8px; text-align: left;">
-                    {tgl_today} {datetime.now().strftime('%H:%M:%S')} &nbsp;&nbsp; {kasir_nama}
+                    {tgl_today} {datetime.now().strftime('%H:%M:%S')} &nbsp;&nbsp;{kasir_nama}
                 </div>
                 <div class="border-dash"></div>
                 {items_html}
