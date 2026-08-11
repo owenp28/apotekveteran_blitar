@@ -470,7 +470,8 @@ def get_available_sheets():
 USERS = {
     "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
     "karyawan1@gmail.com": {"password": "karyawan1", "role": "Kasir", "name": "Dian"},
-    "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Julia"}
+    "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Julia"},
+    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Kasir"},
 }
 
 if "logged_in" not in st.session_state:
@@ -1044,6 +1045,20 @@ elif menu == "🛒 Kasir Utama":
 
     with col_input:
         st.subheader("🛒 Input Penjualan")
+        
+        # DROPDOWN PILIH KASIR YANG BERTUGAS
+        if st.session_state.role == "Admin":
+            pilihan_kasir = ["Ivonne", "Dian", "Julia"]
+        else:
+            pilihan_kasir = ["Dian", "Julia"]
+            
+        current_kasir = st.session_state.active_shift_context.get("user_name", "")
+        if current_kasir not in pilihan_kasir:
+            current_kasir = pilihan_kasir[0]
+            
+        kasir_aktif = st.selectbox("👩‍💻 Pilih Kasir yang Bertugas:", pilihan_kasir, index=pilihan_kasir.index(current_kasir))
+        st.session_state.active_shift_context["user_name"] = kasir_aktif
+        
         st.caption("Penjualan memotong stok secara real-time dari Dataset Excel berdasarkan Worksheet dan Batch.")
 
         available_items = all_items_df[all_items_df["Stok Sisa"].fillna(0) > 0].copy()
@@ -1155,8 +1170,9 @@ elif menu == "🛒 Kasir Utama":
             total_belanja = sum(item["subtotal"] for item in st.session_state.cart)
             bayar_tunai = st.session_state.bayar_tunai if st.session_state.nota_confirmed else 0
             kembali = bayar_tunai - total_belanja
-            tgl_today = datetime.now().strftime("%d/%m/%Y")
-            kasir_nama = st.session_state.active_shift_context.get("user_name", USERS.get(st.session_state.get("username", ""), {}).get("name", ""))
+            
+            tgl_jam_today = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            kasir_nama_nota = st.session_state.active_shift_context.get("user_name", "")
 
             items_html = ""
             for item in st.session_state.cart:
@@ -1171,7 +1187,7 @@ Blitar 66111<br>
 <b>081331808585</b>
 </div>
 <div style="margin-bottom: 10px; font-size: 12px; color: #555; text-align: left;">
-{tgl_today} <span id="clock_kasir_realtime"></span> {kasir_nama}
+{tgl_jam_today} {kasir_nama_nota}
 </div>
 <div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
 {items_html}
@@ -1184,26 +1200,7 @@ Blitar 66111<br>
 - Belanja tanpa struk/nota gratis -<br>
 - Harga sudah termasuk PPN -
 </div>
-</div>
-<script>
-function updateClock() {{
-    var d = new Date();
-    var h = String(d.getHours()).padStart(2, '0');
-    var m = String(d.getMinutes()).padStart(2, '0');
-    var s = String(d.getSeconds()).padStart(2, '0');
-    var timeStr = h + ":" + m + ":" + s;
-    var el1 = document.getElementById('clock_kasir_realtime');
-    if (el1) {{ el1.innerHTML = timeStr; }}
-    
-    var parentDoc = window.parent.document;
-    if (parentDoc) {{
-        var el2 = parentDoc.getElementById('clock_kasir_realtime');
-        if (el2) {{ el2.innerHTML = timeStr; }}
-    }}
-}}
-setInterval(updateClock, 1000);
-updateClock();
-</script>"""
+</div>"""
             
             st.markdown(nota_html, unsafe_allow_html=True)
 
@@ -1229,7 +1226,7 @@ updateClock();
                 </div>
                 <div class="border-dash"></div>
                 <div style="margin-bottom: 8px; text-align: left;">
-                    {tgl_today} <span id="clock_print_realtime"></span> {kasir_nama}
+                    {tgl_jam_today} {kasir_nama_nota}
                 </div>
                 <div class="border-dash"></div>
                 {items_html}
@@ -1246,18 +1243,6 @@ updateClock();
             <div class="text-center">
                 <button onclick="window.print()" style="padding: 6px 15px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
             </div>
-            <script>
-            function updatePrintClock() {{
-                var d = new Date();
-                var h = String(d.getHours()).padStart(2, '0');
-                var m = String(d.getMinutes()).padStart(2, '0');
-                var s = String(d.getSeconds()).padStart(2, '0');
-                var el = document.getElementById('clock_print_realtime');
-                if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
-            }}
-            setInterval(updatePrintClock, 1000);
-            updatePrintClock();
-            </script>
             </body></html>
             """
             
@@ -1326,7 +1311,6 @@ updateClock();
                         st.session_state.inventory_data_cache = workbook_data
                         save_inventory_workbook(workbook_data)
                         
-                        # LOGIC SHIFT : Akumulasi otomatis hasil penjualan dari sistem 
                         if st.session_state.shift_active:
                             st.session_state.active_shift_context["accumulated_sales_expected"] += total_belanja
                         
