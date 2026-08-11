@@ -1172,7 +1172,7 @@ Blitar 66111<br>
 <b>081331808585</b>
 </div>
 <div style="margin-bottom: 10px; font-size: 12px; color: #555; text-align: left;">
-{tgl_today} {datetime.now().strftime('%H:%M:%S')} &nbsp;&nbsp;{kasir_nama}
+{tgl_today} <span id="clock_kasir_realtime"></span> {kasir_nama}
 </div>
 <div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
 {items_html}
@@ -1192,8 +1192,16 @@ function updateClock() {{
     var h = String(d.getHours()).padStart(2, '0');
     var m = String(d.getMinutes()).padStart(2, '0');
     var s = String(d.getSeconds()).padStart(2, '0');
-    var el = document.getElementById('clock_kasir_realtime');
-    if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
+    
+    var timeStr = h + ":" + m + ":" + s;
+    var el1 = document.getElementById('clock_kasir_realtime');
+    if (el1) {{ el1.innerHTML = timeStr; }}
+    
+    var parentDoc = window.parent.document;
+    if (parentDoc) {{
+        var el2 = parentDoc.getElementById('clock_kasir_realtime');
+        if (el2) {{ el2.innerHTML = timeStr; }}
+    }}
 }}
 setInterval(updateClock, 1000);
 updateClock();
@@ -1201,10 +1209,8 @@ updateClock();
             
             st.markdown(nota_html, unsafe_allow_html=True)
 
-            # FITUR BARU: CETAK NOTA LANGSUNG KE PRINTER
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # HTML khusus cetak tanpa tampilan aplikasi
             html_printable_nota = f"""
             <html><head>
             <title>Cetak Struk Nota - Apotek Veteran Blitar</title>
@@ -1225,7 +1231,7 @@ updateClock();
                 </div>
                 <div class="border-dash"></div>
                 <div style="margin-bottom: 8px; text-align: left;">
-                    {tgl_today} {datetime.now().strftime('%H:%M:%S')} &nbsp;&nbsp;{kasir_nama}
+                    {tgl_today} <span id="clock_print_realtime"></span> {kasir_nama}
                 </div>
                 <div class="border-dash"></div>
                 {items_html}
@@ -1235,14 +1241,25 @@ updateClock();
                 <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
                 <div class="border-dash"></div>
                 <div class="text-center" style="font-size: 10px;">
-                    - Belanja tanpa struk atau nota, gratis -<br>
-                    - Harga sudah termasuk dalam PPN -
+                    - Terima Kasih Semoga Lekas Sembuh -
                 </div>
             </div>
             <br>
             <div class="text-center">
                 <button onclick="window.print()" style="padding: 6px 15px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
             </div>
+            <script>
+            function updatePrintClock() {{
+                var d = new Date();
+                var h = String(d.getHours()).padStart(2, '0');
+                var m = String(d.getMinutes()).padStart(2, '0');
+                var s = String(d.getSeconds()).padStart(2, '0');
+                var el = document.getElementById('clock_print_realtime');
+                if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
+            }}
+            setInterval(updatePrintClock, 1000);
+            updatePrintClock();
+            </script>
             </body></html>
             """
             
