@@ -139,7 +139,7 @@ def load_shift_log():
         return pd.read_csv(SHIFT_LOG_PATH)
     else:
         return pd.DataFrame(columns=[
-            "Waktu Buka", "Waktu Tutup", "Pilih Shift", "Nama Kasir", "Saldo Awal", 
+            "Waktu Buka", "Waktu Tutup", "Shift", "Nama Kasir", "Saldo Awal", 
             "Hasil Penjualan", "Piutang", "Pendapatan Jurnal", "Total Pendapatan",
             "Retur Penjualan", "Pengeluaran Jurnal", "Total Pengeluaran",
             "Saldo Akhir", "Fisik Kasir", "Selisih", "Diserahkan Ke", "Nama Penyerah", "Catatan"
@@ -430,7 +430,6 @@ def build_inventory_print_dataframe():
 
     combined_df = pd.concat(frames, ignore_index=True)
     
-    # Amankan kolom Worksheet agar tidak ikut terbuang saat normalisasi
     worksheet_series = combined_df["Worksheet"].copy()
     combined_df = normalize_inventory_df(combined_df)
     combined_df["Worksheet"] = worksheet_series
@@ -438,9 +437,9 @@ def build_inventory_print_dataframe():
     return combined_df
 
 
-def build_rtf_export(df):
+def build_rtf_export(df, title="Laporan Stok Obat — Apotek Veteran Blitar"):
     lines = ["{\\rtf1\\ansi\\deff0", "{\\fonttbl\\f0\\fswiss Arial;}", "\\viewkind4\\uc1"]
-    lines.append("\\pard\\plain\\f0\\fs20 Laporan Stok Obat — Apotek Veteran Blitar\\par")
+    lines.append(f"\\pard\\plain\\f0\\fs20 {title}\\par")
     lines.append("\\pard\\plain\\f0\\fs18\\b " + "\\tab".join(str(col) for col in df.columns) + "\\par")
     for _, row in df.iterrows():
         row_text = "\\tab".join(str(v) if pd.notna(v) else "" for v in row.tolist())
@@ -552,11 +551,12 @@ if "active_shift_context" not in st.session_state:
         "shift_name": "Pagi"
     }
 
-# SESSION STATE KHUSUS TUTUP SHIFT 2 LANGKAH
 if "step_tutup_shift" not in st.session_state:
     st.session_state.step_tutup_shift = 1
 if "input_saldo_kasir" not in st.session_state:
     st.session_state.input_saldo_kasir = 0.0
+if "last_shift_data" not in st.session_state:
+    st.session_state.last_shift_data = pd.DataFrame()
 
 # ── Sidebar navigasi ──────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
@@ -566,7 +566,6 @@ st.sidebar.markdown("---")
 _role = st.session_state.get("role", "Unknown")
 _username = st.session_state.get("username", "")
 
-# Mencegah KeyError jika username tidak ada di data USERS akibat error session
 if _username in USERS:
     _name = USERS[_username]["name"]
 else:
@@ -592,17 +591,22 @@ else:
         "🕒 Sesi Shift"
     ]
 
-# Sistem pengalihan halaman (Redirect) untuk menghindari StreamlitAPIException
 if "target_menu" in st.session_state:
     target = st.session_state.target_menu
     del st.session_state.target_menu
     if target in _menu_options:
-        st.session_state.main_menu = target
+        st.session_state.current_menu = target
 
-if "main_menu" not in st.session_state or st.session_state.main_menu not in _menu_options:
-    st.session_state.main_menu = _menu_options[0]
+if "current_menu" not in st.session_state:
+    st.session_state.current_menu = _menu_options[0]
 
-menu = st.sidebar.radio("Pilih Fitur", _menu_options, key="main_menu")
+try:
+    menu_idx = _menu_options.index(st.session_state.current_menu)
+except ValueError:
+    menu_idx = 0
+
+menu = st.sidebar.radio("Pilih Fitur", _menu_options, index=menu_idx)
+st.session_state.current_menu = menu
 
 if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.logged_in = False
@@ -614,6 +618,8 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     }
     st.session_state.step_tutup_shift = 1
     st.session_state.input_saldo_kasir = 0.0
+    if "current_menu" in st.session_state:
+        del st.session_state["current_menu"]
     st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -663,7 +669,6 @@ if menu == "🏠 Dashboard":
         with col_low:
             st.markdown("#### 📉 Stok Menipis (≤ 20)")
             
-            # FITUR PENCARIAN STOK MENIPIS
             cari_low = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_low", placeholder="Cari obat stok menipis...")
             
             stok_df = all_items_df.copy()
@@ -688,7 +693,6 @@ if menu == "🏠 Dashboard":
         with col_exp:
             st.markdown("#### ⏰ Segera Kadaluarsa (≤30 hari)")
             
-            # FITUR PENCARIAN SEGERA KADALUARSA
             cari_exp = st.text_input("🔍 Cari (Nama, Batch, PBF, dll)", key="cari_exp", placeholder="Cari obat segera kadaluarsa...")
             
             exp_df = exp_soon_df.copy()
@@ -700,7 +704,6 @@ if menu == "🏠 Dashboard":
             if exp_df.empty:
                 st.success("Tidak ada obat yang mendekati tanggal kadaluarsa atau yang cocok dengan pencarian.")
             else:
-                # Kolom Nomor Batch ditambahkan agar pencarian berdasarkan batch terlihat jelas
                 exp_show = exp_df[["Nama produk", "Worksheet", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa"]].copy()
                 exp_show["Tanggal Kadaluwarsa"] = exp_show["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(
@@ -1013,7 +1016,6 @@ elif menu == "🖨️ Rekap Data":
 elif menu == "🛒 Kasir Utama":
     st.title("🛒 Kasir Utama")
     
-    # PERBAIKAN UX KEAMANAN: Memastikan shift harus terbuka sebelum bisa buka kasir
     if not st.session_state.shift_active:
         st.warning("⚠️ Anda belum membuka shift! Buka shift terlebih dahulu agar transaksi kasir dapat direkap dengan benar ke dalam sistem.")
         if st.button("🕒 Menuju Halaman Buka Shift", type="primary"):
@@ -1154,12 +1156,14 @@ elif menu == "🛒 Kasir Utama":
             total_belanja = sum(item["subtotal"] for item in st.session_state.cart)
             bayar_tunai = st.session_state.bayar_tunai if st.session_state.nota_confirmed else 0
             kembali = bayar_tunai - total_belanja
-            tgl_nota = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            tgl_today = datetime.now().strftime("%d/%m/%Y")
+            kasir_nama = st.session_state.active_shift_context.get("user_name", USERS.get(st.session_state.get("username", ""), {}).get("name", "Kasir"))
 
             items_html = ""
             for item in st.session_state.cart:
                 items_html += f"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'><span style='flex: 2; text-align: left;'>{item['qty']} {item['nama']}</span><span style='flex: 1; text-align: center;'>{format_rupiah(item['harga_per_satuan'])}</span><span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span></div>"
 
+            # PERBAIKAN REVISI KLIEN: Jam real-time & Nama Kasir aktif di lingkaran hijau
             nota_html = f"""<div style="font-family: 'Courier New', Courier, monospace; font-size: 13px; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto; background-color: #f8f9fa; color: #333; box-shadow: 0px 4px 12px rgba(0,0,0,0.1);">
 <div style="text-align: center; border-bottom: 1px dashed #666; padding-bottom: 10px; margin-bottom: 10px;">
 <b style="font-size: 16px; color: #222;">APOTEK VETERAN SEHAT BLITAR</b><br>
@@ -1168,8 +1172,9 @@ Jl. Veteran no 64B Blitar Kota<br>
 Blitar 66111<br>
 <b>081331808585</b>
 </div>
-<div style="margin-bottom: 10px; font-size: 12px; color: #555;">
-{tgl_nota}<br>
+<div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px; color: #555;">
+<span>{tgl_today} <span id="clock_kasir_realtime"></span></span>
+<b style="color: #222;">{kasir_nama}</b>
 </div>
 <div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
 {items_html}
@@ -1182,9 +1187,74 @@ Blitar 66111<br>
 - Belanja tanpa struk/nota gratis -<br>
 - Harga sudah termasuk PPN -
 </div>
-</div>"""
+</div>
+<script>
+function updateClock() {{
+    var d = new Date();
+    var h = String(d.getHours()).padStart(2, '0');
+    var m = String(d.getMinutes()).padStart(2, '0');
+    var s = String(d.getSeconds()).padStart(2, '0');
+    var el = document.getElementById('clock_kasir_realtime');
+    if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
+}}
+setInterval(updateClock, 1000);
+updateClock();
+</script>"""
             
             st.markdown(nota_html, unsafe_allow_html=True)
+
+            # FITUR BARU: CETAK NOTA LANGSUNG KE PRINTER
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # HTML khusus cetak tanpa tampilan aplikasi
+            html_printable_nota = f"""
+            <html><head>
+            <title>Cetak Struk Nota - Apotek Veteran Blitar</title>
+            <style>
+              body {{ font-family: 'Courier New', Courier, monospace; font-size: 12px; margin: 10px; }}
+              .print-container {{ width: 280px; margin: 0 auto; }}
+              .text-center {{ text-align: center; }}
+              .border-dash {{ border-bottom: 1px dashed #000; margin: 8px 0; }}
+              .flex-between {{ display: flex; justify-content: space-between; margin-bottom: 3px; }}
+              @media print {{ button {{ display: none; }} }}
+            </style>
+            </head><body>
+            <div class="print-container">
+                <div class="text-center">
+                    <b>APOTEK VETERAN SEHAT BLITAR</b><br>
+                    Jl. Veteran no 64B Blitar Kota<br>
+                    081331808585
+                </div>
+                <div class="border-dash"></div>
+                <div class="flex-between">
+                    <span>{tgl_today} {datetime.now().strftime('%H:%M:%S')}</span>
+                    <span><b>{kasir_nama}</b></span>
+                </div>
+                <div class="border-dash"></div>
+                {items_html}
+                <div class="border-dash"></div>
+                <div class="flex-between"><b>Total</b> <b>{format_rupiah(total_belanja)}</b></div>
+                <div class="flex-between">Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
+                <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
+                <div class="border-dash"></div>
+                <div class="text-center" style="font-size: 10px;">
+                    - Terima Kasih Semoga Lekas Sembuh -
+                </div>
+            </div>
+            <br>
+            <div class="text-center">
+                <button onclick="window.print()" style="padding: 6px 15px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
+            </div>
+            </body></html>
+            """
+            
+            st.download_button(
+                label="🖨️ Cetak / Print Struk Nota",
+                data=html_printable_nota.encode("utf-8"),
+                file_name=f"Struk_Nota_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html",
+                mime="text/html",
+                use_container_width=True
+            )
 
             st.markdown("<br>", unsafe_allow_html=True)
             if st.session_state.nota_confirmed:
@@ -1261,7 +1331,7 @@ Blitar 66111<br>
                         st.session_state.nota_confirmed = False
                         st.rerun()
             else:
-                if st.button("🗑️ Batalkan & Kosongkan Keranjang", type="secondary"):
+                if st.button("🗑️ Batalkan & Kosongkan Keranjang", type="secondary", use_container_width=True):
                     st.session_state.cart = []
                     st.session_state.checkout_mode = False
                     st.session_state.bayar_tunai = 0
@@ -1863,7 +1933,106 @@ elif menu == "🕒 Sesi Shift":
 
     shift_options = ["Pagi", "Siang", "Sore", "Malam"]
 
-    if not st.session_state.shift_active:
+    if st.session_state.get("step_tutup_shift") == 3 and "last_shift_data" in st.session_state:
+        st.markdown("<h2 style='text-align: center; margin-bottom: 10px; color: #e0e0e0;'>Laporan Tutup Shift</h2>", unsafe_allow_html=True)
+        st.success("✅ Shift berhasil ditutup. Berikut adalah laporan data Anda.")
+        
+        df_report = st.session_state.last_shift_data.copy()
+        
+        df_preview = df_report.copy()
+        for col in ["Saldo Awal", "Hasil Penjualan", "Piutang", "Pendapatan Jurnal", "Total Pendapatan", "Retur Penjualan", "Pengeluaran Jurnal", "Total Pengeluaran", "Saldo Akhir", "Fisik Kasir", "Selisih"]:
+            if col in df_preview.columns:
+                df_preview[col] = df_preview[col].apply(lambda x: format_rupiah(x))
+                
+        st.markdown("---")
+        st.subheader("👁️ Preview Laporan Shift")
+        st.dataframe(df_preview, use_container_width=True, hide_index=True)
+        
+        st.markdown("---")
+        st.subheader("⬇️ Unduh File Laporan")
+        st.markdown("Pilih format file untuk mengunduh laporan shift ini.")
+        
+        col_d1, col_d2, col_d3, col_d4 = st.columns(4)
+        
+        csv_data = df_report.to_csv(index=False).encode("utf-8-sig")
+        col_d1.download_button(
+            label="📄 Unduh CSV", 
+            data=csv_data, 
+            file_name=f"Shift_{df_report['Nama Kasir'].iloc[0]}_{date.today()}.csv", 
+            mime="text/csv", 
+            use_container_width=True
+        )
+        
+        try:
+            xlsx_buf = io.BytesIO()
+            with pd.ExcelWriter(xlsx_buf, engine="openpyxl") as writer:
+                df_report.to_excel(writer, index=False, sheet_name="Laporan Shift")
+            col_d2.download_button(
+                label="📊 Unduh Excel (XLSX)", 
+                data=xlsx_buf.getvalue(), 
+                file_name=f"Shift_{df_report['Nama Kasir'].iloc[0]}_{date.today()}.xlsx", 
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+                use_container_width=True
+            )
+        except ImportError:
+            col_d2.info("Install `openpyxl` untuk ekspor Excel.")
+            
+        rtf_bytes = build_rtf_export(df_preview, title="Laporan Shift Apotek Veteran Blitar")
+        col_d3.download_button(
+            label="📝 Unduh RTF (Word)", 
+            data=rtf_bytes, 
+            file_name=f"Shift_{df_report['Nama Kasir'].iloc[0]}_{date.today()}.rtf", 
+            mime="application/rtf", 
+            use_container_width=True
+        )
+        
+        html_rows = ""
+        row = df_preview.iloc[0]
+        for col in df_preview.columns:
+            html_rows += f"<tr><th>{col}</th><td>{row[col]}</td></tr>"
+            
+        html_content = f"""
+        <html><head>
+        <meta charset='utf-8'>
+        <title>Laporan Shift Apotek</title>
+        <style>
+          body {{ font-family: Arial, sans-serif; font-size: 12px; margin: 20px; }}
+          h2 {{ text-align: center; margin-bottom: 5px; }}
+          .subtitle {{ text-align: center; color: #555; margin-bottom: 20px; }}
+          table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
+          th, td {{ border: 1px solid #333; padding: 6px 10px; text-align: left; }}
+          th {{ background: #2c7be5; color: white; width: 30%; }}
+          @media print {{ button {{ display: none; }} }}
+        </style>
+        </head><body>
+        <h2>Laporan Tutup Shift — Apotek Veteran Blitar</h2>
+        <div class="subtitle">Dicetak: {datetime.now().strftime('%d-%m-%Y %H:%M')}</div>
+        <table>
+          <tbody>
+             {html_rows}
+          </tbody>
+        </table>
+        <br><button onclick='window.print()' style='padding:8px 20px;background:#2c7be5;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;'>🖨️ Print / Simpan PDF</button>
+        </body></html>
+        """
+        html_bytes = html_content.encode("utf-8")
+        col_d4.download_button(
+            label="🖨️ Unduh HTML (Print/PDF)", 
+            data=html_bytes, 
+            file_name=f"Shift_{df_report['Nama Kasir'].iloc[0]}_{date.today()}.html", 
+            mime="text/html", 
+            use_container_width=True
+        )
+        
+        st.write("")
+        st.markdown("---")
+        if st.button("✅ Selesai & Kembali ke Dashboard", type="primary", use_container_width=True):
+            st.session_state.step_tutup_shift = 1
+            st.session_state.target_menu = "🏠 Dashboard"
+            del st.session_state.last_shift_data
+            st.rerun()
+
+    elif not st.session_state.shift_active:
         st.markdown("<h2 style='text-align: center; margin-bottom: 40px; color: #e0e0e0;'>Buka Shift</h2>", unsafe_allow_html=True)
         st.info("Silakan masukkan saldo awal (modal uang receh/tunai di laci) sebelum mulai melayani penjualan.")
         
@@ -1982,10 +2151,9 @@ elif menu == "🕒 Sesi Shift":
                     st.session_state.active_shift_context = {
                         "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
                     }
-                    st.session_state.step_tutup_shift = 1
+                    st.session_state.last_shift_data = new_log
+                    st.session_state.step_tutup_shift = 3
                     st.session_state.input_saldo_kasir = 0.0
-                    st.session_state.target_menu = "🏠 Dashboard"
-                    st.success("✅ Shift berhasil ditutup. Data tercatat dengan aman.")
                     st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
