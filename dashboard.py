@@ -719,7 +719,7 @@ elif menu == "📋 Kelola Stok":
     if st.session_state.role == "Admin":
         st.caption("Tampilan sederhana dan bisa diedit langsung per worksheet sesuai satuan.")
     else:
-        st.caption("Tampilan data stok obat secara Read-Only.")
+        st.caption("Tampilan data stok obat.")
 
     if "inventory_data_cache" not in st.session_state:
         st.session_state.inventory_data_cache = {}
@@ -794,7 +794,7 @@ elif menu == "📋 Kelola Stok":
     if st.session_state.role == "Admin":
         st.info("Setiap kolom dalam tabel dapat diedit langsung dengan ikon ✏️. Anda juga dapat memfilter menggunakan kotak pencarian di bawah.")
     else:
-        st.info("Cari data stok di bawah ini. Anda hanya dapat melihat data (Read-Only) untuk menghindari manipulasi.")
+        st.info("Cari data stok di bawah ini.")
         
     search_inv = st.text_input("🔍 Pencarian Baris (Nama, Batch, Faktur, PBF, dll di Worksheet ini)", placeholder="Ketik kata kunci...")
     if search_inv.strip():
