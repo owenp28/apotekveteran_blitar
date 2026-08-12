@@ -468,7 +468,7 @@ def get_available_sheets():
 # AUTENTIKASI — LOGIN & USER MAPPING
 # ══════════════════════════════════════════════════════════════════════════════
 USERS = {
-    "iponadmcantik@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
+    "iponadmcantik@gmail.com": {"password": "IponAdmCantik!", "role": "Admin", "name": "Ivonne"},
     "karyawan1@gmail.com": {"password": "karyawan1", "role": "Kasir", "name": "Dian"},
     "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Julia"}
 }
