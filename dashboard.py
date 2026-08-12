@@ -468,10 +468,9 @@ def get_available_sheets():
 # AUTENTIKASI — LOGIN & USER MAPPING
 # ══════════════════════════════════════════════════════════════════════════════
 USERS = {
-    "admin123@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
+    "iponadmcantik@gmail.com": {"password": "admin123", "role": "Admin", "name": "Ivonne"},
     "karyawan1@gmail.com": {"password": "karyawan1", "role": "Kasir", "name": "Dian"},
-    "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Julia"},
-    "kasir123@gmail.com": {"password": "kasir123", "role": "Kasir", "name": "Kasir"},
+    "karyawan2@gmail.com": {"password": "karyawan2", "role": "Kasir", "name": "Julia"}
 }
 
 if "logged_in" not in st.session_state:
@@ -1225,8 +1224,7 @@ Blitar 66111<br>
 <div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
 </div>
 <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #777;">
-- Terimakasih Atas Kunjungan Anda -<br>
-- Belanja tanpa struk/nota = Gratis -<br>
+- Belanja tanpa struk/nota gratis -<br>
 - Harga sudah termasuk PPN -
 </div>
 </div>
@@ -1247,7 +1245,7 @@ updateClock();
 </html>
 """
             
-            components.html(nota_html, height=500, scrolling=True)
+            st.components.v1.html(nota_html, height=500, scrolling=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -1281,9 +1279,7 @@ updateClock();
                 <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
                 <div class="border-dash"></div>
                 <div class="text-center" style="font-size: 10px;">
-                    - Terima Kasih Atas Kunjungan Anda -<br>
-                    - Belanja tanpa struk/nota = Gratis -<br>
-                    - Harga sudah termasuk PPN - 
+                    - Terima Kasih Semoga Lekas Sembuh -
                 </div>
             </div>
             <br>
@@ -1370,6 +1366,7 @@ updateClock();
                         st.session_state.inventory_data_cache = workbook_data
                         save_inventory_workbook(workbook_data)
                         
+                        # LOGIC SHIFT : Akumulasi otomatis hasil penjualan dari sistem 
                         if st.session_state.shift_active:
                             st.session_state.active_shift_context["accumulated_sales_expected"] += total_belanja
                         
