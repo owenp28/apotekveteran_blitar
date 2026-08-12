@@ -604,15 +604,15 @@ else:
         "🕒 Sesi Shift"
     ]
 
-# Mencegah routing bug saat reload
-if "main_menu" not in st.session_state or st.session_state.main_menu not in _menu_options:
-    st.session_state.main_menu = _menu_options[0]
-
+# Mencegah routing bug saat reload dengan mekanisme "key"
 if "target_menu" in st.session_state:
     target = st.session_state.target_menu
     del st.session_state.target_menu
     if target in _menu_options:
         st.session_state.main_menu = target
+
+if "main_menu" not in st.session_state or st.session_state.main_menu not in _menu_options:
+    st.session_state.main_menu = _menu_options[0]
 
 menu = st.sidebar.radio("Pilih Fitur", _menu_options, key="main_menu")
 
@@ -627,6 +627,8 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     }
     st.session_state.step_tutup_shift = 1
     st.session_state.input_saldo_kasir = 0.0
+    if "main_menu" in st.session_state:
+        del st.session_state["main_menu"]
     st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1253,7 +1255,7 @@ updateClock();
 </html>
 """
             
-            components.html(nota_html, height=500, scrolling=True)
+            st.components.v1.html(nota_html, height=500, scrolling=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
             
