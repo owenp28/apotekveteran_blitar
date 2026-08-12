@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import io
 import re
@@ -717,53 +716,58 @@ if menu == "🏠 Dashboard":
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
-    st.caption("Tampilan sederhana dan bisa diedit langsung per worksheet sesuai satuan.")
+    
+    if st.session_state.role == "Admin":
+        st.caption("Tampilan sederhana dan bisa diedit langsung per worksheet sesuai satuan.")
+    else:
+        st.caption("Tampilan data stok obat secara Read-Only.")
 
     if "inventory_data_cache" not in st.session_state:
         st.session_state.inventory_data_cache = {}
 
-    col_link, col_btn = st.columns([8, 2])
-    with col_link:
-        source_url = st.text_input(
-            "Link Dataset",
-            value=st.session_state.inventory_source_url,
-            placeholder="Masukkan tautan OneDrive Anda di sini...",
-            help="Contoh: link OneDrive (https://1drv.ms/x/...), Google Drive, atau URL file Excel/CSV."
+    if st.session_state.role == "Admin":
+        col_link, col_btn = st.columns([8, 2])
+        with col_link:
+            source_url = st.text_input(
+                "Link Dataset",
+                value=st.session_state.inventory_source_url,
+                placeholder="Masukkan tautan OneDrive Anda di sini...",
+                help="Contoh: link OneDrive (https://1drv.ms/x/...), Google Drive, atau URL file Excel/CSV."
+            )
+        with col_btn:
+            st.write("")
+            st.write("")
+            submit_link = st.button("📥 Submit Link", use_container_width=True)
+
+        if submit_link and source_url.strip():
+            with st.spinner("Menganalisis link dan mengunduh dataset..."):
+                st.session_state.inventory_source_url = source_url
+                success = sync_inventory_from_source(source_url)
+                if success:
+                    wb_data = load_inventory_workbook()
+                    if wb_data:
+                        st.session_state.inventory_data_cache = wb_data
+                        st.success("✅ Dataset berhasil diunduh dan dimuat!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Gagal memuat data dari file yang diunduh.")
+
+        uploaded_inventory = st.file_uploader(
+            "Atau upload file Excel/CSV langsung dari perangkat Anda:",
+            type=["xlsx", "xlsm", "csv"],
+            key="upload_inventory_source"
         )
-    with col_btn:
-        st.write("")
-        st.write("")
-        submit_link = st.button("📥 Submit Link", use_container_width=True)
 
-    if submit_link and source_url.strip():
-        with st.spinner("Menganalisis link dan mengunduh dataset..."):
-            st.session_state.inventory_source_url = source_url
-            success = sync_inventory_from_source(source_url)
-            if success:
-                wb_data = load_inventory_workbook()
-                if wb_data:
-                    st.session_state.inventory_data_cache = wb_data
-                    st.success("✅ Dataset berhasil diunduh dan dimuat!")
+        if uploaded_inventory is not None:
+            file_id = f"{uploaded_inventory.name}_{uploaded_inventory.size}"
+            if st.session_state.get("last_uploaded_file") != file_id:
+                workbook_data = load_inventory_workbook(uploaded_file=uploaded_inventory)
+                if workbook_data:
+                    st.session_state.inventory_data_cache = workbook_data
+                    save_inventory_workbook(workbook_data)
+                    st.session_state["last_uploaded_file"] = file_id
+                    st.success("✅ Data berhasil dimuat langsung dari file upload.")
                     st.rerun()
-                else:
-                    st.error("❌ Gagal memuat data dari file yang diunduh.")
-
-    uploaded_inventory = st.file_uploader(
-        "Atau upload file Excel/CSV langsung dari perangkat Anda:",
-        type=["xlsx", "xlsm", "csv"],
-        key="upload_inventory_source"
-    )
-
-    if uploaded_inventory is not None:
-        file_id = f"{uploaded_inventory.name}_{uploaded_inventory.size}"
-        if st.session_state.get("last_uploaded_file") != file_id:
-            workbook_data = load_inventory_workbook(uploaded_file=uploaded_inventory)
-            if workbook_data:
-                st.session_state.inventory_data_cache = workbook_data
-                save_inventory_workbook(workbook_data)
-                st.session_state["last_uploaded_file"] = file_id
-                st.success("✅ Data berhasil dimuat langsung dari file upload.")
-                st.rerun()
 
     workbook_data = st.session_state.inventory_data_cache
     if not workbook_data:
@@ -788,8 +792,11 @@ elif menu == "📋 Kelola Stok":
     else:
         sheet_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy())
 
-    st.info("Setiap kolom dalam tabel dapat diedit langsung dengan ikon ✏️. Anda juga dapat memfilter menggunakan kotak pencarian di bawah.")
-    
+    if st.session_state.role == "Admin":
+        st.info("Setiap kolom dalam tabel dapat diedit langsung dengan ikon ✏️. Anda juga dapat memfilter menggunakan kotak pencarian di bawah.")
+    else:
+        st.info("Cari data stok di bawah ini. Anda hanya dapat melihat data (Read-Only) untuk menghindari manipulasi.")
+        
     search_inv = st.text_input("🔍 Pencarian Baris (Nama, Batch, Faktur, PBF, dll di Worksheet ini)", placeholder="Ketik kata kunci...")
     if search_inv.strip():
         mask = sheet_df.astype(str).apply(lambda col: col.str.contains(search_inv.strip(), case=False, na=False)).any(axis=1)
@@ -797,56 +804,69 @@ elif menu == "📋 Kelola Stok":
     else:
         display_df = sheet_df.copy()
 
-    edited_display_df = st.data_editor(
-        display_df,
-        use_container_width=True,
-        num_rows="dynamic",
-        hide_index=True,
-        column_order=INVENTORY_COLUMNS,
-        column_config={
-            "Nama produk": st.column_config.TextColumn("✏️ Nama Produk", width="large"),
-            "Satuan": st.column_config.TextColumn("✏️ Satuan", width="small"),
-            "Tanggal": st.column_config.DateColumn("✏️ Tanggal", format="YYYY-MM-DD", width="medium"),
-            "Nomor Faktur": st.column_config.TextColumn("✏️ Nomor Faktur", width="medium"),
-            "Nomor Batch": st.column_config.TextColumn("✏️ Nomor Batch", width="medium"),
-            "PBF": st.column_config.TextColumn("✏️ PBF", width="medium"),
-            "Tanggal Kadaluwarsa": st.column_config.DateColumn("✏️ Tanggal Kadaluarsa", format="YYYY-MM-DD", width="medium"),
-            "Stok Masuk": st.column_config.NumberColumn("✏️ Stok Masuk", min_value=0, step=1, width="small"),
-            "Stok Keluar": st.column_config.NumberColumn("✏️ Stok Keluar", min_value=0, step=1, width="small"),
-            "Stok Sisa": st.column_config.NumberColumn("✏️ Stok Sisa", min_value=0, step=1, width="small"),
-            "Harga 1": st.column_config.NumberColumn("✏️ Harga 1", min_value=0, step=1, width="small"),
-            "Harga 2": st.column_config.NumberColumn("✏️ Harga 2", min_value=0, step=1, width="small"),
-            "Keterangan": st.column_config.TextColumn("✏️ Keterangan", width="large"),
-        },
-        key="editor_inventory_grid"
-    )
+    if st.session_state.role == "Admin":
+        edited_display_df = st.data_editor(
+            display_df,
+            use_container_width=True,
+            num_rows="dynamic",
+            hide_index=True,
+            column_order=INVENTORY_COLUMNS,
+            column_config={
+                "Nama produk": st.column_config.TextColumn("✏️ Nama Produk", width="large"),
+                "Satuan": st.column_config.TextColumn("✏️ Satuan", width="small"),
+                "Tanggal": st.column_config.DateColumn("✏️ Tanggal", format="YYYY-MM-DD", width="medium"),
+                "Nomor Faktur": st.column_config.TextColumn("✏️ Nomor Faktur", width="medium"),
+                "Nomor Batch": st.column_config.TextColumn("✏️ Nomor Batch", width="medium"),
+                "PBF": st.column_config.TextColumn("✏️ PBF", width="medium"),
+                "Tanggal Kadaluwarsa": st.column_config.DateColumn("✏️ Tanggal Kadaluarsa", format="YYYY-MM-DD", width="medium"),
+                "Stok Masuk": st.column_config.NumberColumn("✏️ Stok Masuk", min_value=0, step=1, width="small"),
+                "Stok Keluar": st.column_config.NumberColumn("✏️ Stok Keluar", min_value=0, step=1, width="small"),
+                "Stok Sisa": st.column_config.NumberColumn("✏️ Stok Sisa", min_value=0, step=1, width="small"),
+                "Harga 1": st.column_config.NumberColumn("✏️ Harga 1", min_value=0, step=1, width="small"),
+                "Harga 2": st.column_config.NumberColumn("✏️ Harga 2", min_value=0, step=1, width="small"),
+                "Keterangan": st.column_config.TextColumn("✏️ Keterangan", width="large"),
+            },
+            key="editor_inventory_grid"
+        )
 
-    if st.button("✅ Submit Data Terbaru", type="primary"):
-        workbook_data = st.session_state.inventory_data_cache
-        if not workbook_data:
-            workbook_data = load_inventory_workbook()
+        if st.button("✅ Submit Data Terbaru", type="primary"):
+            workbook_data = st.session_state.inventory_data_cache
+            if not workbook_data:
+                workbook_data = load_inventory_workbook()
+                
+            current_ws_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy())
             
-        current_ws_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy())
-        
-        existing_idx = edited_display_df.index.intersection(current_ws_df.index)
-        current_ws_df.loc[existing_idx, edited_display_df.columns] = edited_display_df.loc[existing_idx]
-        
-        new_rows = edited_display_df[~edited_display_df.index.isin(current_ws_df.index)]
-        if not new_rows.empty:
-            current_ws_df = pd.concat([current_ws_df, new_rows])
+            existing_idx = edited_display_df.index.intersection(current_ws_df.index)
+            current_ws_df.loc[existing_idx, edited_display_df.columns] = edited_display_df.loc[existing_idx]
             
-        deleted_rows = display_df.index.difference(edited_display_df.index)
-        if not deleted_rows.empty:
-            current_ws_df = current_ws_df.drop(deleted_rows)
+            new_rows = edited_display_df[~edited_display_df.index.isin(current_ws_df.index)]
+            if not new_rows.empty:
+                current_ws_df = pd.concat([current_ws_df, new_rows])
+                
+            deleted_rows = display_df.index.difference(edited_display_df.index)
+            if not deleted_rows.empty:
+                current_ws_df = current_ws_df.drop(deleted_rows)
+                
+            current_ws_df = current_ws_df.reset_index(drop=True)
+            workbook_data[sheet_name] = normalize_inventory_df(current_ws_df)
             
-        current_ws_df = current_ws_df.reset_index(drop=True)
-        workbook_data[sheet_name] = normalize_inventory_df(current_ws_df)
-        
-        success = save_inventory_workbook(workbook_data)
-        if success:
-            st.session_state.inventory_data_cache = workbook_data
-            st.success(f"✅ Perubahan pada worksheet {sheet_name} berhasil disimpan ke Excel dan diperbarui di seluruh fitur secara real-time.")
-            st.rerun()
+            success = save_inventory_workbook(workbook_data)
+            if success:
+                st.session_state.inventory_data_cache = workbook_data
+                st.success(f"✅ Perubahan pada worksheet {sheet_name} berhasil disimpan ke Excel dan diperbarui di seluruh fitur secara real-time.")
+                st.rerun()
+    else:
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            column_order=INVENTORY_COLUMNS,
+            column_config={
+                "Tanggal": st.column_config.DateColumn("Tanggal", format="YYYY-MM-DD"),
+                "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluarsa", format="YYYY-MM-DD"),
+            },
+            key="viewer_inventory_grid"
+        )
 
     st.markdown("---")
     st.subheader("📊 Ringkasan Per Worksheet")
@@ -2156,9 +2176,10 @@ elif menu == "🕒 Sesi Shift":
                     st.error("❌ Karena terdapat selisih saldo, Anda WAJIB mengisi kolom Catatan!")
                 else:
                     log_df = load_shift_log()
+                    waktu_tutup_realtime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     new_log = pd.DataFrame([{
                         "Waktu Buka": waktu_mulai,
-                        "Waktu Tutup": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "Waktu Tutup": waktu_tutup_realtime,
                         "Shift": shift_context_name,
                         "Nama Kasir": nama_user,
                         "Saldo Awal": saldo_awal_context,
