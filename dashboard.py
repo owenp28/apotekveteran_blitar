@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import io
 import re
@@ -474,11 +475,18 @@ USERS = {
 }
 
 if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+    # Pengecekan Query Params untuk mempertahankan sesi saat refresh
+    if st.query_params.get("logged_in") == "true":
+        st.session_state.logged_in = True
+        st.session_state.role = st.query_params.get("role")
+        st.session_state.username = st.query_params.get("username")
+    else:
+        st.session_state.logged_in = False
+
 if "role" not in st.session_state:
-    st.session_state.role = None
+    st.session_state.role = st.query_params.get("role", None)
 if "username" not in st.session_state:
-    st.session_state.username = ""
+    st.session_state.username = st.query_params.get("username", "")
 
 if not st.session_state.logged_in:
     col1, col2, col3 = st.columns([1, 1.2, 1])
@@ -507,6 +515,12 @@ if not st.session_state.logged_in:
                     st.session_state.logged_in = True
                     st.session_state.role      = role_pilih
                     st.session_state.username  = uname
+                    
+                    # Set query params agar tidak ter-logout saat direfresh
+                    st.query_params["logged_in"] = "true"
+                    st.query_params["role"] = role_pilih
+                    st.query_params["username"] = uname
+                    
                     st.session_state.target_menu = "🏠 Dashboard" 
                     st.rerun()
                 else:
@@ -590,35 +604,29 @@ else:
         "🕒 Sesi Shift"
     ]
 
+# Mencegah routing bug saat reload
+if "main_menu" not in st.session_state or st.session_state.main_menu not in _menu_options:
+    st.session_state.main_menu = _menu_options[0]
+
 if "target_menu" in st.session_state:
     target = st.session_state.target_menu
     del st.session_state.target_menu
     if target in _menu_options:
-        st.session_state.current_menu = target
+        st.session_state.main_menu = target
 
-if "current_menu" not in st.session_state:
-    st.session_state.current_menu = _menu_options[0]
-
-try:
-    menu_idx = _menu_options.index(st.session_state.current_menu)
-except ValueError:
-    menu_idx = 0
-
-menu = st.sidebar.radio("Pilih Fitur", _menu_options, index=menu_idx)
-st.session_state.current_menu = menu
+menu = st.sidebar.radio("Pilih Fitur", _menu_options, key="main_menu")
 
 if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.logged_in = False
     st.session_state.role      = None
     st.session_state.username  = ""
+    st.query_params.clear() # Bersihkan token sesi
     st.session_state.shift_active = False
     st.session_state.active_shift_context = {
         "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
     }
     st.session_state.step_tutup_shift = 1
     st.session_state.input_saldo_kasir = 0.0
-    if "current_menu" in st.session_state:
-        del st.session_state["current_menu"]
     st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -719,7 +727,7 @@ elif menu == "📋 Kelola Stok":
     if st.session_state.role == "Admin":
         st.caption("Tampilan sederhana dan bisa diedit langsung per worksheet sesuai satuan.")
     else:
-        st.caption("Tampilan data stok obat.")
+        st.caption("Tampilan data stok obat secara Read-Only.")
 
     if "inventory_data_cache" not in st.session_state:
         st.session_state.inventory_data_cache = {}
@@ -794,7 +802,7 @@ elif menu == "📋 Kelola Stok":
     if st.session_state.role == "Admin":
         st.info("Setiap kolom dalam tabel dapat diedit langsung dengan ikon ✏️. Anda juga dapat memfilter menggunakan kotak pencarian di bawah.")
     else:
-        st.info("Cari data stok di bawah ini.")
+        st.info("Cari data stok di bawah ini. Anda hanya dapat melihat data (Read-Only) untuk menghindari manipulasi.")
         
     search_inv = st.text_input("🔍 Pencarian Baris (Nama, Batch, Faktur, PBF, dll di Worksheet ini)", placeholder="Ketik kata kunci...")
     if search_inv.strip():
@@ -1224,9 +1232,8 @@ Blitar 66111<br>
 <div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
 </div>
 <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #777;">
-- Terima Kasih Atas Kunjungan Anda -<br>
-- Belanja Tanpa Struk/Nota = Gratis -<br>
-- Harga Sudah Termasuk PPN -
+- Belanja tanpa struk/nota gratis -<br>
+- Harga sudah termasuk PPN -
 </div>
 </div>
 <script>
@@ -1246,7 +1253,7 @@ updateClock();
 </html>
 """
             
-            st.components.v1.html(nota_html, height=500, scrolling=True)
+            components.html(nota_html, height=500, scrolling=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -1280,9 +1287,7 @@ updateClock();
                 <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
                 <div class="border-dash"></div>
                 <div class="text-center" style="font-size: 10px;">
-                    - Terima Kasih Atas Kunjungan Anda -<br>
-                    - Belanja Tanpa Struk/Nota = Gratis -<br>
-                    - Harga Sudah Termasuk PPN -
+                    - Terima Kasih Semoga Lekas Sembuh -
                 </div>
             </div>
             <br>
@@ -1369,7 +1374,6 @@ updateClock();
                         st.session_state.inventory_data_cache = workbook_data
                         save_inventory_workbook(workbook_data)
                         
-                        # LOGIC SHIFT : Akumulasi otomatis hasil penjualan dari sistem 
                         if st.session_state.shift_active:
                             st.session_state.active_shift_context["accumulated_sales_expected"] += total_belanja
                         
