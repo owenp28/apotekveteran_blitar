@@ -1225,7 +1225,8 @@ Blitar 66111<br>
 <div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
 </div>
 <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #777;">
-- Belanja tanpa struk/nota gratis -<br>
+- Terimakasih Atas Kunjungan Anda -<br>
+- Belanja tanpa struk/nota = Gratis -<br>
 - Harga sudah termasuk PPN -
 </div>
 </div>
@@ -1280,7 +1281,9 @@ updateClock();
                 <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
                 <div class="border-dash"></div>
                 <div class="text-center" style="font-size: 10px;">
-                    - Terima Kasih Semoga Lekas Sembuh -
+                    - Terima Kasih Atas Kunjungan Anda -<br>
+                    - Belanja tanpa struk/nota = Gratis -<br>
+                    - Harga sudah termasuk PPN - 
                 </div>
             </div>
             <br>
