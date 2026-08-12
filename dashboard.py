@@ -727,16 +727,16 @@ elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
     
     if st.session_state.role == "Admin":
-        st.caption("Tampilan sederhana dan bisa diedit langsung per worksheet sesuai satuan.")
+        st.caption("Pilih tab Edit Stok untuk mengelola data per worksheet, atau tab Stok Opname untuk pencocokan fisik.")
     else:
         st.caption("Tampilan data stok obat secara Read-Only.")
 
     if "inventory_data_cache" not in st.session_state:
         st.session_state.inventory_data_cache = {}
 
-    # Memecah menjadi 2 Tab
     tab_edit, tab_opname = st.tabs(["✏️ Edit Stok", "📦 Stok Opname Obat"])
 
+    # ── TAB 1: EDIT STOK ──────────────────────────────────────────────────────
     with tab_edit:
         if st.session_state.role == "Admin":
             col_link, col_btn = st.columns([8, 2])
@@ -900,149 +900,188 @@ elif menu == "📋 Kelola Stok":
                         df_render[col] = df_render[col].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(df_render, use_container_width=True, hide_index=True)
 
+
+    # ── TAB 2: STOK OPNAME ────────────────────────────────────────────────────
     with tab_opname:
         st.markdown("<h3 style='color: #e94560;'>📦 Stok Opname Obat</h3>", unsafe_allow_html=True)
-        st.caption("Fitur untuk melakukan cek silang fisik barang vs data komputer. Silakan pilih gudang, sesuaikan kolom **Stok Nyata Terkecil** dan **Stok Expired Terkecil**, lalu tekan tombol Proses.")
-        
-        col_file, col_btn_file = st.columns([3, 1])
-        with col_file:
-            uploaded_opname = st.file_uploader("Import file excel/csv stok opname...", type=["xlsx", "csv"], label_visibility="collapsed")
-        with col_btn_file:
-            st.button("📥 Import Stok Opname", use_container_width=True)
-            
-        st.markdown("<br>", unsafe_allow_html=True)
-        col_gudang, col_proses, col_reset = st.columns([3, 1.5, 1.5])
-        with col_gudang:
-            AVAILABLE_SHEETS = get_available_sheets()
-            pilih_gudang = st.selectbox("Pilih Gudang (Worksheet/Lokasi)", ["Semua Gudang"] + AVAILABLE_SHEETS, label_visibility="collapsed")
-        with col_proses:
-            btn_proses = st.button("✅ Proses", use_container_width=True, type="primary")
-        with col_reset:
-            btn_reset = st.button("🔄 Reset", use_container_width=True)
-            
-        st.markdown("<br>", unsafe_allow_html=True)
-        cari_opname = st.text_input("🔍 Cari menu...", placeholder="Cari obat, no batch, dll...")
-        
-        if "opname_data" not in st.session_state or btn_reset or st.session_state.get("last_gudang") != pilih_gudang:
-            df_inv = build_inventory_print_dataframe()
-            if df_inv is not None and not df_inv.empty:
-                if pilih_gudang != "Semua Gudang":
-                    df_inv = df_inv[df_inv["Worksheet"] == pilih_gudang]
-                
-                opname_df = df_inv[["Worksheet", "Nama produk", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa", "Satuan"]].copy()
-                opname_df.rename(columns={
-                    "Worksheet": "Lokasi", 
-                    "Nama produk": "Nama Obat", 
-                    "Nomor Batch": "No. Batch", 
-                    "Tanggal Kadaluwarsa": "Tanggal Expired", 
-                    "Stok Sisa": "Stok Satuan Terkecil",
-                    "Satuan": "Satuan Terkecil"
-                }, inplace=True)
-                
-                opname_df["Kode Obat"] = ["OBT" + str(10000000 + i) for i in range(len(opname_df))] # Auto-generated Kode
-                opname_df["Stok Nyata Terkecil"] = 0.00
-                opname_df["Stok Expired Terkecil"] = 0.00
-                
-                # Mengurutkan urutan kolom
-                opname_df = opname_df[["Kode Obat", "Nama Obat", "Lokasi", "No. Batch", "Tanggal Expired", "Stok Satuan Terkecil", "Stok Nyata Terkecil", "Stok Expired Terkecil", "Satuan Terkecil"]]
-                
-                st.session_state.opname_data = opname_df
-                st.session_state.last_gudang = pilih_gudang
-            else:
-                st.session_state.opname_data = pd.DataFrame()
-        
-        if "opname_data" in st.session_state and not st.session_state.opname_data.empty:
-            display_opname = st.session_state.opname_data.copy()
-            
-            if cari_opname.strip():
-                mask_opname = display_opname.astype(str).apply(lambda col: col.str.contains(cari_opname.strip(), case=False, na=False)).any(axis=1)
-                display_opname = display_opname[mask_opname]
-            
-            st.caption(f"Menampilkan {len(display_opname)} data")
-            
-            edited_opname = st.data_editor(
-                display_opname,
-                use_container_width=True,
-                hide_index=False,
-                column_config={
-                    "Kode Obat": st.column_config.TextColumn("Kode Obat", disabled=True),
-                    "Nama Obat": st.column_config.TextColumn("Nama Obat", disabled=True, width="large"),
-                    "Lokasi": st.column_config.TextColumn("Lokasi", disabled=True),
-                    "No. Batch": st.column_config.TextColumn("No. Batch", disabled=True),
-                    "Tanggal Expired": st.column_config.DateColumn("Tanggal Expired", disabled=True, format="DD MMM YYYY"),
-                    "Stok Satuan Terkecil": st.column_config.NumberColumn("Stok Satuan Terkecil", disabled=True),
-                    "Satuan Terkecil": st.column_config.TextColumn("Satuan Terkecil", disabled=True),
-                    "Stok Nyata Terkecil": st.column_config.NumberColumn("✏️ Stok Nyata Terkecil", min_value=0.0, format="%.2f"),
-                    "Stok Expired Terkecil": st.column_config.NumberColumn("✏️ Stok Expired Terkecil", min_value=0.0, format="%.2f"),
-                },
-                key="editor_opname"
-            )
-            
-            # Sync value dari editor kembali ke session state agar tidak hilang saat re-render
-            st.session_state.opname_data.update(edited_opname)
-            
-            if btn_proses:
-                # Logika ketika tombol 'Proses' ditekan
-                workbook_data = st.session_state.inventory_data_cache
-                df_history = load_data()
-                if df_history is None:
-                    df_history = pd.DataFrame(columns=KOLOM_WAJIB)
-                new_history_rows = []
-                changed_count = 0
-                
-                for idx, row in st.session_state.opname_data.iterrows():
-                    stok_sistem = float(row["Stok Satuan Terkecil"]) if pd.notna(row["Stok Satuan Terkecil"]) else 0.0
-                    stok_nyata = float(row["Stok Nyata Terkecil"]) if pd.notna(row["Stok Nyata Terkecil"]) else 0.0
-                    stok_expired = float(row["Stok Expired Terkecil"]) if pd.notna(row["Stok Expired Terkecil"]) else 0.0
-                    
-                    if stok_sistem != stok_nyata or stok_expired > 0:
-                        ws_name = row["Lokasi"]
-                        if ws_name in workbook_data:
-                            sheet_df = prepare_sheet_for_editor(workbook_data[ws_name].copy())
-                            
-                            # Cocokkan produk
-                            mask = (sheet_df["Nama produk"].astype(str) == str(row["Nama Obat"])) & (sheet_df["Nomor Batch"].astype(str) == str(row["No. Batch"]))
-                            if mask.any():
-                                target_idx = sheet_df[mask].index[-1]
-                                sheet_df.loc[target_idx, "Stok Sisa"] = stok_nyata
-                                workbook_data[ws_name] = normalize_inventory_df(sheet_df)
-                                changed_count += 1
-                                
-                                selisih = stok_nyata - stok_sistem
-                                keterangan_opname = f"Stok Opname - Penyesuaian fisik. Selisih: {selisih}."
-                                if stok_expired > 0:
-                                    keterangan_opname += f" Barang Expired Terbuang: {stok_expired}."
-                                    
-                                new_history_rows.append({
-                                    "Tanggal": pd.Timestamp(date.today()),
-                                    "Nama Obat": row["Nama Obat"],
-                                    "Kategori": ws_name, 
-                                    "Satuan": row["Satuan Terkecil"],
-                                    "Stok Masuk": selisih if selisih > 0 else 0,
-                                    "Stok Keluar": abs(selisih) if selisih < 0 else 0,
-                                    "Stok Akhir": stok_nyata,
-                                    "Harga Satuan (Rp)": 0,
-                                    "Total Nilai (Rp)": 0,
-                                    "Tanggal Kadaluarsa": row["Tanggal Expired"],
-                                    "Keterangan": keterangan_opname
-                                })
-                
-                if changed_count > 0:
-                    save_inventory_workbook(workbook_data)
-                    st.session_state.inventory_data_cache = workbook_data
-                    
-                    if new_history_rows:
-                        df_history = pd.concat([df_history, pd.DataFrame(new_history_rows)], ignore_index=True)
-                        save_data(df_history)
-                        
-                    st.success(f"✅ Stok Opname berhasil diproses! {changed_count} item stok telah disesuaikan dengan stok nyata di fisik dan sistem.")
-                    del st.session_state["opname_data"]
-                    st.rerun()
-                else:
-                    st.info("⚠️ Tidak ada data untuk diproses. (Semua data pada kolom 'Stok Nyata Terkecil' yang diisi sama dengan stok sistem, atau masih default 0.00)")
+        st.caption("Gunakan tab ini untuk merekap dan mencocokkan stok fisik barang di rak dengan stok sistem. Perbedaan akan otomatis diperbarui ke Dataset.")
 
+        if "opname_list" not in st.session_state:
+            st.session_state.opname_list = pd.DataFrame()
+
+        df_inv_full = build_inventory_print_dataframe()
+        
+        # --- BAGIAN 1: PENGUMPULAN ITEM OPNAME ("Pilih Obat" Modal Equivalent) ---
+        with st.expander("🔍 Pilih Obat (Klik untuk mencari dan menambah item opname)", expanded=True):
+            st.markdown("#### Daftar Obat Tersedia")
+            
+            c_f1, c_f2, c_f3 = st.columns(3)
+            show_empty = c_f1.checkbox("Tampilkan Stok Habis", value=False, key="check_empty")
+            sort_ed = c_f2.checkbox("Urutkan berdasarkan ED terdekat (FEFO)", value=False, key="check_fefo")
+            
+            if df_inv_full is not None and not df_inv_full.empty:
+                df_pilih = df_inv_full.copy()
+                
+                if not show_empty:
+                    df_pilih = df_pilih[pd.to_numeric(df_pilih["Stok Sisa"], errors='coerce').fillna(0) > 0]
+                if sort_ed:
+                    df_pilih["Tanggal Kadaluwarsa"] = pd.to_datetime(df_pilih["Tanggal Kadaluwarsa"], errors="coerce")
+                    df_pilih = df_pilih.sort_values("Tanggal Kadaluwarsa")
+                    
+                df_pilih.insert(0, "Pilih", False) # Tambah kolom centang
+                
+                # Menggunakan kolom dataset asli yang dipetakan ke UI
+                view_cols = ["Pilih", "Nama produk", "Stok Sisa", "PBF", "Worksheet", "Satuan", "Nomor Batch", "Tanggal Kadaluwarsa"]
+                df_pilih_view = df_pilih[view_cols]
+                
+                cari_pilih = st.text_input("🔍 Cari nama obat, PBF, atau gudang (worksheet)...", key="cari_pilih")
+                if cari_pilih:
+                    mask_cari = df_pilih_view.astype(str).apply(lambda col: col.str.contains(cari_pilih, case=False, na=False)).any(axis=1)
+                    df_pilih_view = df_pilih_view[mask_cari]
+                
+                edited_pilih = st.data_editor(
+                    df_pilih_view,
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "Pilih": st.column_config.CheckboxColumn("Pilih", default=False),
+                        "Nama produk": st.column_config.TextColumn("Nama Obat", disabled=True, width="large"),
+                        "Stok Sisa": st.column_config.NumberColumn("Stok Sistem", disabled=True),
+                        "PBF": st.column_config.TextColumn("Distributor (PBF)", disabled=True),
+                        "Worksheet": st.column_config.TextColumn("Lokasi", disabled=True),
+                        "Satuan": st.column_config.TextColumn("Satuan", disabled=True),
+                        "Nomor Batch": st.column_config.TextColumn("No. Batch", disabled=True),
+                        "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Expired", disabled=True, format="DD MMM YYYY"),
+                    },
+                    key="pilih_obat_editor"
+                )
+                
+                if st.button("➕ Tambahkan Item Terpilih ke Tabel Opname", type="secondary"):
+                    selected_items = edited_pilih[edited_pilih["Pilih"] == True].copy()
+                    if not selected_items.empty:
+                        # Siapkan list untuk ditransfer ke bawah
+                        new_opname = selected_items.drop(columns=["Pilih", "PBF"])
+                        new_opname.rename(columns={"Stok Sisa": "Stok Sistem (Satuan)"}, inplace=True)
+                        new_opname["Stok Fisik (Nyata)"] = 0.0
+                        new_opname["Stok Expired/Rusak"] = 0.0
+                        
+                        if st.session_state.opname_list.empty:
+                            st.session_state.opname_list = new_opname
+                        else:
+                            # Gabungkan tanpa duplikasi berdasarkan obat + lokasi + batch
+                            st.session_state.opname_list = pd.concat([st.session_state.opname_list, new_opname]).drop_duplicates(subset=["Nama produk", "Worksheet", "Nomor Batch"])
+                            
+                        st.success(f"✅ {len(selected_items)} item berhasil ditambahkan ke daftar di bawah!")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ Centang minimal 1 obat pada kolom 'Pilih' terlebih dahulu.")
+            else:
+                st.info("Dataset masih kosong.")
+
+        # --- BAGIAN 2: EKSEKUSI STOK OPNAME (Tabel Input) ---
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        col_gud, col_pros, col_res = st.columns([2.5, 1.5, 1])
+        with col_gud:
+            AVAILABLE_SHEETS = get_available_sheets()
+            pilih_gudang_opname = st.selectbox("Pilih Gudang (Filter Tampilan Bawah):", ["Semua Gudang"] + AVAILABLE_SHEETS)
+            
+        with col_pros:
+            st.markdown("<br>", unsafe_allow_html=True)
+            btn_proses_opname = st.button("✅ Proses Penyimpanan", use_container_width=True, type="primary")
+            
+        with col_res:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🔄 Kosongkan Daftar", use_container_width=True):
+                st.session_state.opname_list = pd.DataFrame()
+                st.rerun()
+
+        if not st.session_state.opname_list.empty:
+            display_opname = st.session_state.opname_list.copy()
+            if pilih_gudang_opname != "Semua Gudang":
+                display_opname = display_opname[display_opname["Worksheet"] == pilih_gudang_opname]
+                
+            if display_opname.empty:
+                st.info(f"Belum ada item opname yang ditambahkan untuk gudang: {pilih_gudang_opname}")
+            else:
+                st.markdown(f"**Tabel Input Hitung Fisik ({len(display_opname)} data):**")
+                edited_opname = st.data_editor(
+                    display_opname,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Nama produk": st.column_config.TextColumn("Nama Obat", disabled=True, width="large"),
+                        "Worksheet": st.column_config.TextColumn("Lokasi", disabled=True),
+                        "Nomor Batch": st.column_config.TextColumn("No. Batch", disabled=True),
+                        "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Expired", disabled=True, format="DD MMM YYYY"),
+                        "Stok Sistem (Satuan)": st.column_config.NumberColumn("Stok Sistem", disabled=True),
+                        "Satuan": st.column_config.TextColumn("Satuan Terkecil", disabled=True),
+                        "Stok Fisik (Nyata)": st.column_config.NumberColumn("✏️ Stok Nyata Terkecil", min_value=0.0, format="%.2f"),
+                        "Stok Expired/Rusak": st.column_config.NumberColumn("✏️ Stok Expired Terkecil", min_value=0.0, format="%.2f"),
+                    },
+                    key="opname_main_editor"
+                )
+                
+                st.session_state.opname_list.update(edited_opname)
+                
+                if btn_proses_opname:
+                    workbook_data = st.session_state.inventory_data_cache
+                    df_history = load_data()
+                    if df_history is None:
+                        df_history = pd.DataFrame(columns=KOLOM_WAJIB)
+                    new_history_rows = []
+                    changed_count = 0
+                    
+                    for idx, row in st.session_state.opname_list.iterrows():
+                        stok_sistem = float(row["Stok Sistem (Satuan)"]) if pd.notna(row["Stok Sistem (Satuan)"]) else 0.0
+                        stok_nyata = float(row["Stok Fisik (Nyata)"]) if pd.notna(row["Stok Fisik (Nyata)"]) else 0.0
+                        stok_expired = float(row["Stok Expired/Rusak"]) if pd.notna(row["Stok Expired/Rusak"]) else 0.0
+                        
+                        if stok_sistem != stok_nyata or stok_expired > 0:
+                            ws_name = row["Worksheet"]
+                            if ws_name in workbook_data:
+                                sheet_df = prepare_sheet_for_editor(workbook_data[ws_name].copy())
+                                
+                                mask = (sheet_df["Nama produk"].astype(str) == str(row["Nama produk"])) & (sheet_df["Nomor Batch"].astype(str) == str(row["Nomor Batch"]))
+                                if mask.any():
+                                    target_idx = sheet_df[mask].index[-1]
+                                    sheet_df.loc[target_idx, "Stok Sisa"] = stok_nyata
+                                    workbook_data[ws_name] = normalize_inventory_df(sheet_df)
+                                    changed_count += 1
+                                    
+                                    selisih = stok_nyata - stok_sistem
+                                    keterangan_opname = f"Stok Opname - Penyesuaian fisik. Selisih: {selisih}."
+                                    if stok_expired > 0:
+                                        keterangan_opname += f" Barang Expired/Rusak Terbuang: {stok_expired}."
+                                        
+                                    new_history_rows.append({
+                                        "Tanggal": pd.Timestamp(date.today()),
+                                        "Nama Obat": row["Nama produk"],
+                                        "Kategori": ws_name, 
+                                        "Satuan": row["Satuan"],
+                                        "Stok Masuk": selisih if selisih > 0 else 0,
+                                        "Stok Keluar": abs(selisih) if selisih < 0 else 0,
+                                        "Stok Akhir": stok_nyata,
+                                        "Harga Satuan (Rp)": 0,
+                                        "Total Nilai (Rp)": 0,
+                                        "Tanggal Kadaluarsa": row["Tanggal Kadaluwarsa"],
+                                        "Keterangan": keterangan_opname
+                                    })
+                    
+                    if changed_count > 0:
+                        save_inventory_workbook(workbook_data)
+                        st.session_state.inventory_data_cache = workbook_data
+                        
+                        if new_history_rows:
+                            df_history = pd.concat([df_history, pd.DataFrame(new_history_rows)], ignore_index=True)
+                            save_data(df_history)
+                            
+                        st.success(f"✅ Stok Opname berhasil diproses! {changed_count} jenis barang telah dikalibrasi ke dataset utama.")
+                        st.session_state.opname_list = pd.DataFrame()
+                        st.rerun()
+                    else:
+                        st.info("⚠️ Proses dibatalkan: Tidak ada data yang memiliki selisih fisik atau barang expired yang perlu disimpan (seluruh kolom Nyata & Expired bernilai 0).")
         else:
-            st.info("Data stok belum tersedia atau lokasi/gudang yang dipilih kosong. Pastikan dataset sudah diupload.")
+            st.info("Daftar masih kosong. Tambahkan obat melalui panel 'Pilih Obat' di atas terlebih dahulu.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 3 — REKAP DATA
