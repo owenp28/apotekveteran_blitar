@@ -1148,9 +1148,9 @@ elif menu == "🛒 Kasir Utama":
         st.subheader("🛒 Transaksi Penjualan")
         
         if st.session_state.role == "Admin":
-            pilihan_kasir = ["Ivonne", "Dian", "Julia"]
+            pilihan_kasir = ["A1", "K1", "K2"]
         else:
-            pilihan_kasir = ["Dian", "Julia"]
+            pilihan_kasir = ["K1", "K2"]
             
         current_kasir = st.session_state.active_shift_context.get("user_name", "")
         if current_kasir not in pilihan_kasir:
