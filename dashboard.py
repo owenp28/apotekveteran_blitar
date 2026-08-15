@@ -161,7 +161,6 @@ def format_rupiah(val):
     except:
         return val
 
-
 def parse_excel_date(val):
     if pd.isna(val):
         return pd.NaT
@@ -187,7 +186,6 @@ def parse_excel_date(val):
         return pd.Timestamp(d) if d.year > 1970 else pd.NaT
     except Exception:
         return pd.NaT
-
 
 def normalize_inventory_df(df):
     df = df.copy()
@@ -226,7 +224,6 @@ def normalize_inventory_df(df):
 
     return df
 
-
 def prepare_sheet_for_editor(df):
     df = normalize_inventory_df(df)
     for kolom in ["Nomor Faktur", "Nomor Batch", "PBF", "Keterangan", "Nama produk", "Satuan"]:
@@ -234,7 +231,6 @@ def prepare_sheet_for_editor(df):
             df[kolom] = df[kolom].astype("string")
             
     return df
-
 
 def _find_inventory_header_row(rows):
     known_headers = {
@@ -248,7 +244,6 @@ def _find_inventory_header_row(rows):
         if score >= 4:
             return index, list(row)
     return 0, list(rows[0]) if rows else []
-
 
 def load_inventory_sheet_dataframe(ws):
     rows = list(ws.iter_rows(values_only=True))
@@ -265,7 +260,6 @@ def load_inventory_sheet_dataframe(ws):
     df = pd.DataFrame(data_rows, columns=header)
     return normalize_inventory_df(df)
 
-
 def create_default_inventory_workbook():
     wb = Workbook()
     if "Sheet" in wb.sheetnames:
@@ -274,7 +268,6 @@ def create_default_inventory_workbook():
         ws = wb.create_sheet(title=sheet_name)
         ws.append(INVENTORY_COLUMNS)
     wb.save(WORKBOOK_PATH)
-
 
 def normalize_source_url(source_url):
     source_url = (source_url or DEFAULT_SOURCE_URL).strip()
@@ -295,7 +288,6 @@ def normalize_source_url(source_url):
     if source_url.endswith(".csv") or source_url.endswith(".xlsx") or source_url.endswith(".xlsm"):
         return source_url
     return source_url
-
 
 def sync_inventory_from_source(source_url=None):
     source_url = normalize_source_url(source_url)
@@ -328,7 +320,6 @@ def sync_inventory_from_source(source_url=None):
         st.error(f"⚠️ Link tidak valid atau tidak bisa diakses otomatis. Gunakan menu Upload File.")
         return False
 
-
 def load_inventory_from_bytes(file_bytes, filename):
     if filename.lower().endswith(".csv"):
         df = pd.read_csv(BytesIO(file_bytes))
@@ -340,7 +331,6 @@ def load_inventory_from_bytes(file_bytes, filename):
         ws = wb[sheet_name]
         workbook_data[sheet_name] = load_inventory_sheet_dataframe(ws)
     return workbook_data
-
 
 def load_inventory_workbook(source_url=None, uploaded_file=None):
     if uploaded_file is not None:
@@ -366,7 +356,6 @@ def load_inventory_workbook(source_url=None, uploaded_file=None):
 
     return {}
 
-
 def sanitize_excel_value(value):
     if value is None:
         return None
@@ -387,13 +376,11 @@ def sanitize_excel_value(value):
         return value
     return str(value)
 
-
 def sanitize_excel_dataframe(df):
     df = df.copy()
     for kolom in df.columns:
         df[kolom] = df[kolom].apply(lambda v: sanitize_excel_value(v))
     return df
-
 
 def save_inventory_workbook(workbook_data):
     try:
@@ -408,7 +395,6 @@ def save_inventory_workbook(workbook_data):
     except Exception as e:
         st.error(f"Gagal menyimpan ke file Excel. Pastikan file tidak sedang dibuka di aplikasi lain. Error: {e}")
         return False
-
 
 def build_inventory_print_dataframe():
     workbook_data = st.session_state.get("inventory_data_cache")
@@ -437,7 +423,6 @@ def build_inventory_print_dataframe():
     
     return combined_df
 
-
 def build_rtf_export(df, title="Laporan Stok Obat — Apotek Veteran Blitar"):
     lines = ["{\\rtf1\\ansi\\deff0", "{\\fonttbl\\f0\\fswiss Arial;}", "\\viewkind4\\uc1"]
     lines.append(f"\\pard\\plain\\f0\\fs20 {title}\\par")
@@ -447,7 +432,6 @@ def build_rtf_export(df, title="Laporan Stok Obat — Apotek Veteran Blitar"):
         lines.append("\\pard\\plain\\f0\\fs18 " + row_text + "\\par")
     lines.append("}")
     return "".join(lines).encode("utf-8")
-
 
 def parse_rupiah(val):
     try:
@@ -965,7 +949,7 @@ elif menu == "📋 Kelola Stok":
                 if btn_proses:
                     if edited_opname is not None:
                         for idx, row in edited_opname.iterrows():
-                            # Kita ambil index aslinya dengan mengurangkan No. dengan 1
+                            # Ambil index aslinya dengan mengurangkan No. dengan 1
                             real_idx = int(row["No."]) - 1
                             
                             sistem = float(row["Stok Satuan Terkecil"])
@@ -1311,34 +1295,49 @@ elif menu == "🛒 Kasir Utama":
 <html>
 <head>
 <style>
-    body {{ margin: 0; padding: 10px; background-color: transparent; }}
+    body {{ 
+        margin: 0; 
+        padding: 5px; 
+        background-color: transparent; 
+    }}
+    * {{
+        box-sizing: border-box;
+    }}
 </style>
 </head>
 <body>
-<div style="font-family: 'Courier New', Courier, monospace; font-size: 16px; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto; background-color: #f8f9fa; color: #333; box-shadow: 0px 4px 12px rgba(0,0,0,0.1);">
-<div style="text-align: center; border-bottom: 1px dashed #666; padding-bottom: 10px; margin-bottom: 10px;">
-<b style="font-size: 16px; color: #222;">APOTEK VETERAN SEHAT BLITAR</b><br>
-Jl. Veteran no 64B Blitar Kota<br> 
-(Sebelah Gang Srigading)<br> 
-Blitar 66111<br>
-<b>081331808585</b>
+<div style="font-family: 'Courier New', Courier, monospace; font-size: 11px; border: 1px solid #e0e0e0; padding: 10px; border-radius: 6px; max-width: 280px; margin: 0 auto; background-color: #f8f9fa; color: #333; box-shadow: 0px 2px 6px rgba(0,0,0,0.08);">
+    <div style="text-align: center; border-bottom: 1px dashed #666; padding-bottom: 8px; margin-bottom: 8px; line-height: 1.3;">
+        <b style="font-size: 13px; color: #222;">APOTEK VETERAN SEHAT BLITAR</b><br>
+        Jl. Veteran no 64B Blitar Kota<br> 
+        (Sebelah Gang Srigading)<br> 
+        Blitar 66111<br>
+        <b>081331808585</b>
+    </div>
+    
+    <div style="margin-bottom: 8px; font-size: 10px; color: #555; text-align: left; word-break: break-word;">
+        {tgl_today} <span id="clock_kasir_realtime"></span> {kasir_nama_nota}
+    </div>
+    
+    <div style="border-bottom: 1px dashed #666; margin-bottom: 8px;"></div>
+    
+    <div style="font-size: 11px; word-break: break-word;">
+        {items_html}
+    </div>
+    
+    <div style="border-top: 1px dashed #666; margin-top: 8px; padding-top: 8px; font-size: 11px;">
+        <div style='display: flex; justify-content: space-between; margin-bottom: 3px;'><b style="font-size: 12px; color: #222;">Total</b> <b style="font-size: 12px; color: #e94560;">{format_rupiah(total_belanja)}</b></div>
+        <div style='display: flex; justify-content: space-between; margin-bottom: 3px; color: #444;'>Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
+        <div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
+    </div>
+    
+    <div style="text-align: center; margin-top: 12px; font-size: 9.5px; color: #777; line-height: 1.3;">
+        - Terima Kasih Atas Kunjungan Anda -<br>
+        - Belanja tanpa struk/nota gratis -<br>
+        - Harga sudah termasuk PPN -
+    </div>
 </div>
-<div style="margin-bottom: 10px; font-size: 12px; color: #555; text-align: left;">
-{tgl_today} <span id="clock_kasir_realtime"></span> {kasir_nama_nota}
-</div>
-<div style="border-bottom: 1px dashed #666; margin-bottom: 10px;"></div>
-{items_html}
-<div style="border-top: 1px dashed #666; margin-top: 10px; padding-top: 10px;">
-<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'><b style="font-size: 14px; color: #222;">Total</b> <b style="font-size: 14px; color: #e94560;">{format_rupiah(total_belanja)}</b></div>
-<div style='display: flex; justify-content: space-between; margin-bottom: 4px; color: #444;'>Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
-<div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
-</div>
-<div style="text-align: center; margin-top: 20px; font-size: 11px; color: #777;">
-- Terima Kasih Atas Kunjungan Anda -<br>
-- Belanja tanpa struk/nota gratis -<br>
-- Harga sudah termasuk PPN -
-</div>
-</div>
+
 <script>
 function updateClock() {{
     var d = new Date();
@@ -1355,64 +1354,135 @@ updateClock();
 </body>
 </html>
 """
-            
+
             components.html(nota_html, height=500, scrolling=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
-            
+
             html_printable_nota = f"""
-            <html><head>
-            <title>Cetak Struk Nota - Apotek Veteran Blitar</title>
-            <style>
-              body {{ font-family: 'Courier New', Courier, monospace; font-size: 16px; margin: 10px; }}
-              .print-container {{ width: 280px; margin: 0 auto; }}
-              .text-center {{ text-align: center; }}
-              .border-dash {{ border-bottom: 1px dashed #000; margin: 8px 0; }}
-              .flex-between {{ display: flex; justify-content: space-between; margin-bottom: 3px; }}
-              @media print {{ button {{ display: none; }} }}
-            </style>
-            </head><body>
-            <div class="print-container">
-                <div class="text-center">
-                    <b>APOTEK VETERAN SEHAT BLITAR</b><br>
-                    Jl. Veteran no 64B Blitar Kota<br>
-                    081331808585
-                </div>
-                <div class="border-dash"></div>
-                <div style="margin-bottom: 8px; text-align: left;">
-                    {tgl_today} <span id="clock_print_realtime"></span> {kasir_nama_nota}
-                </div>
-                <div class="border-dash"></div>
-                {items_html}
-                <div class="border-dash"></div>
-                <div class="flex-between"><b>Total</b> <b>{format_rupiah(total_belanja)}</b></div>
-                <div class="flex-between">Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
-                <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
-                <div class="border-dash"></div>
-                <div class="text-center" style="font-size: 10px;">
-                    - Terima Kasih Atas Kunjungan Anda -<br>
-                    - Belanja tanpa struk/nota gratis -<br>
-                    - Harga sudah termasuk PPN -
-                </div>
-            </div>
-            <br>
-            <div class="text-center">
-                <button onclick="window.print()" style="padding: 6px 15px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
-            </div>
-            <script>
-            function updatePrintClock() {{
-                var d = new Date();
-                var h = String(d.getHours()).padStart(2, '0');
-                var m = String(d.getMinutes()).padStart(2, '0');
-                var s = String(d.getSeconds()).padStart(2, '0');
-                var el = document.getElementById('clock_print_realtime');
-                if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
-            }}
-            setInterval(updatePrintClock, 1000);
-            updatePrintClock();
-            </script>
-            </body></html>
-            """
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cetak Struk Nota - Apotek Veteran Blitar</title>
+<style>
+    @page {{
+        size: 80mm auto;
+        margin: 0mm;
+    }}
+    * {{
+        box-sizing: border-box;
+    }}
+    body {{ 
+        font-family: 'Courier New', Courier, monospace; 
+        font-size: 11px; 
+        line-height: 1.3;
+        margin: 0; 
+        padding: 4mm;
+        color: #000;
+        background: #fff;
+    }}
+    .print-container {{ 
+        width: 100%;
+        max-width: 72mm;
+        margin: 0 auto; 
+    }}
+    .text-center {{ 
+        text-align: center; 
+    }}
+    .header-title {{
+        font-size: 13px;
+        font-weight: bold;
+    }}
+    .border-dash {{ 
+        border-bottom: 1px dashed #000; 
+        margin: 6px 0; 
+    }}
+    .flex-between {{ 
+        display: flex; 
+        justify-content: space-between; 
+        margin-bottom: 2px; 
+    }}
+    .info-meta {{
+        font-size: 10px;
+        word-break: break-word;
+    }}
+    .items-wrapper {{
+        font-size: 11px;
+        word-break: break-word;
+    }}
+    .footer-text {{
+        font-size: 9.5px;
+        line-height: 1.3;
+    }}
+    .btn-container {{
+        text-align: center;
+        margin-top: 15px;
+    }}
+    @media print {{ 
+        body {{
+            padding: 2mm;
+        }}
+        .btn-container {{ 
+            display: none !important; 
+        }} 
+    }}
+</style>
+</head>
+<body>
+<div class="print-container">
+    <div class="text-center">
+        <span class="header-title">APOTEK VETERAN SEHAT BLITAR</span><br>
+        Jl. Veteran no 64B Blitar Kota<br>
+        (Sebelah Gang Srigading)<br>
+        081331808585
+    </div>
+    
+    <div class="border-dash"></div>
+    
+    <div class="info-meta">
+        {tgl_today} <span id="clock_print_realtime"></span> {kasir_nama_nota}
+    </div>
+    
+    <div class="border-dash"></div>
+    
+    <div class="items-wrapper">
+        {items_html}
+    </div>
+    
+    <div class="border-dash"></div>
+    
+    <div class="flex-between"><b>Total</b> <b>{format_rupiah(total_belanja)}</b></div>
+    <div class="flex-between">Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
+    <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
+    
+    <div class="border-dash"></div>
+    
+    <div class="text-center footer-text">
+        - Terima Kasih Atas Kunjungan Anda -<br>
+        - Belanja tanpa struk/nota gratis -<br>
+        - Harga sudah termasuk PPN -
+    </div>
+</div>
+
+<div class="btn-container">
+    <button onclick="window.print()" style="padding: 7px 18px; font-size: 13px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
+</div>
+
+<script>
+function updatePrintClock() {{
+    var d = new Date();
+    var h = String(d.getHours()).padStart(2, '0');
+    var m = String(d.getMinutes()).padStart(2, '0');
+    var s = String(d.getSeconds()).padStart(2, '0');
+    var el = document.getElementById('clock_print_realtime');
+    if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
+}}
+setInterval(updatePrintClock, 1000);
+updatePrintClock();
+</script>
+</body>
+</html>
+"""
             
             st.download_button(
                 label="🖨️ Cetak / Print Struk Nota",
