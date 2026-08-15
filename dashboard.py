@@ -1313,6 +1313,7 @@ elif menu == "🛒 Kasir Utama":
         (Sebelah Gang Srigading)<br> 
         Blitar 66111<br>
         <b>081331808585</b>
+        <b>Harga Sudah Termasuk PPN</b>
     </div>
     
     <div style="margin-bottom: 8px; font-size: 10px; color: #555; text-align: left; word-break: break-word;">
@@ -1332,9 +1333,7 @@ elif menu == "🛒 Kasir Utama":
     </div>
     
     <div style="text-align: center; margin-top: 12px; font-size: 9.5px; color: #777; line-height: 1.3;">
-        - Terima Kasih Atas Kunjungan Anda -<br>
-        - Belanja tanpa struk/nota gratis -<br>
-        - Harga sudah termasuk PPN -
+        - Terimakasih Semoga Lekas Sembuh -
     </div>
 </div>
 
@@ -1434,7 +1433,8 @@ updateClock();
         <span class="header-title">APOTEK VETERAN SEHAT BLITAR</span><br>
         Jl. Veteran no 64B Blitar Kota<br>
         (Sebelah Gang Srigading)<br>
-        081331808585
+        081331808585<br>
+        Harga Sudah Termasuk PPN<br>
     </div>
     
     <div class="border-dash"></div>
@@ -1458,9 +1458,7 @@ updateClock();
     <div class="border-dash"></div>
     
     <div class="text-center footer-text">
-        - Terima Kasih Atas Kunjungan Anda -<br>
-        - Belanja tanpa struk/nota gratis -<br>
-        - Harga sudah termasuk PPN -
+        - Terimakasih Semoga Lekas Sembuh -
     </div>
 </div>
 
