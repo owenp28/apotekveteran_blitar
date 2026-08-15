@@ -1315,7 +1315,7 @@ elif menu == "🛒 Kasir Utama":
 </style>
 </head>
 <body>
-<div style="font-family: 'Courier New', Courier, monospace; font-size: 13px; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto; background-color: #f8f9fa; color: #333; box-shadow: 0px 4px 12px rgba(0,0,0,0.1);">
+<div style="font-family: 'Courier New', Courier, monospace; font-size: 16px; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto; background-color: #f8f9fa; color: #333; box-shadow: 0px 4px 12px rgba(0,0,0,0.1);">
 <div style="text-align: center; border-bottom: 1px dashed #666; padding-bottom: 10px; margin-bottom: 10px;">
 <b style="font-size: 16px; color: #222;">APOTEK VETERAN SEHAT BLITAR</b><br>
 Jl. Veteran no 64B Blitar Kota<br> 
@@ -1334,6 +1334,7 @@ Blitar 66111<br>
 <div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
 </div>
 <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #777;">
+- Terima Kasih Atas Kunjungan Anda -<br>
 - Belanja tanpa struk/nota gratis -<br>
 - Harga sudah termasuk PPN -
 </div>
@@ -1363,7 +1364,7 @@ updateClock();
             <html><head>
             <title>Cetak Struk Nota - Apotek Veteran Blitar</title>
             <style>
-              body {{ font-family: 'Courier New', Courier, monospace; font-size: 12px; margin: 10px; }}
+              body {{ font-family: 'Courier New', Courier, monospace; font-size: 16px; margin: 10px; }}
               .print-container {{ width: 280px; margin: 0 auto; }}
               .text-center {{ text-align: center; }}
               .border-dash {{ border-bottom: 1px dashed #000; margin: 8px 0; }}
