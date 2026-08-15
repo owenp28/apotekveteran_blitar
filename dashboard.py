@@ -1276,7 +1276,7 @@ elif menu == "🛒 Kasir Utama":
                             st.session_state.nota_confirmed = True
                             st.rerun()
 
-    with col_nota:
+with col_nota:
         st.subheader("📄 Preview Nota")
 
         if st.session_state.cart:
@@ -1286,9 +1286,16 @@ elif menu == "🛒 Kasir Utama":
             tgl_today = datetime.now().strftime("%d/%m/%Y")
             kasir_nama_nota = st.session_state.active_shift_context.get("user_name", "")
 
+            # Helper format angka tanpa awalan 'Rp'
+            def format_angka(val):
+                try:
+                    return f"{int(val):,}".replace(",", ".")
+                except Exception:
+                    return str(val)
+
             items_html = ""
             for item in st.session_state.cart:
-                items_html += f"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'><span style='flex: 2; text-align: left;'>{item['qty']} {item['nama']}</span><span style='flex: 1; text-align: center;'>{format_rupiah(item['harga_per_satuan'])}</span><span style='flex: 1; text-align: right;'>{format_rupiah(item['subtotal'])}</span></div>"
+                items_html += f"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'><span style='flex: 2; text-align: left;'>{item['qty']} {item['nama']}</span><span style='flex: 1; text-align: center;'>{format_angka(item['harga_per_satuan'])}</span><span style='flex: 1; text-align: right;'>{format_angka(item['subtotal'])}</span></div>"
 
             nota_html = f"""
 <!DOCTYPE html>
@@ -1312,7 +1319,7 @@ elif menu == "🛒 Kasir Utama":
         Jl. Veteran no 64B Blitar Kota<br> 
         (Sebelah Gang Srigading)<br> 
         Blitar 66111<br>
-        <b>081331808585</b>
+        <b>081331808585</b><br>
         Harga Sudah Termasuk PPN
     </div>
     
@@ -1327,9 +1334,9 @@ elif menu == "🛒 Kasir Utama":
     </div>
     
     <div style="border-top: 1px dashed #666; margin-top: 8px; padding-top: 8px; font-size: 11px;">
-        <div style='display: flex; justify-content: space-between; margin-bottom: 3px;'><b style="font-size: 12px; color: #222;">Total</b> <b style="font-size: 12px; color: #e94560;">{format_rupiah(total_belanja)}</b></div>
-        <div style='display: flex; justify-content: space-between; margin-bottom: 3px; color: #444;'>Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
-        <div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
+        <div style='display: flex; justify-content: space-between; margin-bottom: 3px;'><b style="font-size: 12px; color: #222;">Total</b> <b style="font-size: 12px; color: #e94560;">{format_angka(total_belanja)}</b></div>
+        <div style='display: flex; justify-content: space-between; margin-bottom: 3px; color: #444;'>Bayar <span>{format_angka(bayar_tunai)}</span></div>
+        <div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_angka(max(0, kembali))}</span></div>
     </div>
     
     <div style="text-align: center; margin-top: 12px; font-size: 9.5px; color: #777; line-height: 1.3;">
@@ -1349,6 +1356,134 @@ function updateClock() {{
 }}
 setInterval(updateClock, 1000);
 updateClock();
+</script>
+</body>
+</html>
+"""
+
+            components.html(nota_html, height=500, scrolling=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            html_printable_nota = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cetak Struk Nota - Apotek Veteran Blitar</title>
+<style>
+    @page {{
+        size: 80mm auto;
+        margin: 0mm;
+    }}
+    * {{
+        box-sizing: border-box;
+    }}
+    body {{ 
+        font-family: 'Courier New', Courier, monospace; 
+        font-size: 11px; 
+        line-height: 1.3;
+        margin: 0; 
+        padding: 4mm;
+        color: #000;
+        background: #fff;
+    }}
+    .print-container {{ 
+        width: 100%;
+        max-width: 72mm;
+        margin: 0 auto; 
+    }}
+    .text-center {{ 
+        text-align: center; 
+    }}
+    .header-title {{
+        font-size: 13px;
+        font-weight: bold;
+    }}
+    .border-dash {{ 
+        border-bottom: 1px dashed #000; 
+        margin: 6px 0; 
+    }}
+    .flex-between {{ 
+        display: flex; 
+        justify-content: space-between; 
+        margin-bottom: 2px; 
+    }}
+    .info-meta {{
+        font-size: 10px;
+        word-break: break-word;
+    }}
+    .items-wrapper {{
+        font-size: 11px;
+        word-break: break-word;
+    }}
+    .footer-text {{
+        font-size: 9.5px;
+        line-height: 1.3;
+    }}
+    .btn-container {{
+        text-align: center;
+        margin-top: 15px;
+    }}
+    @media print {{ 
+        body {{
+            padding: 2mm;
+        }}
+        .btn-container {{ 
+            display: none !important; 
+        }} 
+    }}
+</style>
+</head>
+<body>
+<div class="print-container">
+    <div class="text-center">
+        <span class="header-title">APOTEK VETERAN SEHAT BLITAR</span><br>
+        Jl. Veteran no 64B Blitar Kota<br>
+        (Sebelah Gang Srigading)<br>
+        081331808585<br>
+        Harga Sudah Termasuk PPN
+    </div>
+    
+    <div class="border-dash"></div>
+    
+    <div class="info-meta">
+        {tgl_today} <span id="clock_print_realtime"></span> {kasir_nama_nota}
+    </div>
+    
+    <div class="border-dash"></div>
+    
+    <div class="items-wrapper">
+        {items_html}
+    </div>
+    
+    <div class="border-dash"></div>
+    
+    <div class="flex-between"><b>Total</b> <b>{format_angka(total_belanja)}</b></div>
+    <div class="flex-between">Bayar <span>{format_angka(bayar_tunai)}</span></div>
+    <div class="flex-between">Kembali <span>{format_angka(max(0, kembali))}</span></div>
+    
+    <div class="border-dash"></div>
+    
+    <div class="text-center footer-text">
+        - Terimakasih Semoga Lekas Sembuh -
+    </div>
+</div>
+
+<div class="btn-container">
+    <button onclick="window.print()" style="padding: 7px 18px; font-size: 13px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
+</div>
+
+<script>
+function updatePrintClock() {{
+    var d = new Date();
+    var h = String(d.getHours()).padStart(2, '0');
+    var m = String(d.getMinutes()).padStart(2, '0');
+    var s = String(d.getSeconds()).padStart(2, '0');
+    var el = document.getElementById('clock_print_realtime');
+    if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
+}}
+setInterval(updatePrintClock, 1000);
+updatePrintClock();
 </script>
 </body>
 </html>
