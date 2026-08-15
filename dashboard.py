@@ -949,14 +949,12 @@ elif menu == "📋 Kelola Stok":
                 if btn_proses:
                     if edited_opname is not None:
                         for idx, row in edited_opname.iterrows():
-                            # Ambil index aslinya dengan mengurangkan No. dengan 1
                             real_idx = int(row["No."]) - 1
                             
                             sistem = float(row["Stok Satuan Terkecil"])
                             nyata = float(row["Stok Nyata Terkecil"])
                             stok_exp = float(row["Stok Expired Terkecil"])
                             
-                            # Hanya proses jika nilai Stok Nyata diubah (lebih dari 0) atau Stok Expired diisi
                             if nyata > 0 or stok_exp > 0:
                                 df_ws_opname.loc[real_idx, "Stok Sisa"] = nyata
                                 
@@ -1246,7 +1244,7 @@ elif menu == "🛒 Kasir Utama":
                                             st.session_state.cart[i]["harga_per_satuan"] * st.session_state.cart[i]["qty"]
                                         )
                                     else:
-                                        st.session_state.cart.pop(i)
+                                        st.session_state.cart[i].pop(i)
                                     st.rerun()
                             with col_del:
                                 if st.button("🗑️", key=f"del_{i}", help="Hapus item"):
@@ -1276,7 +1274,7 @@ elif menu == "🛒 Kasir Utama":
                             st.session_state.nota_confirmed = True
                             st.rerun()
 
-with col_nota:
+    with col_nota:
         st.subheader("📄 Preview Nota")
 
         if st.session_state.cart:
@@ -1286,7 +1284,6 @@ with col_nota:
             tgl_today = datetime.now().strftime("%d/%m/%Y")
             kasir_nama_nota = st.session_state.active_shift_context.get("user_name", "")
 
-            # Helper format angka tanpa awalan 'Rp'
             def format_angka(val):
                 try:
                     return f"{int(val):,}".replace(",", ".")
@@ -1356,134 +1353,6 @@ function updateClock() {{
 }}
 setInterval(updateClock, 1000);
 updateClock();
-</script>
-</body>
-</html>
-"""
-
-            components.html(nota_html, height=500, scrolling=True)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            html_printable_nota = f"""
-<!DOCTYPE html>
-<html>
-<head>
-<title>Cetak Struk Nota - Apotek Veteran Blitar</title>
-<style>
-    @page {{
-        size: 80mm auto;
-        margin: 0mm;
-    }}
-    * {{
-        box-sizing: border-box;
-    }}
-    body {{ 
-        font-family: 'Courier New', Courier, monospace; 
-        font-size: 11px; 
-        line-height: 1.3;
-        margin: 0; 
-        padding: 4mm;
-        color: #000;
-        background: #fff;
-    }}
-    .print-container {{ 
-        width: 100%;
-        max-width: 72mm;
-        margin: 0 auto; 
-    }}
-    .text-center {{ 
-        text-align: center; 
-    }}
-    .header-title {{
-        font-size: 13px;
-        font-weight: bold;
-    }}
-    .border-dash {{ 
-        border-bottom: 1px dashed #000; 
-        margin: 6px 0; 
-    }}
-    .flex-between {{ 
-        display: flex; 
-        justify-content: space-between; 
-        margin-bottom: 2px; 
-    }}
-    .info-meta {{
-        font-size: 10px;
-        word-break: break-word;
-    }}
-    .items-wrapper {{
-        font-size: 11px;
-        word-break: break-word;
-    }}
-    .footer-text {{
-        font-size: 9.5px;
-        line-height: 1.3;
-    }}
-    .btn-container {{
-        text-align: center;
-        margin-top: 15px;
-    }}
-    @media print {{ 
-        body {{
-            padding: 2mm;
-        }}
-        .btn-container {{ 
-            display: none !important; 
-        }} 
-    }}
-</style>
-</head>
-<body>
-<div class="print-container">
-    <div class="text-center">
-        <span class="header-title">APOTEK VETERAN SEHAT BLITAR</span><br>
-        Jl. Veteran no 64B Blitar Kota<br>
-        (Sebelah Gang Srigading)<br>
-        081331808585<br>
-        Harga Sudah Termasuk PPN
-    </div>
-    
-    <div class="border-dash"></div>
-    
-    <div class="info-meta">
-        {tgl_today} <span id="clock_print_realtime"></span> {kasir_nama_nota}
-    </div>
-    
-    <div class="border-dash"></div>
-    
-    <div class="items-wrapper">
-        {items_html}
-    </div>
-    
-    <div class="border-dash"></div>
-    
-    <div class="flex-between"><b>Total</b> <b>{format_angka(total_belanja)}</b></div>
-    <div class="flex-between">Bayar <span>{format_angka(bayar_tunai)}</span></div>
-    <div class="flex-between">Kembali <span>{format_angka(max(0, kembali))}</span></div>
-    
-    <div class="border-dash"></div>
-    
-    <div class="text-center footer-text">
-        - Terimakasih Semoga Lekas Sembuh -
-    </div>
-</div>
-
-<div class="btn-container">
-    <button onclick="window.print()" style="padding: 7px 18px; font-size: 13px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
-</div>
-
-<script>
-function updatePrintClock() {{
-    var d = new Date();
-    var h = String(d.getHours()).padStart(2, '0');
-    var m = String(d.getMinutes()).padStart(2, '0');
-    var s = String(d.getSeconds()).padStart(2, '0');
-    var el = document.getElementById('clock_print_realtime');
-    if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
-}}
-setInterval(updatePrintClock, 1000);
-updatePrintClock();
 </script>
 </body>
 </html>
