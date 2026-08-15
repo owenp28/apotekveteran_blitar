@@ -1177,9 +1177,9 @@ elif menu == "🛒 Kasir Utama":
         st.subheader("🛒 Input Penjualan")
         
         if st.session_state.role == "Admin":
-            pilihan_kasir = ["Ivonne", "Dian", "Julia"]
+            pilihan_kasir = ["A1", "K1", "K2"]
         else:
-            pilihan_kasir = ["Dian", "Julia"]
+            pilihan_kasir = ["K1", "K2"]
             
         current_kasir = st.session_state.active_shift_context.get("user_name", "")
         if current_kasir not in pilihan_kasir:
@@ -1389,7 +1389,9 @@ updateClock();
                 <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
                 <div class="border-dash"></div>
                 <div class="text-center" style="font-size: 10px;">
-                    - Terima Kasih Semoga Lekas Sembuh -
+                    - Terima Kasih Atas Kunjungan Anda -<br>
+                    - Belanja tanpa struk/nota gratis -<br>
+                    - Harga sudah termasuk PPN -
                 </div>
             </div>
             <br>
