@@ -71,7 +71,7 @@ st.markdown(
     .info-box { background: #1f3a5e; border-left: 4px solid #e94560; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 15px; }
     .info-box strong { color: #e94560; }
     
-    /* ── Footer ─────────────────────────────────────────────────────────────── */
+    /* ── Footer ─────────────────────────────────────────────────────── */
     .app-footer { text-align: center; padding: 20px; color: #666; font-size: 14px; margin-top: 30px; }
     .action-buttons { display: flex; gap: 15px; margin-top: 20px; }
     
@@ -1484,13 +1484,71 @@ updatePrintClock();
 </html>
 """
             
-            st.download_button(
-                label="🖨️ Cetak / Print Struk Nota",
-                data=html_printable_nota.encode("utf-8"),
-                file_name=f"Struk_Nota_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html",
-                mime="text/html",
-                use_container_width=True
-            )
+            # ── GENERATE STRUK FORMAT TEKS / NOTEPAD (.TXT) ──
+            # Format standar thermal 32 karakter
+            W = 32
+            
+            lines_txt = []
+            lines_txt.append("APOTEK VETERAN SEHAT BLITAR".center(W))
+            lines_txt.append("Jl. Veteran no 64B Blitar Kota".center(W))
+            lines_txt.append("(Sebelah Gang Srigading)".center(W))
+            lines_txt.append("081331808585".center(W))
+            lines_txt.append("-" * W)
+            
+            # Baris Info Kasir & Tanggal
+            waktu_txt = datetime.now().strftime('%H:%M:%S')
+            info_kiri = f"{tgl_today} {waktu_txt}"
+            info_kanan = f"{kasir_nama_nota}"
+            spasi_info = max(1, W - len(info_kiri) - len(info_kanan))
+            lines_txt.append(f"{info_kiri}{' ' * spasi_info}{info_kanan}")
+            lines_txt.append("-" * W)
+            
+            # Baris Item Pembelian
+            for item in st.session_state.cart:
+                lines_txt.append(str(item['nama'])[:W])
+                qty_satuan = f"  {item['qty']} {item['satuan_jual']} x {int(item['harga_per_satuan']):,}".replace(",", ".")
+                subtot = format_rupiah(item['subtotal'])
+                spasi_item = max(1, W - len(qty_satuan) - len(subtot))
+                lines_txt.append(f"{qty_satuan}{' ' * spasi_item}{subtot}")
+                
+            lines_txt.append("-" * W)
+            
+            # Baris Total, Bayar, Kembali
+            for label, nominal in [
+                ("Total", format_rupiah(total_belanja)),
+                ("Bayar", format_rupiah(bayar_tunai)),
+                ("Kembali", format_rupiah(max(0, kembali)))
+            ]:
+                spasi_nom = max(1, W - len(label) - len(nominal))
+                lines_txt.append(f"{label}{' ' * spasi_nom}{nominal}")
+                
+            lines_txt.append("-" * W)
+            lines_txt.append("- Terima Kasih Atas -".center(W))
+            lines_txt.append("- Kunjungan Anda -".center(W))
+            lines_txt.append("- Belanja tanpa struk gratis -".center(W))
+            lines_txt.append("- Harga sudah termasuk PPN -".center(W))
+            lines_txt.append("\n\n")  # Feed kertas thermal
+            
+            txt_printable_nota = "\n".join(lines_txt)
+
+            # ── DUA TOMBOL DOWNLOAD (HTML PRINT & NOTEPAD TXT) ──
+            col_d_html, col_d_txt = st.columns(2)
+            with col_d_html:
+                st.download_button(
+                    label="🖨️ Cetak / Print Struk (HTML)",
+                    data=html_printable_nota.encode("utf-8"),
+                    file_name=f"Struk_Nota_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html",
+                    mime="text/html",
+                    use_container_width=True
+                )
+            with col_d_txt:
+                st.download_button(
+                    label="📄 Unduh Nota (Notepad .TXT)",
+                    data=txt_printable_nota.encode("utf-8"),
+                    file_name=f"Struk_Nota_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
 
             st.markdown("<br>", unsafe_allow_html=True)
             if st.session_state.nota_confirmed:
