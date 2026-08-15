@@ -1313,7 +1313,7 @@ elif menu == "🛒 Kasir Utama":
         (Sebelah Gang Srigading)<br> 
         Blitar 66111<br>
         <b>081331808585</b>
-        Harga Sudah Termasuk PPN<br>
+        <b>Harga Sudah Termasuk PPN</b>
     </div>
     
     <div style="margin-bottom: 8px; font-size: 10px; color: #555; text-align: left; word-break: break-word;">
