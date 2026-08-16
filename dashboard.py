@@ -536,9 +536,29 @@ if "selected_obat" not in st.session_state:
 if "obat_baru" not in st.session_state:
     st.session_state.obat_baru = False
 
-# SHIFT STATE
+# SHIFT STATE (dengan pemulihan otomatis dari query params agar tidak reset saat halaman reload/reconnect)
 if "shift_active" not in st.session_state:
-    st.session_state.shift_active = False
+    if st.query_params.get("shift_active") == "true":
+        try:
+            _qp_saldo_awal = float(st.query_params.get("shift_saldo_awal", 0.0) or 0.0)
+        except Exception:
+            _qp_saldo_awal = 0.0
+        try:
+            _qp_sales = float(st.query_params.get("shift_sales", 0.0) or 0.0)
+        except Exception:
+            _qp_sales = 0.0
+
+        st.session_state.shift_active = True
+        st.session_state.active_shift_context = {
+            "saldo_awal": _qp_saldo_awal,
+            "accumulated_sales_expected": _qp_sales,
+            "start_time": st.query_params.get("shift_start_time", None),
+            "user_name": st.query_params.get("shift_user", ""),
+            "shift_name": st.query_params.get("shift_name", "Pagi")
+        }
+    else:
+        st.session_state.shift_active = False
+
 if "active_shift_context" not in st.session_state:
     st.session_state.active_shift_context = {
         "saldo_awal": 0.0,
@@ -1255,24 +1275,91 @@ elif menu == "🛒 Kasir Utama":
                         st.session_state.checkout_mode = True
                         st.rerun()
             else:
-                st.info(f"🛒 **{len(st.session_state.cart)} item** dalam keranjang. Silakan masukkan nominal bayar.")
-                bayar_input = st.number_input("Nominal Bayar Uang Fisik (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
-                st.session_state.bayar_tunai = bayar_input
+                if not st.session_state.nota_confirmed:
+                    st.info(f"🛒 **{len(st.session_state.cart)} item** dalam keranjang. Silakan masukkan nominal bayar.")
+                    bayar_input = st.number_input("Nominal Bayar Uang Fisik (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
+                    st.session_state.bayar_tunai = bayar_input
 
-                st.markdown("<br>", unsafe_allow_html=True)
-                col_teliti, col_submit = st.columns(2)
-                with col_teliti:
-                    if st.button("🔍 Teliti Kembali Keranjang", type="secondary", use_container_width=True):
-                        st.session_state.checkout_mode = False
-                        st.session_state.nota_confirmed = False
-                        st.rerun()
-                with col_submit:
-                    if st.button("✅ Konfirmasi Pembayaran", type="primary", use_container_width=True):
-                        if st.session_state.bayar_tunai <= 0:
-                            st.error("Nominal bayar harus diisi!")
-                        else:
-                            st.session_state.nota_confirmed = True
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    col_teliti, col_submit = st.columns(2)
+                    with col_teliti:
+                        if st.button("🔍 Teliti Kembali Keranjang", type="secondary", use_container_width=True):
+                            st.session_state.checkout_mode = False
+                            st.session_state.nota_confirmed = False
                             st.rerun()
+                    with col_submit:
+                        if st.button("✅ Konfirmasi Pembayaran", type="primary", use_container_width=True):
+                            if st.session_state.bayar_tunai <= 0:
+                                st.error("Nominal bayar harus diisi!")
+                            else:
+                                # ── Begitu pembayaran dikonfirmasi, stok & riwayat langsung diupdate otomatis (tanpa tombol simpan terpisah) ──
+                                workbook_data = st.session_state.inventory_data_cache
+
+                                df_history = load_data()
+                                if df_history is None:
+                                    df_history = pd.DataFrame(columns=KOLOM_WAJIB)
+
+                                new_history_rows = []
+                                total_belanja_confirm = 0.0
+
+                                for item in st.session_state.cart:
+                                    ws_target = item["worksheet"]
+                                    if ws_target in workbook_data:
+                                        sheet_df = prepare_sheet_for_editor(workbook_data[ws_target].copy())
+
+                                        mask = (
+                                            (sheet_df["Nama produk"].fillna("").astype(str) == str(item["nama"])) &
+                                            (sheet_df["Nomor Batch"].fillna("").astype(str) == str(item["batch"]))
+                                        )
+
+                                        if mask.any():
+                                            idx = sheet_df[mask].index[-1]
+                                            sisa_lama = float(sheet_df.loc[idx, "Stok Sisa"]) if pd.notna(sheet_df.loc[idx, "Stok Sisa"]) else 0.0
+                                            keluar_lama = float(sheet_df.loc[idx, "Stok Keluar"]) if pd.notna(sheet_df.loc[idx, "Stok Keluar"]) else 0.0
+
+                                            sisa_baru = max(sisa_lama - item["qty"], 0)
+                                            keluar_baru = keluar_lama + item["qty"]
+
+                                            sheet_df.loc[idx, "Stok Sisa"] = sisa_baru
+                                            sheet_df.loc[idx, "Stok Keluar"] = keluar_baru
+
+                                            workbook_data[ws_target] = normalize_inventory_df(sheet_df)
+
+                                    total_belanja_confirm += item["subtotal"]
+                                    new_history_rows.append({
+                                        "Tanggal": pd.Timestamp(date.today()),
+                                        "Nama Obat": item["nama"],
+                                        "Kategori": ws_target,
+                                        "Satuan": item["satuan_jual"],
+                                        "Stok Masuk": 0,
+                                        "Stok Keluar": item["qty"],
+                                        "Stok Akhir": sisa_baru if 'sisa_baru' in locals() else 0,
+                                        "Harga Satuan (Rp)": item["harga_per_satuan"],
+                                        "Total Nilai (Rp)": item["subtotal"],
+                                        "Tanggal Kadaluarsa": pd.Timestamp(item["tgl_exp"]) if pd.notna(item["tgl_exp"]) else pd.Timestamp(date.today()),
+                                        "Keterangan": f"Kasir Pembelian Obat ({item['skema_harga']})"
+                                    })
+
+                                if new_history_rows:
+                                    df_history = pd.concat([df_history, pd.DataFrame(new_history_rows)], ignore_index=True)
+                                    save_data(df_history)
+
+                                st.session_state.inventory_data_cache = workbook_data
+                                save_inventory_workbook(workbook_data)
+
+                                # LOGIC SHIFT : Akumulasi otomatis hasil penjualan dari sistem
+                                if st.session_state.shift_active:
+                                    st.session_state.active_shift_context["accumulated_sales_expected"] += total_belanja_confirm
+                                    # Sinkronkan ke query params supaya nilai akumulasi shift tidak hilang saat halaman reload
+                                    try:
+                                        st.query_params["shift_sales"] = str(st.session_state.active_shift_context["accumulated_sales_expected"])
+                                    except Exception:
+                                        pass
+
+                                st.session_state.nota_confirmed = True
+                                st.rerun()
+                else:
+                    st.success("✅ Pembayaran sudah dikonfirmasi dan stok sudah diperbarui secara otomatis. Silakan cetak/unduh struk di panel sebelah kanan, lalu klik **Transaksi Baru** untuk melayani pelanggan berikutnya.")
 
     with col_nota:
         st.subheader("📄 Preview Nota")
@@ -1598,78 +1685,13 @@ updatePrintClock();
 
             st.markdown("<br>", unsafe_allow_html=True)
             if st.session_state.nota_confirmed:
-                col_simpan, col_reset = st.columns(2)
-                with col_simpan:
-                    if st.button("💾 Simpan & Update Stok", type="primary", use_container_width=True):
-                        workbook_data = st.session_state.inventory_data_cache
-                        
-                        df_history = load_data()
-                        if df_history is None:
-                            df_history = pd.DataFrame(columns=KOLOM_WAJIB)
-                            
-                        new_history_rows = []
-                        
-                        for item in st.session_state.cart:
-                            ws_target = item["worksheet"]
-                            if ws_target in workbook_data:
-                                sheet_df = prepare_sheet_for_editor(workbook_data[ws_target].copy())
-                                
-                                mask = (
-                                    (sheet_df["Nama produk"].fillna("").astype(str) == str(item["nama"])) &
-                                    (sheet_df["Nomor Batch"].fillna("").astype(str) == str(item["batch"]))
-                                )
-                                
-                                if mask.any():
-                                    idx = sheet_df[mask].index[-1]
-                                    sisa_lama = float(sheet_df.loc[idx, "Stok Sisa"]) if pd.notna(sheet_df.loc[idx, "Stok Sisa"]) else 0.0
-                                    keluar_lama = float(sheet_df.loc[idx, "Stok Keluar"]) if pd.notna(sheet_df.loc[idx, "Stok Keluar"]) else 0.0
-                                    
-                                    sisa_baru = max(sisa_lama - item["qty"], 0)
-                                    keluar_baru = keluar_lama + item["qty"]
-                                    
-                                    sheet_df.loc[idx, "Stok Sisa"] = sisa_baru
-                                    sheet_df.loc[idx, "Stok Keluar"] = keluar_baru
-                                    
-                                    workbook_data[ws_target] = normalize_inventory_df(sheet_df)
-                            
-                            new_history_rows.append({
-                                "Tanggal": pd.Timestamp(date.today()),
-                                "Nama Obat": item["nama"],
-                                "Kategori": ws_target, 
-                                "Satuan": item["satuan_jual"],
-                                "Stok Masuk": 0,
-                                "Stok Keluar": item["qty"],
-                                "Stok Akhir": sisa_baru if 'sisa_baru' in locals() else 0,
-                                "Harga Satuan (Rp)": item["harga_per_satuan"],
-                                "Total Nilai (Rp)": item["subtotal"],
-                                "Tanggal Kadaluarsa": pd.Timestamp(item["tgl_exp"]) if pd.notna(item["tgl_exp"]) else pd.Timestamp(date.today()),
-                                "Keterangan": f"Kasir Pembelian Obat ({item['skema_harga']})"
-                            })
-                            
-                        if new_history_rows:
-                            df_history = pd.concat([df_history, pd.DataFrame(new_history_rows)], ignore_index=True)
-                            save_data(df_history)
-                            
-                        st.session_state.inventory_data_cache = workbook_data
-                        save_inventory_workbook(workbook_data)
-                        
-                        # LOGIC SHIFT : Akumulasi otomatis hasil penjualan dari sistem 
-                        if st.session_state.shift_active:
-                            st.session_state.active_shift_context["accumulated_sales_expected"] += total_belanja
-                        
-                        st.session_state.cart = []
-                        st.session_state.checkout_mode = False
-                        st.session_state.bayar_tunai = 0
-                        st.session_state.nota_confirmed = False
-                        st.success("✅ Transaksi berhasil disimpan! Stok Excel dan Saldo Shift sudah diperbarui secara real-time.")
-                        st.rerun()
-                with col_reset:
-                    if st.button("🗑️ Batalkan & Kosongkan Keranjang", type="secondary", use_container_width=True):
-                        st.session_state.cart = []
-                        st.session_state.checkout_mode = False
-                        st.session_state.bayar_tunai = 0
-                        st.session_state.nota_confirmed = False
-                        st.rerun()
+                st.success("✅ Transaksi berhasil disimpan! Stok Excel dan Saldo Shift sudah diperbarui secara otomatis dan real-time.")
+                if st.button("🆕 Transaksi Baru (Kosongkan Keranjang)", type="primary", use_container_width=True):
+                    st.session_state.cart = []
+                    st.session_state.checkout_mode = False
+                    st.session_state.bayar_tunai = 0
+                    st.session_state.nota_confirmed = False
+                    st.rerun()
             else:
                 if st.button("🗑️ Batalkan & Kosongkan Keranjang", type="secondary", use_container_width=True):
                     st.session_state.cart = []
@@ -2398,6 +2420,15 @@ elif menu == "🕒 Sesi Shift":
             st.session_state.active_shift_context["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             st.session_state.active_shift_context["user_name"] = nama_user_buka
             st.session_state.active_shift_context["shift_name"] = shift_pilih_buka
+
+            # Simpan status shift ke query params supaya status "shift aktif" tidak hilang/ke-reset saat halaman reload/reconnect
+            st.query_params["shift_active"] = "true"
+            st.query_params["shift_saldo_awal"] = str(float(saldo_awal_buka))
+            st.query_params["shift_sales"] = "0.0"
+            st.query_params["shift_start_time"] = st.session_state.active_shift_context["start_time"]
+            st.query_params["shift_user"] = nama_user_buka
+            st.query_params["shift_name"] = shift_pilih_buka
+
             st.session_state.target_menu = "🛒 Kasir Utama"
             st.rerun()
 
@@ -2491,6 +2522,12 @@ elif menu == "🕒 Sesi Shift":
                     st.session_state.active_shift_context = {
                         "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
                     }
+
+                    # Hapus status shift dari query params karena shift sudah resmi ditutup
+                    for _qp_key in ["shift_active", "shift_saldo_awal", "shift_sales", "shift_start_time", "shift_user", "shift_name"]:
+                        if _qp_key in st.query_params:
+                            del st.query_params[_qp_key]
+
                     st.session_state.last_shift_data = new_log
                     st.session_state.step_tutup_shift = 3
                     st.session_state.input_saldo_kasir = 0.0
