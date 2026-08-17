@@ -450,27 +450,55 @@ def get_available_sheets():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STOK OPNAME MODAL (POPUP PILIH OBAT)
+# STOK OPNAME MODAL (POPUP PILIH OBAT MIRIP GAMBAR 2)
 # ══════════════════════════════════════════════════════════════════════════════
 @st.dialog("Pilih Obat", width="large")
 def modal_pilih_obat(df_source, initial_search=""):
     st.markdown("<style>.stDialog > div { padding: 10px; }</style>", unsafe_allow_html=True)
     
-    col1, col2, col3, col4 = st.columns([3, 2, 3, 2])
-    with col1:
-        tampil_habis = st.checkbox("Tampilkan No. Batch yang sudah habis", value=False)
-    with col2:
-        tampil_stok = st.checkbox("Tampilkan Stok", value=True)
-    with col3:
-        urut_ed = st.checkbox("Urutkan berdasarkan ED terdekat (FEFO)", value=True)
-    with col4:
-        st.button("Export Template Excel", type="primary", use_container_width=True)
+    col_c1, col_c2, col_c3, col_c4 = st.columns([3.5, 2.5, 3.5, 3])
+    with col_c1:
+        tampil_habis = st.checkbox("Tampilkan No. Batch yang sudah habis", value=False, key="modal_chk_habis")
+    with col_c2:
+        tampil_stok = st.checkbox("Tampilkan Stok", value=True, key="modal_chk_stok")
+    with col_c3:
+        urut_ed = st.checkbox("Urutkan berdasarkan ED terdekat (FEFO)", value=True, key="modal_chk_fefo")
+    with col_c4:
+        # Generate Excel Template untuk diekspor
+        template_buf = io.BytesIO()
+        with pd.ExcelWriter(template_buf, engine="openpyxl") as writer:
+            export_template_df = df_source[["Nama produk", "Worksheet", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa", "Satuan"]].copy()
+            export_template_df.columns = ["Nama Obat", "Lokasi", "No. Batch", "Tanggal Expired", "Stok Sistem", "Satuan"]
+            export_template_df["Stok Nyata Terkecil"] = 0
+            export_template_df["Stok Expired Terkecil"] = 0
+            export_template_df.to_excel(writer, index=False, sheet_name="Template Stok Opname")
+            
+        st.download_button(
+            label="📥 Export Template Excel",
+            data=template_buf.getvalue(),
+            file_name=f"Template_Stok_Opname_{date.today()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
 
-    st.button("🔄 Refresh")
+    col_btn_ref, _ = st.columns([2, 8])
+    with col_btn_ref:
+        if st.button("🔄 Refresh", key="btn_refresh_modal", use_container_width=True):
+            st.rerun()
+
+    st.markdown("---")
+
+    # Filter Bar di dalam Dialog
+    col_f_txt, col_f_lok, col_f_status = st.columns([5, 3, 3])
+    with col_f_txt:
+        modal_search = st.text_input("🔍 Cari Kode/Nama Obat", value=initial_search, placeholder="Ketik kode atau nama...", key="modal_search_txt")
+    with col_f_lok:
+        lokasi_options = ["Semua Lokasi"] + sorted(list(df_source["Worksheet"].dropna().unique()))
+        selected_lokasi = st.selectbox("Lokasi", lokasi_options, key="modal_select_lokasi")
+    with col_f_status:
+        selected_status = st.selectbox("Status Stok", ["Semua", "Stok Tersedia", "Stok Habis"], key="modal_select_status")
 
     df_modal = df_source.copy()
-
-    # Preprocessing
     df_modal["Stok Sisa"] = pd.to_numeric(df_modal["Stok Sisa"], errors="coerce").fillna(0)
     
     if not tampil_habis:
@@ -480,41 +508,62 @@ def modal_pilih_obat(df_source, initial_search=""):
         df_modal["Tanggal Kadaluwarsa"] = pd.to_datetime(df_modal["Tanggal Kadaluwarsa"], errors="coerce")
         df_modal = df_modal.sort_values(by="Tanggal Kadaluwarsa", na_position="last")
 
-    if initial_search:
-        mask = df_modal.astype(str).apply(lambda col: col.str.contains(initial_search, case=False, na=False)).any(axis=1)
-        df_modal = df_modal[mask]
+    if modal_search.strip():
+        mask_search = df_modal.astype(str).apply(lambda col: col.str.contains(modal_search.strip(), case=False, na=False)).any(axis=1)
+        df_modal = df_modal[mask_search]
 
-    df_modal["Pilih"] = False
-    df_modal["Kode Obat"] = ["OBT" + str(1000 + i) for i in range(len(df_modal))]
+    if selected_lokasi != "Semua Lokasi":
+        df_modal = df_modal[df_modal["Worksheet"] == selected_lokasi]
+
     df_modal["Status Stok"] = df_modal["Stok Sisa"].apply(lambda x: "Stok Tersedia" if x > 0 else "Stok Habis")
+    if selected_status != "Semua":
+        df_modal = df_modal[df_modal["Status Stok"] == selected_status]
+
+    df_modal = df_modal.reset_index(drop=True)
+    df_modal["Pilih"] = False
+    df_modal["No."] = range(1, len(df_modal) + 1)
+    df_modal["Kode Obat"] = ["OBT" + str(1000 + i) for i in range(len(df_modal))]
+    
+    if tampil_stok:
+        df_modal["Stok Terkecil"] = df_modal.apply(lambda r: f"{r['Stok Sisa']:.2f} {str(r['Satuan']) if pd.notna(r['Satuan']) else str(r['Worksheet'])}", axis=1)
+    else:
+        df_modal["Stok Terkecil"] = "-"
+
     df_modal["Golongan"] = "-"
     df_modal["Kategori"] = "-"
+    df_modal["Lokasi"] = df_modal["Worksheet"]
 
-    cols = ["Pilih", "Kode Obat", "Nama produk", "Stok Sisa", "Golongan", "Kategori", "Worksheet", "Status Stok"]
+    cols = ["Pilih", "No.", "Kode Obat", "Nama produk", "Stok Terkecil", "Golongan", "Kategori", "Lokasi", "Status Stok"]
     df_display = df_modal[cols].copy()
 
     st.caption(f"Menampilkan 1-{len(df_display)} dari {len(df_display)} data")
 
-    edited = st.data_editor(
+    edited_modal = st.data_editor(
         df_display,
         hide_index=True,
         use_container_width=True,
         column_config={
             "Pilih": st.column_config.CheckboxColumn("Pilih", default=False),
-            "Nama produk": "Nama Obat",
-            "Stok Sisa": "Stok Terkecil",
-            "Worksheet": "Lokasi"
+            "No.": st.column_config.NumberColumn("No.", width="small"),
+            "Nama produk": st.column_config.TextColumn("Nama Obat", width="large"),
+            "Stok Terkecil": st.column_config.TextColumn("Stok Terkecil", width="medium"),
+            "Lokasi": st.column_config.TextColumn("Lokasi", width="small"),
+            "Status Stok": st.column_config.TextColumn("Status Stok", width="small")
         },
+        disabled=["No.", "Kode Obat", "Nama produk", "Stok Terkecil", "Golongan", "Kategori", "Lokasi", "Status Stok"],
         key="modal_data_editor_opname"
     )
 
-    col_l, col_r = st.columns([8, 2])
-    with col_r:
-        if st.button("Kembali", type="primary", use_container_width=True):
-            selected = edited[edited["Pilih"] == True]
-            if not selected.empty:
-                items_to_add = df_modal[df_modal["Kode Obat"].isin(selected["Kode Obat"])].copy()
-                st.session_state.opname_custom_items = items_to_add
+    col_space, col_back = st.columns([7, 3])
+    with col_back:
+        if st.button("⬅️ Kembali & Masukkan Obat", type="primary", use_container_width=True):
+            if edited_modal is not None:
+                selected_rows = edited_modal[edited_modal["Pilih"] == True]
+                if not selected_rows.empty:
+                    items_chosen = df_modal[df_modal["Kode Obat"].isin(selected_rows["Kode Obat"])].copy()
+                    st.session_state.opname_custom_items = items_chosen
+                else:
+                    st.session_state.opname_custom_items = pd.DataFrame()
             st.rerun()
 
 
@@ -643,7 +692,6 @@ if "input_saldo_kasir" not in st.session_state:
     st.session_state.input_saldo_kasir = 0.0
 if "last_shift_data" not in st.session_state:
     st.session_state.last_shift_data = pd.DataFrame()
-
 
 # ── Sidebar navigasi ──────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
@@ -790,7 +838,7 @@ if menu == "🏠 Dashboard":
                 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 1 — KELOLA STOK (TERMASUK STOK OPNAME YANG DISESUAIKAN)
+# FITUR 1 — KELOLA STOK (TERMASUK STOK OPNAME DENGAN POP UP LENGKAP)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
@@ -958,14 +1006,14 @@ elif menu == "📋 Kelola Stok":
                         df_render[col] = df_render[col].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(df_render, use_container_width=True, hide_index=True)
 
-    # ALUR STOK OPNAME TERBARU (Sesuai Gambar 1 & Gambar 2)
+    # ── ALUR STOK OPNAME (PERSIS TAMPILAN GAMBAR 1 & 2) ────────────────────────
     with tab_opname:
         st.markdown("<h3 style='text-align: center; color: #e94560; margin-bottom: 20px;'>Stok Opname Obat</h3>", unsafe_allow_html=True)
         
         if st.session_state.role != "Admin":
             st.info("Fitur Stok Opname hanya dapat diakses dan diproses oleh Admin. Tampilan di bawah ini bersifat Read-Only.")
 
-        # ============ BAGIAN ATAS: Import File ============
+        # Bagian Atas: Import File
         col_f1, col_f2, col_f3 = st.columns([4, 2, 4])
         with col_f1:
             st.file_uploader("Pilih file...", type=["xlsx", "csv"], key="import_opname_file", label_visibility="collapsed")
@@ -976,7 +1024,7 @@ elif menu == "📋 Kelola Stok":
 
         st.write("")
 
-        # ============ BAGIAN KEDUA: Pilihan Gudang & Proses ============
+        # Bagian Gudang & Aksi Proses
         col_gudang, col_proses, col_reset, _ = st.columns([3, 1, 1, 5])
         with col_gudang:
             opname_gudang = st.selectbox("Pilih Gudang", AVAILABLE_SHEETS, key="opname_gudang_select", label_visibility="collapsed")
@@ -987,20 +1035,19 @@ elif menu == "📋 Kelola Stok":
 
         st.write("")
 
-        # ============ BAGIAN KETIGA: Pencarian (Trigger Pop Up) ============
+        # Bagian Pencarian & Tombol "Cari" (Trigger Pop Up Modal)
         col_search, col_btn_cari = st.columns([9, 1])
         with col_search:
-            search_opname = st.text_input("Pencarian obat", placeholder="Ketik nama obat, batch...", label_visibility="collapsed", key="search_opname_input")
+            search_opname = st.text_input("Pencarian obat", placeholder="Ketik kata kunci untuk mencari...", label_visibility="collapsed", key="search_opname_input")
         with col_btn_cari:
             btn_cari_obat = st.button("Cari", type="primary", use_container_width=True, key="btn_cari_obat_opname_trigger")
 
         if btn_cari_obat:
-            # Memanggil Dialog Pop-Up
             df_all = build_inventory_print_dataframe()
-            if df_all is not None:
+            if df_all is not None and not df_all.empty:
                 modal_pilih_obat(df_all, search_opname)
 
-        # ============ MENYIAPKAN DATA OPNAME UNTUK TABEL ============
+        # Menyiapkan Data Tabel Opname
         df_ws_opname = pd.DataFrame()
         if opname_gudang in workbook_data:
             df_ws_opname = workbook_data[opname_gudang].copy()
@@ -1019,12 +1066,12 @@ elif menu == "📋 Kelola Stok":
             df_opname["Stok Expired Terkecil"] = 0.00
             df_opname["Satuan Terkecil"] = df_ws_opname["Satuan"]
 
-        # Filter lokal pada tabel utama jika search_opname diisi tanpa di-klik "Cari"
+        # Filter lokal pencarian jika tidak menggunakan modal
         if search_opname.strip() and not btn_cari_obat:
             mask_opname = df_opname.astype(str).apply(lambda col: col.str.contains(search_opname.strip(), case=False, na=False)).any(axis=1)
             df_opname = df_opname[mask_opname]
 
-        # Prioritas menimpa dengan data terpilih dari Pop Up (jika ada)
+        # Prioritaskan item yang dipilih dari Pop-up Modal
         if "opname_custom_items" in st.session_state and not st.session_state.opname_custom_items.empty:
             chosen = st.session_state.opname_custom_items
             df_opname = pd.DataFrame()
@@ -1041,7 +1088,7 @@ elif menu == "📋 Kelola Stok":
 
         st.caption(f"Menampilkan 1-{len(df_opname)} dari {len(df_opname)} data")
 
-        # ============ TABEL EDITOR OPNAME ============
+        # Tabel Editor Data Opname
         if st.session_state.role == "Admin":
             edited_opname = st.data_editor(
                 df_opname,
@@ -1055,7 +1102,7 @@ elif menu == "📋 Kelola Stok":
                 key="opname_editor_grid_final"
             )
             
-            # Eksekusi Proses Perubahan Stok
+            # Aksi Submit Perubahan Stok Opname
             if btn_proses_opname:
                 if edited_opname is not None and not edited_opname.empty:
                     for idx, row in edited_opname.iterrows():
@@ -2468,7 +2515,7 @@ elif menu == "🕒 Sesi Shift":
              {html_rows}
           </tbody>
         </table>
-        <br><button onclick='window.print()' style='padding:8px 20px;background:#2c7be5;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;'>🖨️ Print / Simpan PDF</button>
+        <br><button onclick='window.print()' style='padding:8px 20px;background:#2c7be5;color:white;border:none;border-radius:4px;cursor:font-size:13px;'>🖨️ Print / Simpan PDF</button>
         </body></html>
         """
         html_bytes = html_content.encode("utf-8")
