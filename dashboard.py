@@ -36,47 +36,27 @@ st.markdown(
     .form-container { background: #16213e; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #0f3460; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
     .form-section-title { font-size: 18px; font-weight: 600; color: #e94560; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e94560; display: flex; align-items: center; gap: 10px; }
     
-    /* ── Grid Layout ────────────────────────────────────────────────────────── */
-    .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
-    .form-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
-    .form-group { display: flex; flex-direction: column; gap: 8px; }
-    .form-label { font-size: 14px; font-weight: 500; color: #a0a0a0; }
-    .form-input { width: 100%; padding: 10px 14px; border: 1px solid #0f3460; border-radius: 6px; background: #1a1a2e; color: #e0e0e0; font-size: 14px; transition: all 0.3s ease; }
-    .form-input:focus { outline: none; border-color: #e94560; box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.2); }
-    .form-input:disabled { background: #16213e; color: #666; cursor: not-allowed; font-weight: 600; }
-    
     /* ── Tombol Custom ──────────────────────────────────────────────────────── */
     .btn-custom { padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 8px; border: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .btn-cari { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; }
-    .btn-cari:hover { background: linear-gradient(135deg, #ee5a24 0%, #d64520 100%); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(238, 90, 36, 0.4); }
-    .btn-save { background: linear-gradient(135deg, #28a745 0%, #218838 100%); color: white; }
-    .btn-save:hover { background: linear-gradient(135deg, #218838 0%, #1e7e34 100%); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4); }
-    .btn-reset { background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%); color: white; }
-    .btn-reset:hover { background: linear-gradient(135deg, #5a6268 0%, #4e555b 100%); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4); }
     
-    /* ── Total Nominal Container ────────────────────────────────────────────── */
-    .total-container { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); border-radius: 12px; margin: 20px 0; border: 1px solid #0f3460; }
-    .total-label { font-size: 16px; color: #a0a0a0; font-weight: 500; }
-    .total-value { font-size: 42px; font-weight: 700; color: #e94560; text-align: right; font-family: 'Courier New', monospace; }
+    /* ── File Uploader Compact (Agar sejajar dengan tombol) ─────────────────── */
+    [data-testid="stFileUploadDropzone"] {
+        padding: 5px !important;
+        min-height: 42px !important;
+        border-radius: 6px !important;
+    }
+    [data-testid="stFileUploadDropzone"] > div {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
     
     /* ── Tabel Data Editor ──────────────────────────────────────────────────── */
     .table-container { background: #16213e; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #0f3460; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-    .table-title { font-size: 18px; font-weight: 600; color: #e94560; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e94560; }
     .stDataFrame { background: #1a1a2e; border-radius: 8px; overflow: hidden; }
     .stDataFrame th { background: #0f3460; color: #e0e0e0; font-weight: 600; font-size: 13px; padding: 10px; }
     .stDataFrame td { color: #e0e0e0; font-size: 13px; padding: 8px; }
     .stDataFrame tr:hover { background: #1f3a5e; }
     
-    /* ── Info Box ───────────────────────────────────────────────────────────── */
-    .info-box { background: #1f3a5e; border-left: 4px solid #e94560; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 15px; }
-    .info-box strong { color: #e94560; }
-    
-    /* ── Footer ─────────────────────────────────────────────────────── */
-    .app-footer { text-align: center; padding: 20px; color: #666; font-size: 14px; margin-top: 30px; }
-    .action-buttons { display: flex; gap: 15px; margin-top: 20px; }
-    
-    /* ── Responsive ─────────────────────────────────────────────────────────── */
-    @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } .form-grid-4 { grid-template-columns: 1fr; } .total-container { flex-direction: column; gap: 15px; } .total-value { text-align: center; } }
     </style>
     """,
     unsafe_allow_html=True
@@ -450,7 +430,7 @@ def get_available_sheets():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STOK OPNAME MODAL (POPUP PILIH OBAT MIRIP GAMBAR 2)
+# STOK OPNAME MODAL (POPUP PILIH OBAT)
 # ══════════════════════════════════════════════════════════════════════════════
 @st.dialog("Pilih Obat", width="large")
 def modal_pilih_obat(df_source, initial_search=""):
@@ -464,7 +444,6 @@ def modal_pilih_obat(df_source, initial_search=""):
     with col_c3:
         urut_ed = st.checkbox("Urutkan berdasarkan ED terdekat (FEFO)", value=True, key="modal_chk_fefo")
     with col_c4:
-        # Generate Excel Template untuk diekspor
         template_buf = io.BytesIO()
         with pd.ExcelWriter(template_buf, engine="openpyxl") as writer:
             export_template_df = df_source[["Nama produk", "Worksheet", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa", "Satuan"]].copy()
@@ -488,7 +467,6 @@ def modal_pilih_obat(df_source, initial_search=""):
 
     st.markdown("---")
 
-    # Filter Bar di dalam Dialog
     col_f_txt, col_f_lok, col_f_status = st.columns([5, 3, 3])
     with col_f_txt:
         modal_search = st.text_input("🔍 Cari Kode/Nama Obat", value=initial_search, placeholder="Ketik kode atau nama...", key="modal_search_txt")
@@ -693,6 +671,7 @@ if "input_saldo_kasir" not in st.session_state:
 if "last_shift_data" not in st.session_state:
     st.session_state.last_shift_data = pd.DataFrame()
 
+
 # ── Sidebar navigasi ──────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
 st.sidebar.title("💊 Apotek Veteran Blitar")
@@ -838,7 +817,7 @@ if menu == "🏠 Dashboard":
                 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 1 — KELOLA STOK (TERMASUK STOK OPNAME DENGAN POP UP LENGKAP)
+# FITUR 1 — KELOLA STOK (TERMASUK STOK OPNAME YANG DISESUAIKAN LAYOUTNYA)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
@@ -1006,40 +985,43 @@ elif menu == "📋 Kelola Stok":
                         df_render[col] = df_render[col].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(df_render, use_container_width=True, hide_index=True)
 
-    # ── ALUR STOK OPNAME (PERSIS TAMPILAN GAMBAR 1 & 2) ────────────────────────
+    # ── ALUR STOK OPNAME (DIPERBAIKI LAYOUTNYA SESUAI GAMBAR BARU) ─────────────
     with tab_opname:
         st.markdown("<h3 style='text-align: center; color: #e94560; margin-bottom: 20px;'>Stok Opname Obat</h3>", unsafe_allow_html=True)
         
         if st.session_state.role != "Admin":
             st.info("Fitur Stok Opname hanya dapat diakses dan diproses oleh Admin. Tampilan di bawah ini bersifat Read-Only.")
 
-        # Bagian Atas: Import File
-        col_f1, col_f2, col_f3 = st.columns([4, 2, 4])
-        with col_f1:
-            st.file_uploader("Pilih file...", type=["xlsx", "csv"], key="import_opname_file", label_visibility="collapsed")
-        with col_f2:
-            st.button("Cari File", key="btn_cari_file_opname", use_container_width=True, type="secondary")
-        with col_f3:
+        # --- ROW 1: FILE UPLOAD & IMPORT ---
+        # Kolom diatur agar uploader dan tombol bersandingan rapi.
+        c_file1, c_file2, c_file3 = st.columns([5, 2, 3])
+        with c_file1:
+            st.file_uploader("Upload File Opname", type=["xlsx", "csv"], key="import_opname_file", label_visibility="collapsed")
+        with c_file2:
+            st.markdown("<div style='margin-top: 2px;'></div>", unsafe_allow_html=True) 
+            st.button("Cari File", key="btn_cari_file_opname", use_container_width=True)
+        with c_file3:
+            st.markdown("<div style='margin-top: 2px;'></div>", unsafe_allow_html=True)
             st.button("Import Stok Opname", key="btn_import_opname", use_container_width=True)
 
-        st.write("")
+        st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-        # Bagian Gudang & Aksi Proses
-        col_gudang, col_proses, col_reset, _ = st.columns([3, 1, 1, 5])
-        with col_gudang:
+        # --- ROW 2: GUDANG & ACTION ---
+        c_gudang, c_proses, c_reset, _ = st.columns([3, 2, 2, 5])
+        with c_gudang:
             opname_gudang = st.selectbox("Pilih Gudang", AVAILABLE_SHEETS, key="opname_gudang_select", label_visibility="collapsed")
-        with col_proses:
+        with c_proses:
             btn_proses_opname = st.button("✅ Proses", use_container_width=True, type="primary", key="btn_proses_opname_action")
-        with col_reset:
+        with c_reset:
             btn_reset_opname = st.button("🔄 Reset", use_container_width=True, key="btn_reset_opname_action")
 
-        st.write("")
+        st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-        # Bagian Pencarian & Tombol "Cari" (Trigger Pop Up Modal)
-        col_search, col_btn_cari = st.columns([9, 1])
-        with col_search:
+        # --- ROW 3: SEARCH BAR ---
+        c_search, c_btn_cari = st.columns([9, 1])
+        with c_search:
             search_opname = st.text_input("Pencarian obat", placeholder="Ketik kata kunci untuk mencari...", label_visibility="collapsed", key="search_opname_input")
-        with col_btn_cari:
+        with c_btn_cari:
             btn_cari_obat = st.button("Cari", type="primary", use_container_width=True, key="btn_cari_obat_opname_trigger")
 
         if btn_cari_obat:
@@ -1047,7 +1029,7 @@ elif menu == "📋 Kelola Stok":
             if df_all is not None and not df_all.empty:
                 modal_pilih_obat(df_all, search_opname)
 
-        # Menyiapkan Data Tabel Opname
+        # --- MENYIAPKAN DATA TABEL OPNAME ---
         df_ws_opname = pd.DataFrame()
         if opname_gudang in workbook_data:
             df_ws_opname = workbook_data[opname_gudang].copy()
@@ -1088,7 +1070,7 @@ elif menu == "📋 Kelola Stok":
 
         st.caption(f"Menampilkan 1-{len(df_opname)} dari {len(df_opname)} data")
 
-        # Tabel Editor Data Opname
+        # --- TABEL EDITOR DATA OPNAME ---
         if st.session_state.role == "Admin":
             edited_opname = st.data_editor(
                 df_opname,
@@ -2515,7 +2497,7 @@ elif menu == "🕒 Sesi Shift":
              {html_rows}
           </tbody>
         </table>
-        <br><button onclick='window.print()' style='padding:8px 20px;background:#2c7be5;color:white;border:none;border-radius:4px;cursor:font-size:13px;'>🖨️ Print / Simpan PDF</button>
+        <br><button onclick='window.print()' style='padding:8px 20px;background:#2c7be5;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;'>🖨️ Print / Simpan PDF</button>
         </body></html>
         """
         html_bytes = html_content.encode("utf-8")
