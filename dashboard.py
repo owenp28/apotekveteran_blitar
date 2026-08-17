@@ -9,6 +9,7 @@ from io import BytesIO
 from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
 
+# Pastikan Streamlit Anda versi 1.37.0 ke atas untuk fitur @st.dialog
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
 
 # ── CSS Custom untuk Menyesuaikan Tampilan ERP ─────────────────────────────────
@@ -147,11 +148,9 @@ def parse_excel_date(val):
     val_str = str(val).strip()
     if val_str in ["", "-", "nan", "None", "NaT", "0", "0.0"]:
         return pd.NaT
-    
     if isinstance(val, (datetime, date)):
         d = val.date() if isinstance(val, datetime) else val
         return pd.Timestamp(d) if d.year > 1970 else pd.NaT
-        
     try:
         f_val = float(val)
         if f_val > 10000:
@@ -160,7 +159,6 @@ def parse_excel_date(val):
         return pd.NaT
     except Exception:
         pass
-        
     try:
         d = pd.to_datetime(val)
         return pd.Timestamp(d) if d.year > 1970 else pd.NaT
@@ -182,7 +180,6 @@ def normalize_inventory_df(df):
             renamed[kolom] = "Keterangan"
     if renamed:
         df = df.rename(columns=renamed)
-        
     for kolom in INVENTORY_COLUMNS:
         if kolom not in df.columns:
             df[kolom] = None
@@ -209,7 +206,6 @@ def prepare_sheet_for_editor(df):
     for kolom in ["Nomor Faktur", "Nomor Batch", "PBF", "Keterangan", "Nama produk", "Satuan"]:
         if kolom in df.columns:
             df[kolom] = df[kolom].astype("string")
-            
     return df
 
 def _find_inventory_header_row(rows):
@@ -229,25 +225,14 @@ def load_inventory_sheet_dataframe(ws):
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         return pd.DataFrame(columns=INVENTORY_COLUMNS)
-
     header_index, raw_header = _find_inventory_header_row(rows)
     header = [str(cell).strip() if cell is not None else "" for cell in raw_header]
     data_rows = rows[header_index + 1:]
     if not data_rows:
         return pd.DataFrame(columns=INVENTORY_COLUMNS)
-
     data_rows = [tuple(row[:len(header)]) for row in data_rows]
     df = pd.DataFrame(data_rows, columns=header)
     return normalize_inventory_df(df)
-
-def create_default_inventory_workbook():
-    wb = Workbook()
-    if "Sheet" in wb.sheetnames:
-        wb.remove(wb["Sheet"])
-    for sheet_name in INVENTORY_SHEETS:
-        ws = wb.create_sheet(title=sheet_name)
-        ws.append(INVENTORY_COLUMNS)
-    wb.save(WORKBOOK_PATH)
 
 def normalize_source_url(source_url):
     source_url = (source_url or DEFAULT_SOURCE_URL).strip()
@@ -255,14 +240,12 @@ def normalize_source_url(source_url):
         if "?" in source_url:
             return source_url.split("?")[0] + "?download=1"
         return source_url + "?download=1"
-    
     if "drive.google.com" in source_url and "/d/" in source_url:
         try:
             file_id = source_url.split("/d/")[1].split("/")[0]
             return f"https://drive.google.com/uc?export=download&id={file_id}"
         except:
             pass
-            
     if "download.aspx?UniqueId=" in source_url:
         return source_url
     if source_url.endswith(".csv") or source_url.endswith(".xlsx") or source_url.endswith(".xlsm"):
@@ -273,7 +256,6 @@ def sync_inventory_from_source(source_url=None):
     source_url = normalize_source_url(source_url)
     if not source_url or not source_url.startswith("http"):
         return False
-
     try:
         request = Request(
             source_url,
@@ -283,16 +265,13 @@ def sync_inventory_from_source(source_url=None):
         )
         with urlopen(request, timeout=45) as response:
             data = response.read()
-
         if not data or len(data) < 100:
             st.error("⚠️ File download dari link sumber kosong.")
             return False
-
         is_csv = source_url.lower().split("?")[0].endswith(".csv")
         if not is_csv and not data.startswith(b"PK"):
             st.error("⚠️ OneDrive memblokir download otomatis untuk link ini. Silakan gunakan fitur **Upload file Excel/CSV** di bawah.")
             return False
-
         with open(WORKBOOK_PATH, "wb") as f:
             f.write(data)
         return True
@@ -304,7 +283,6 @@ def load_inventory_from_bytes(file_bytes, filename):
     if filename.lower().endswith(".csv"):
         df = pd.read_csv(BytesIO(file_bytes))
         return {"Sheet1": normalize_inventory_df(df)}
-
     wb = load_workbook(BytesIO(file_bytes), data_only=True)
     workbook_data = {}
     for sheet_name in wb.sheetnames:
@@ -318,10 +296,8 @@ def load_inventory_workbook(source_url=None, uploaded_file=None):
         loaded = load_inventory_from_bytes(data, uploaded_file.name)
         if loaded:
             return loaded
-
     if source_url and source_url != DEFAULT_SOURCE_URL and source_url.startswith("http"):
         sync_inventory_from_source(source_url)
-
     if os.path.exists(WORKBOOK_PATH):
         try:
             wb = load_workbook(WORKBOOK_PATH, data_only=True)
@@ -333,27 +309,18 @@ def load_inventory_workbook(source_url=None, uploaded_file=None):
             return workbook_data
         except Exception:
             return {}
-
     return {}
 
 def sanitize_excel_value(value):
-    if value is None:
-        return None
-    if isinstance(value, (list, tuple, dict, set)):
-        return str(value)
-    if isinstance(value, pd.Timestamp):
-        return value.to_pydatetime()
-    if isinstance(value, pd.Timedelta):
-        return str(value)
+    if value is None: return None
+    if isinstance(value, (list, tuple, dict, set)): return str(value)
+    if isinstance(value, pd.Timestamp): return value.to_pydatetime()
+    if isinstance(value, pd.Timedelta): return str(value)
     try:
-        if pd.isna(value):
-            return None
-    except Exception:
-        pass
-    if isinstance(value, (datetime, date)):
-        return value
-    if isinstance(value, (bool, int, float, str)):
-        return value
+        if pd.isna(value): return None
+    except Exception: pass
+    if isinstance(value, (datetime, date)): return value
+    if isinstance(value, (bool, int, float, str)): return value
     return str(value)
 
 def sanitize_excel_dataframe(df):
@@ -368,7 +335,6 @@ def save_inventory_workbook(workbook_data):
             for sheet_name, df_sheet in workbook_data.items():
                 if df_sheet is None or df_sheet.empty:
                     df_sheet = pd.DataFrame(columns=INVENTORY_COLUMNS)
-                
                 df_sheet = sanitize_excel_dataframe(df_sheet)
                 df_sheet.to_excel(writer, sheet_name=sheet_name, index=False)
         return True
@@ -396,7 +362,6 @@ def build_inventory_print_dataframe():
         return pd.DataFrame(columns=INVENTORY_COLUMNS + ["Worksheet"])
 
     combined_df = pd.concat(frames, ignore_index=True)
-    
     worksheet_series = combined_df["Worksheet"].copy()
     combined_df = normalize_inventory_df(combined_df)
     combined_df["Worksheet"] = worksheet_series
@@ -413,15 +378,6 @@ def build_rtf_export(df, title="Laporan Stok Obat — Apotek Veteran Blitar"):
     lines.append("}")
     return "".join(lines).encode("utf-8")
 
-def parse_rupiah(val):
-    try:
-        if pd.isna(val):
-            return 0
-        teks = str(val).replace("Rp", "").replace(".", "").replace(",", "").strip()
-        return int(float(teks)) if teks else 0
-    except:
-        return 0
-
 def get_available_sheets():
     cache = st.session_state.get("inventory_data_cache", {})
     if cache:
@@ -430,13 +386,15 @@ def get_available_sheets():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STOK OPNAME MODAL (POPUP PILIH OBAT)
+# STOK OPNAME MODAL (POP UP ALA GAMBAR)
+# Membutuhkan Streamlit >= 1.37.0 untuk @st.dialog
 # ══════════════════════════════════════════════════════════════════════════════
 @st.dialog("Pilih Obat", width="large")
 def modal_pilih_obat(df_source, initial_search=""):
-    st.markdown("<style>.stDialog > div { padding: 10px; }</style>", unsafe_allow_html=True)
+    st.markdown("<style>.stDialog > div { padding: 15px; }</style>", unsafe_allow_html=True)
     
-    col_c1, col_c2, col_c3, col_c4 = st.columns([3.5, 2.5, 3.5, 3])
+    # --- BARIS 1: CHECKBOX & EXPORT EXCEL ---
+    col_c1, col_c2, col_c3, col_c4 = st.columns([2.5, 2, 3.5, 2.5])
     with col_c1:
         tampil_habis = st.checkbox("Tampilkan No. Batch yang sudah habis", value=False, key="modal_chk_habis")
     with col_c2:
@@ -446,36 +404,26 @@ def modal_pilih_obat(df_source, initial_search=""):
     with col_c4:
         template_buf = io.BytesIO()
         with pd.ExcelWriter(template_buf, engine="openpyxl") as writer:
-            export_template_df = df_source[["Nama produk", "Worksheet", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa", "Satuan"]].copy()
-            export_template_df.columns = ["Nama Obat", "Lokasi", "No. Batch", "Tanggal Expired", "Stok Sistem", "Satuan"]
-            export_template_df["Stok Nyata Terkecil"] = 0
-            export_template_df["Stok Expired Terkecil"] = 0
-            export_template_df.to_excel(writer, index=False, sheet_name="Template Stok Opname")
+            export_df = df_source[["Nama produk", "Worksheet", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa", "Satuan"]].copy()
+            export_df.columns = ["Nama Obat", "Lokasi", "No. Batch", "Tanggal Expired", "Stok Sistem", "Satuan"]
+            export_df["Stok Nyata Terkecil"] = 0
+            export_df["Stok Expired Terkecil"] = 0
+            export_df.to_excel(writer, index=False, sheet_name="Template Stok Opname")
             
         st.download_button(
             label="📥 Export Template Excel",
             data=template_buf.getvalue(),
             file_name=f"Template_Stok_Opname_{date.today()}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
+            use_container_width=True,
+            type="primary"
         )
 
-    col_btn_ref, _ = st.columns([2, 8])
-    with col_btn_ref:
-        if st.button("🔄 Refresh", key="btn_refresh_modal", use_container_width=True):
-            st.rerun()
-
+    # --- BARIS 2: TOMBOL REFRESH ---
+    st.button("🔄 Refresh", key="btn_refresh_modal")
     st.markdown("---")
 
-    col_f_txt, col_f_lok, col_f_status = st.columns([5, 3, 3])
-    with col_f_txt:
-        modal_search = st.text_input("🔍 Cari Kode/Nama Obat", value=initial_search, placeholder="Ketik kode atau nama...", key="modal_search_txt")
-    with col_f_lok:
-        lokasi_options = ["Semua Lokasi"] + sorted(list(df_source["Worksheet"].dropna().unique()))
-        selected_lokasi = st.selectbox("Lokasi", lokasi_options, key="modal_select_lokasi")
-    with col_f_status:
-        selected_status = st.selectbox("Status Stok", ["Semua", "Stok Tersedia", "Stok Habis"], key="modal_select_status")
-
+    # --- PERSIAPAN DATA BERDASARKAN CHECKBOX ---
     df_modal = df_source.copy()
     df_modal["Stok Sisa"] = pd.to_numeric(df_modal["Stok Sisa"], errors="coerce").fillna(0)
     
@@ -486,21 +434,10 @@ def modal_pilih_obat(df_source, initial_search=""):
         df_modal["Tanggal Kadaluwarsa"] = pd.to_datetime(df_modal["Tanggal Kadaluwarsa"], errors="coerce")
         df_modal = df_modal.sort_values(by="Tanggal Kadaluwarsa", na_position="last")
 
-    if modal_search.strip():
-        mask_search = df_modal.astype(str).apply(lambda col: col.str.contains(modal_search.strip(), case=False, na=False)).any(axis=1)
-        df_modal = df_modal[mask_search]
-
-    if selected_lokasi != "Semua Lokasi":
-        df_modal = df_modal[df_modal["Worksheet"] == selected_lokasi]
-
-    df_modal["Status Stok"] = df_modal["Stok Sisa"].apply(lambda x: "Stok Tersedia" if x > 0 else "Stok Habis")
-    if selected_status != "Semua":
-        df_modal = df_modal[df_modal["Status Stok"] == selected_status]
-
     df_modal = df_modal.reset_index(drop=True)
-    df_modal["Pilih"] = False
     df_modal["No."] = range(1, len(df_modal) + 1)
     df_modal["Kode Obat"] = ["OBT" + str(1000 + i) for i in range(len(df_modal))]
+    df_modal["Pilih"] = False
     
     if tampil_stok:
         df_modal["Stok Terkecil"] = df_modal.apply(lambda r: f"{r['Stok Sisa']:.2f} {str(r['Satuan']) if pd.notna(r['Satuan']) else str(r['Worksheet'])}", axis=1)
@@ -510,38 +447,74 @@ def modal_pilih_obat(df_source, initial_search=""):
     df_modal["Golongan"] = "-"
     df_modal["Kategori"] = "-"
     df_modal["Lokasi"] = df_modal["Worksheet"]
+    df_modal["Status Stok"] = df_modal["Stok Sisa"].apply(lambda x: "Stok Tersedia" if x > 0 else "Stok Habis")
 
-    cols = ["Pilih", "No.", "Kode Obat", "Nama produk", "Stok Terkecil", "Golongan", "Kategori", "Lokasi", "Status Stok"]
-    df_display = df_modal[cols].copy()
+    # --- BARIS 3: FILTER KOLOM (Tepat di atas Data Editor) ---
+    f0, f1, f2, f3, f4, f5, f6, f7 = st.columns([1, 1.5, 3.5, 1.5, 1.5, 1.5, 1.5, 1.5])
+    with f1: 
+        f_kode = st.text_input("Kode", placeholder="Kode Obat", label_visibility="collapsed", key="f_kode")
+    with f2: 
+        f_nama = st.text_input("Nama", value=initial_search, placeholder="Nama Obat", label_visibility="collapsed", key="f_nama")
+    with f4: 
+        f_gol = st.selectbox("Golongan", ["Golongan", "-"], label_visibility="collapsed", key="f_gol")
+    with f5: 
+        f_kat = st.selectbox("Kategori", ["Kategori", "-"], label_visibility="collapsed", key="f_kat")
+    with f6: 
+        lokasi_opts = ["Lokasi"] + sorted(list(df_modal["Lokasi"].dropna().unique()))
+        f_lok = st.selectbox("Lokasi", lokasi_opts, label_visibility="collapsed", key="f_lok")
+    with f7: 
+        f_status = st.selectbox("Status", ["Status Stok", "Stok Tersedia", "Stok Habis"], label_visibility="collapsed", key="f_status")
+
+    # --- APPLY FILTER ---
+    if f_kode:
+        df_modal = df_modal[df_modal["Kode Obat"].str.contains(f_kode, case=False, na=False)]
+    if f_nama:
+        df_modal = df_modal[df_modal["Nama produk"].str.contains(f_nama, case=False, na=False)]
+    if f_gol != "Golongan":
+        df_modal = df_modal[df_modal["Golongan"] == f_gol]
+    if f_kat != "Kategori":
+        df_modal = df_modal[df_modal["Kategori"] == f_kat]
+    if f_lok != "Lokasi":
+        df_modal = df_modal[df_modal["Lokasi"] == f_lok]
+    if f_status != "Status Stok":
+        df_modal = df_modal[df_modal["Status Stok"] == f_status]
+
+    cols = ["No.", "Pilih", "Kode Obat", "Nama produk", "Stok Terkecil", "Golongan", "Kategori", "Lokasi", "Status Stok"]
+    df_display = df_modal[cols]
 
     st.caption(f"Menampilkan 1-{len(df_display)} dari {len(df_display)} data")
 
+    # --- DATA EDITOR (TABEL) ---
     edited_modal = st.data_editor(
         df_display,
         hide_index=True,
         use_container_width=True,
         column_config={
-            "Pilih": st.column_config.CheckboxColumn("Pilih", default=False),
             "No.": st.column_config.NumberColumn("No.", width="small"),
+            "Pilih": st.column_config.CheckboxColumn("Pilih", default=False),
+            "Kode Obat": st.column_config.TextColumn("Kode Obat", width="medium"),
             "Nama produk": st.column_config.TextColumn("Nama Obat", width="large"),
             "Stok Terkecil": st.column_config.TextColumn("Stok Terkecil", width="medium"),
-            "Lokasi": st.column_config.TextColumn("Lokasi", width="small"),
-            "Status Stok": st.column_config.TextColumn("Status Stok", width="small")
+            "Golongan": st.column_config.TextColumn("Golongan", width="medium"),
+            "Kategori": st.column_config.TextColumn("Kategori", width="medium"),
+            "Lokasi": st.column_config.TextColumn("Lokasi", width="medium"),
+            "Status Stok": st.column_config.TextColumn("Status Stok", width="medium")
         },
         disabled=["No.", "Kode Obat", "Nama produk", "Stok Terkecil", "Golongan", "Kategori", "Lokasi", "Status Stok"],
-        key="modal_data_editor_opname"
+        key="modal_data_editor_opname_final"
     )
 
-    col_space, col_back = st.columns([7, 3])
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # --- BARIS BAWAH: TOMBOL KEMBALI ---
+    col_space, col_back = st.columns([8, 2])
     with col_back:
-        if st.button("⬅️ Kembali & Masukkan Obat", type="primary", use_container_width=True):
+        if st.button("⬅️ Kembali", type="primary", use_container_width=True):
             if edited_modal is not None:
                 selected_rows = edited_modal[edited_modal["Pilih"] == True]
                 if not selected_rows.empty:
                     items_chosen = df_modal[df_modal["Kode Obat"].isin(selected_rows["Kode Obat"])].copy()
                     st.session_state.opname_custom_items = items_chosen
-                else:
-                    st.session_state.opname_custom_items = pd.DataFrame()
             st.rerun()
 
 
@@ -670,7 +643,6 @@ if "input_saldo_kasir" not in st.session_state:
     st.session_state.input_saldo_kasir = 0.0
 if "last_shift_data" not in st.session_state:
     st.session_state.last_shift_data = pd.DataFrame()
-
 
 # ── Sidebar navigasi ──────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
@@ -817,7 +789,7 @@ if menu == "🏠 Dashboard":
                 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 1 — KELOLA STOK (TERMASUK STOK OPNAME YANG DISESUAIKAN LAYOUTNYA)
+# FITUR 1 — KELOLA STOK (STOK OPNAME SUDAH TERMASUK MODAL POP UP)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
@@ -985,7 +957,7 @@ elif menu == "📋 Kelola Stok":
                         df_render[col] = df_render[col].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(df_render, use_container_width=True, hide_index=True)
 
-    # ── ALUR STOK OPNAME (DIPERBAIKI LAYOUTNYA SESUAI GAMBAR BARU) ─────────────
+    # ── ALUR STOK OPNAME (DIPERBAIKI LAYOUTNYA) ─────────────
     with tab_opname:
         st.markdown("<h3 style='text-align: center; color: #e94560; margin-bottom: 20px;'>Stok Opname Obat</h3>", unsafe_allow_html=True)
         
@@ -993,7 +965,6 @@ elif menu == "📋 Kelola Stok":
             st.info("Fitur Stok Opname hanya dapat diakses dan diproses oleh Admin. Tampilan di bawah ini bersifat Read-Only.")
 
         # --- ROW 1: FILE UPLOAD & IMPORT ---
-        # Kolom diatur agar uploader dan tombol bersandingan rapi.
         c_file1, c_file2, c_file3 = st.columns([5, 2, 3])
         with c_file1:
             st.file_uploader("Upload File Opname", type=["xlsx", "csv"], key="import_opname_file", label_visibility="collapsed")
@@ -1017,16 +988,18 @@ elif menu == "📋 Kelola Stok":
 
         st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-        # --- ROW 3: SEARCH BAR ---
+        # --- ROW 3: SEARCH BAR YANG MEMANGGIL POP UP ---
         c_search, c_btn_cari = st.columns([9, 1])
         with c_search:
             search_opname = st.text_input("Pencarian obat", placeholder="Ketik kata kunci untuk mencari...", label_visibility="collapsed", key="search_opname_input")
         with c_btn_cari:
+            # TOMBOL INI AKAN MEMICU MUNCULNYA POP UP MODAL
             btn_cari_obat = st.button("Cari", type="primary", use_container_width=True, key="btn_cari_obat_opname_trigger")
 
         if btn_cari_obat:
             df_all = build_inventory_print_dataframe()
             if df_all is not None and not df_all.empty:
+                # Memanggil fungsi @st.dialog yang sudah kita buat
                 modal_pilih_obat(df_all, search_opname)
 
         # --- MENYIAPKAN DATA TABEL OPNAME ---
@@ -1048,12 +1021,11 @@ elif menu == "📋 Kelola Stok":
             df_opname["Stok Expired Terkecil"] = 0.00
             df_opname["Satuan Terkecil"] = df_ws_opname["Satuan"]
 
-        # Filter lokal pencarian jika tidak menggunakan modal
         if search_opname.strip() and not btn_cari_obat:
             mask_opname = df_opname.astype(str).apply(lambda col: col.str.contains(search_opname.strip(), case=False, na=False)).any(axis=1)
             df_opname = df_opname[mask_opname]
 
-        # Prioritaskan item yang dipilih dari Pop-up Modal
+        # Menarik data yang dipilih dari Pop-up Modal (jika ada)
         if "opname_custom_items" in st.session_state and not st.session_state.opname_custom_items.empty:
             chosen = st.session_state.opname_custom_items
             df_opname = pd.DataFrame()
@@ -1070,7 +1042,7 @@ elif menu == "📋 Kelola Stok":
 
         st.caption(f"Menampilkan 1-{len(df_opname)} dari {len(df_opname)} data")
 
-        # --- TABEL EDITOR DATA OPNAME ---
+        # --- TABEL EDITOR DATA OPNAME UTAMA ---
         if st.session_state.role == "Admin":
             edited_opname = st.data_editor(
                 df_opname,
@@ -1270,8 +1242,6 @@ elif menu == "🖨️ Rekap Data":
         mime="text/html",
         use_container_width=True
     )
-    
-    st.info("💡 **Tips Cetak PDF:** Unduh file HTML di atas, buka di browser, lalu tekan **Ctrl + P** (atau klik tombol Print di dalam file) dan pilih opsi **'Save as PDF'**.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR 4 — KASIR UTAMA
