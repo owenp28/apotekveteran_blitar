@@ -386,8 +386,7 @@ def get_available_sheets():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STOK OPNAME MODAL (POP UP ALA GAMBAR)
-# Membutuhkan Streamlit >= 1.37.0 untuk @st.dialog
+# STOK OPNAME MODAL (POP UP ALA GAMBAR DENGAN KOLOM "SATUAN" PENGGANTI "LOKASI")
 # ══════════════════════════════════════════════════════════════════════════════
 @st.dialog("Pilih Obat", width="large")
 def modal_pilih_obat(df_source, initial_search=""):
@@ -404,10 +403,11 @@ def modal_pilih_obat(df_source, initial_search=""):
     with col_c4:
         template_buf = io.BytesIO()
         with pd.ExcelWriter(template_buf, engine="openpyxl") as writer:
-            export_df = df_source[["Nama produk", "Worksheet", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa", "Satuan"]].copy()
-            export_df.columns = ["Nama Obat", "Lokasi", "No. Batch", "Tanggal Expired", "Stok Sistem", "Satuan"]
+            export_df = df_source[["Nama produk", "Satuan", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa"]].copy()
+            export_df.columns = ["Nama Obat", "Satuan", "No. Batch", "Tanggal Expired", "Stok Sistem"]
             export_df["Stok Nyata Terkecil"] = 0
             export_df["Stok Expired Terkecil"] = 0
+            export_df["Satuan Terkecil"] = export_df["Satuan"]
             export_df.to_excel(writer, index=False, sheet_name="Template Stok Opname")
             
         st.download_button(
@@ -446,7 +446,6 @@ def modal_pilih_obat(df_source, initial_search=""):
 
     df_modal["Golongan"] = "-"
     df_modal["Kategori"] = "-"
-    df_modal["Lokasi"] = df_modal["Worksheet"]
     df_modal["Status Stok"] = df_modal["Stok Sisa"].apply(lambda x: "Stok Tersedia" if x > 0 else "Stok Habis")
 
     # --- BARIS 3: FILTER KOLOM (Tepat di atas Data Editor) ---
@@ -460,8 +459,8 @@ def modal_pilih_obat(df_source, initial_search=""):
     with f5: 
         f_kat = st.selectbox("Kategori", ["Kategori", "-"], label_visibility="collapsed", key="f_kat")
     with f6: 
-        lokasi_opts = ["Lokasi"] + sorted(list(df_modal["Lokasi"].dropna().unique()))
-        f_lok = st.selectbox("Lokasi", lokasi_opts, label_visibility="collapsed", key="f_lok")
+        satuan_opts = ["Semua Satuan"] + sorted(list(df_modal["Satuan"].dropna().astype(str).unique()))
+        f_sat = st.selectbox("Satuan", satuan_opts, label_visibility="collapsed", key="f_sat")
     with f7: 
         f_status = st.selectbox("Status", ["Status Stok", "Stok Tersedia", "Stok Habis"], label_visibility="collapsed", key="f_status")
 
@@ -474,12 +473,13 @@ def modal_pilih_obat(df_source, initial_search=""):
         df_modal = df_modal[df_modal["Golongan"] == f_gol]
     if f_kat != "Kategori":
         df_modal = df_modal[df_modal["Kategori"] == f_kat]
-    if f_lok != "Lokasi":
-        df_modal = df_modal[df_modal["Lokasi"] == f_lok]
+    if f_sat != "Semua Satuan":
+        df_modal = df_modal[df_modal["Satuan"].astype(str) == f_sat]
     if f_status != "Status Stok":
         df_modal = df_modal[df_modal["Status Stok"] == f_status]
 
-    cols = ["No.", "Pilih", "Kode Obat", "Nama produk", "Stok Terkecil", "Golongan", "Kategori", "Lokasi", "Status Stok"]
+    # Kita sertakan Worksheet sebagai identifier rute back-end namun tidak ditampilkan sbg "Lokasi"
+    cols = ["No.", "Pilih", "Kode Obat", "Nama produk", "Stok Terkecil", "Golongan", "Kategori", "Satuan", "Status Stok", "Worksheet"]
     df_display = df_modal[cols]
 
     st.caption(f"Menampilkan 1-{len(df_display)} dari {len(df_display)} data")
@@ -497,10 +497,11 @@ def modal_pilih_obat(df_source, initial_search=""):
             "Stok Terkecil": st.column_config.TextColumn("Stok Terkecil", width="medium"),
             "Golongan": st.column_config.TextColumn("Golongan", width="medium"),
             "Kategori": st.column_config.TextColumn("Kategori", width="medium"),
-            "Lokasi": st.column_config.TextColumn("Lokasi", width="medium"),
-            "Status Stok": st.column_config.TextColumn("Status Stok", width="medium")
+            "Satuan": st.column_config.TextColumn("Satuan", width="medium"),
+            "Status Stok": st.column_config.TextColumn("Status Stok", width="medium"),
+            "Worksheet": None  # Hidden column untuk internal routing
         },
-        disabled=["No.", "Kode Obat", "Nama produk", "Stok Terkecil", "Golongan", "Kategori", "Lokasi", "Status Stok"],
+        disabled=["No.", "Kode Obat", "Nama produk", "Stok Terkecil", "Golongan", "Kategori", "Satuan", "Status Stok"],
         key="modal_data_editor_opname_final"
     )
 
@@ -509,12 +510,14 @@ def modal_pilih_obat(df_source, initial_search=""):
     # --- BARIS BAWAH: TOMBOL KEMBALI ---
     col_space, col_back = st.columns([8, 2])
     with col_back:
-        if st.button("⬅️ Kembali", type="primary", use_container_width=True):
+        if st.button("⬅️ Kembali & Masukkan Obat", type="primary", use_container_width=True):
             if edited_modal is not None:
                 selected_rows = edited_modal[edited_modal["Pilih"] == True]
                 if not selected_rows.empty:
                     items_chosen = df_modal[df_modal["Kode Obat"].isin(selected_rows["Kode Obat"])].copy()
                     st.session_state.opname_custom_items = items_chosen
+                else:
+                    st.session_state.opname_custom_items = pd.DataFrame()
             st.rerun()
 
 
@@ -789,7 +792,7 @@ if menu == "🏠 Dashboard":
                 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 1 — KELOLA STOK (STOK OPNAME SUDAH TERMASUK MODAL POP UP)
+# FITUR 1 — KELOLA STOK (STOK OPNAME DENGAN KOLOM "SATUAN" BUKAN LOKASI)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
@@ -957,7 +960,7 @@ elif menu == "📋 Kelola Stok":
                         df_render[col] = df_render[col].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(df_render, use_container_width=True, hide_index=True)
 
-    # ── ALUR STOK OPNAME (DIPERBAIKI LAYOUTNYA) ─────────────
+    # ── ALUR STOK OPNAME (MENGGUNAKAN "SATUAN" ALIH-ALIH "LOKASI") ─────────────
     with tab_opname:
         st.markdown("<h3 style='text-align: center; color: #e94560; margin-bottom: 20px;'>Stok Opname Obat</h3>", unsafe_allow_html=True)
         
@@ -999,7 +1002,7 @@ elif menu == "📋 Kelola Stok":
         if btn_cari_obat:
             df_all = build_inventory_print_dataframe()
             if df_all is not None and not df_all.empty:
-                # Memanggil fungsi @st.dialog yang sudah kita buat
+                # Memanggil fungsi @st.dialog
                 modal_pilih_obat(df_all, search_opname)
 
         # --- MENYIAPKAN DATA TABEL OPNAME ---
@@ -1010,10 +1013,11 @@ elif menu == "📋 Kelola Stok":
             
         df_opname = pd.DataFrame()
         if not df_ws_opname.empty:
+            df_opname["Worksheet"] = opname_gudang  # Kolom Internal Backend
             df_opname["No."] = range(1, len(df_ws_opname) + 1)
             df_opname["Kode Obat"] = ["OBT" + str(1000 + i) for i in range(len(df_ws_opname))]
             df_opname["Nama Obat"] = df_ws_opname["Nama produk"]
-            df_opname["Lokasi"] = opname_gudang
+            df_opname["Satuan"] = df_ws_opname["Satuan"]
             df_opname["No. Batch"] = df_ws_opname["Nomor Batch"]
             df_opname["Tanggal Expired"] = df_ws_opname["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "-")
             df_opname["Stok Satuan Terkecil"] = pd.to_numeric(df_ws_opname["Stok Sisa"], errors="coerce").fillna(0)
@@ -1029,16 +1033,17 @@ elif menu == "📋 Kelola Stok":
         if "opname_custom_items" in st.session_state and not st.session_state.opname_custom_items.empty:
             chosen = st.session_state.opname_custom_items
             df_opname = pd.DataFrame()
+            df_opname["Worksheet"] = chosen["Worksheet"].values
             df_opname["No."] = range(1, len(chosen) + 1)
-            df_opname["Kode Obat"] = chosen["Kode Obat"]
-            df_opname["Nama Obat"] = chosen["Nama produk"]
-            df_opname["Lokasi"] = chosen["Worksheet"]
-            df_opname["No. Batch"] = chosen["Nomor Batch"]
-            df_opname["Tanggal Expired"] = chosen["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "-")
-            df_opname["Stok Satuan Terkecil"] = pd.to_numeric(chosen["Stok Sisa"], errors="coerce").fillna(0)
+            df_opname["Kode Obat"] = chosen["Kode Obat"].values
+            df_opname["Nama Obat"] = chosen["Nama produk"].values
+            df_opname["Satuan"] = chosen["Satuan"].values
+            df_opname["No. Batch"] = chosen["Nomor Batch"].values
+            df_opname["Tanggal Expired"] = chosen["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "-").values
+            df_opname["Stok Satuan Terkecil"] = pd.to_numeric(chosen["Stok Sisa"], errors="coerce").fillna(0).values
             df_opname["Stok Nyata Terkecil"] = 0.00
             df_opname["Stok Expired Terkecil"] = 0.00
-            df_opname["Satuan Terkecil"] = chosen["Satuan"]
+            df_opname["Satuan Terkecil"] = chosen["Satuan"].values
 
         st.caption(f"Menampilkan 1-{len(df_opname)} dari {len(df_opname)} data")
 
@@ -1048,8 +1053,9 @@ elif menu == "📋 Kelola Stok":
                 df_opname,
                 use_container_width=True,
                 hide_index=True,
-                disabled=["No.", "Kode Obat", "Nama Obat", "Lokasi", "No. Batch", "Tanggal Expired", "Stok Satuan Terkecil", "Satuan Terkecil"],
+                disabled=["No.", "Kode Obat", "Nama Obat", "Satuan", "No. Batch", "Tanggal Expired", "Stok Satuan Terkecil", "Satuan Terkecil"],
                 column_config={
+                    "Worksheet": None,  # Kolom ini di-hide namun tetap ada di backend untuk routing lokasi sheet excel-nya.
                     "Stok Nyata Terkecil": st.column_config.NumberColumn("Stok Nyata Terkecil", min_value=0.0, step=1.0, format="%.2f"),
                     "Stok Expired Terkecil": st.column_config.NumberColumn("Stok Expired Terkecil", min_value=0.0, step=1.0, format="%.2f")
                 },
@@ -1060,7 +1066,7 @@ elif menu == "📋 Kelola Stok":
             if btn_proses_opname:
                 if edited_opname is not None and not edited_opname.empty:
                     for idx, row in edited_opname.iterrows():
-                        lokasi = row["Lokasi"]
+                        lokasi = row["Worksheet"]
                         nama = row["Nama Obat"]
                         batch = row["No. Batch"]
                         nyata = float(row["Stok Nyata Terkecil"])
@@ -1099,7 +1105,11 @@ elif menu == "📋 Kelola Stok":
                     del st.session_state.opname_custom_items
                 st.rerun()
         else:
-            st.dataframe(df_opname, use_container_width=True, hide_index=True)
+            # Sembunyikan juga kolom Worksheet pada tampilan Read-Only (Kasir)
+            if "Worksheet" in df_opname.columns:
+                st.dataframe(df_opname.drop(columns=["Worksheet"]), use_container_width=True, hide_index=True)
+            else:
+                st.dataframe(df_opname, use_container_width=True, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
