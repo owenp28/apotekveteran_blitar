@@ -945,7 +945,7 @@ elif menu == "🛒 Kasir Utama":
     
     current_kasir_name = USERS.get(st.session_state.username, {}).get("name", "Unknown")
     
-    if current_kasir_name not in valid_users and st.session_state.role != "Admin": # Admin bisa lewat, tapi dicatat di error bawah
+    if current_kasir_name not in valid_users and st.session_state.role != "Admin": 
         st.warning(f"⚠️ Saudara/i {current_kasir_name}, Anda belum tergabung dalam daftar Shift aktif ini. Masuk ke menu 'Sesi Shift' lalu klik 'Gabung Shift Ini'.")
         if st.button("Pindah ke Menu Sesi Shift", type="primary"):
             st.session_state.target_menu = "🕒 Sesi Shift"
@@ -979,7 +979,6 @@ elif menu == "🛒 Kasir Utama":
             default_kasir_idx = 0
             
         kasir_aktif = st.selectbox("👩‍💻 Pilih Kasir yang Bertugas:", pilihan_kasir, index=default_kasir_idx)
-        # Jangan replace user utama shift, cukup gunakan nama ini untuk nota
         kasir_nama_nota = kasir_aktif
         
         st.caption("Penjualan memotong stok secara real-time dari Dataset Excel berdasarkan Worksheet dan Batch.")
@@ -1111,7 +1110,6 @@ elif menu == "🛒 Kasir Utama":
 
                                 if st.session_state.shift_active:
                                     st.session_state.active_shift_context["accumulated_sales_expected"] += total_belanja_confirm
-                                    # Simpan state real-time
                                     save_active_shift({"shift_active": True, **st.session_state.active_shift_context})
 
                                 st.session_state.nota_confirmed = True
@@ -1133,7 +1131,12 @@ elif menu == "🛒 Kasir Utama":
             bayar_tunai = st.session_state.bayar_tunai if st.session_state.nota_confirmed else 0
             kembali = bayar_tunai - total_belanja
             tgl_today = get_wib_time().strftime("%d/%m/%Y")
-            kasir_nama_nota_html = kasir_nama_nota if 'kasir_nama_nota' in locals() else ""
+            
+            # --- MAPPING NAMA KASIR KHUSUS UNTUK NOTA ---
+            kasir_mapping = {"Ivonne": "A1", "Dian": "K1", "Julia": "K2"}
+            nama_raw = kasir_nama_nota if 'kasir_nama_nota' in locals() else st.session_state.active_shift_context.get("user_name", "")
+            kasir_nama_nota_html = kasir_mapping.get(nama_raw, nama_raw)
+            # --------------------------------------------
 
             def format_angka(val):
                 try: return f"{int(val):,}".replace(",", ".")
@@ -1229,6 +1232,7 @@ function updatePrintClock() {{
             )
 
             if not st.session_state.nota_confirmed:
+                st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("🗑️ Batalkan & Kosongkan", type="secondary", use_container_width=True):
                     st.session_state.cart = []; st.session_state.checkout_mode = False; st.session_state.bayar_tunai = 0; st.session_state.nota_confirmed = False; st.rerun()
         else:
