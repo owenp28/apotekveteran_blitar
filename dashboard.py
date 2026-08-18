@@ -5,6 +5,7 @@ import io
 import re
 from datetime import date, datetime
 import os
+import json
 from io import BytesIO
 from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
@@ -68,6 +69,7 @@ DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
 RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
 WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran_4.xlsx")
 SHIFT_LOG_PATH = os.path.join(os.path.dirname(__file__), "shift_log.csv")
+ACTIVE_SHIFT_PATH = os.path.join(os.path.dirname(__file__), "active_shift.json") # File persistensi untuk shift
 DEFAULT_LINK_ONEDRIVE = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=V5jQMP"
 DEFAULT_SOURCE_URL = WORKBOOK_PATH
 DEFAULT_SOURCE_LABEL = WORKBOOK_PATH
@@ -126,6 +128,24 @@ def load_shift_log():
             "Retur Penjualan", "Pengeluaran Jurnal", "Total Pengeluaran",
             "Saldo Akhir", "Fisik Kasir", "Selisih", "Diserahkan Ke", "Nama Penyerah", "Catatan"
         ])
+
+# ── FUNGSI PERSISTENSI SHIFT LOKAL ──
+def load_active_shift():
+    if os.path.exists(ACTIVE_SHIFT_PATH):
+        try:
+            with open(ACTIVE_SHIFT_PATH, "r") as f:
+                return json.load(f)
+        except:
+            return None
+    return None
+
+def save_active_shift(data):
+    with open(ACTIVE_SHIFT_PATH, "w") as f:
+        json.dump(data, f)
+
+def clear_active_shift():
+    if os.path.exists(ACTIVE_SHIFT_PATH):
+        os.remove(ACTIVE_SHIFT_PATH)
 
 def save_data(df):
     df.to_csv(DATASET_PATH, index=False)
@@ -610,23 +630,16 @@ if "opname_custom_items" not in st.session_state:
 
 # SHIFT STATE
 if "shift_active" not in st.session_state:
-    if st.query_params.get("shift_active") == "true":
-        try:
-            _qp_saldo_awal = float(st.query_params.get("shift_saldo_awal", 0.0) or 0.0)
-        except Exception:
-            _qp_saldo_awal = 0.0
-        try:
-            _qp_sales = float(st.query_params.get("shift_sales", 0.0) or 0.0)
-        except Exception:
-            _qp_sales = 0.0
-
+    # Coba memuat dari file lokal persisten jika tab terlanjur tertutup/refresh
+    saved_shift = load_active_shift()
+    if saved_shift is not None and saved_shift.get("shift_active") == True:
         st.session_state.shift_active = True
         st.session_state.active_shift_context = {
-            "saldo_awal": _qp_saldo_awal,
-            "accumulated_sales_expected": _qp_sales,
-            "start_time": st.query_params.get("shift_start_time", None),
-            "user_name": st.query_params.get("shift_user", ""),
-            "shift_name": st.query_params.get("shift_name", "Pagi")
+            "saldo_awal": saved_shift.get("saldo_awal", 0.0),
+            "accumulated_sales_expected": saved_shift.get("accumulated_sales_expected", 0.0),
+            "start_time": saved_shift.get("start_time"),
+            "user_name": saved_shift.get("user_name", ""),
+            "shift_name": saved_shift.get("shift_name", "Pagi")
         }
     else:
         st.session_state.shift_active = False
@@ -692,6 +705,8 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.role      = None
     st.session_state.username  = ""
     st.query_params.clear() 
+    # Catatan: Kita tidak menghapus file "active_shift.json" saat logout.
+    # Sehingga jika ada shift yang belum ditutup, sistem akan tetap mengingatnya.
     st.session_state.shift_active = False
     st.session_state.active_shift_context = {
         "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
@@ -792,7 +807,7 @@ if menu == "🏠 Dashboard":
                 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR 1 — KELOLA STOK (STOK OPNAME DENGAN KOLOM "SATUAN" BUKAN LOKASI)
+# FITUR 1 — KELOLA STOK
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
@@ -960,14 +975,12 @@ elif menu == "📋 Kelola Stok":
                         df_render[col] = df_render[col].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(df_render, use_container_width=True, hide_index=True)
 
-    # ── ALUR STOK OPNAME (MENGGUNAKAN "SATUAN" ALIH-ALIH "LOKASI") ─────────────
     with tab_opname:
         st.markdown("<h3 style='text-align: center; color: #e94560; margin-bottom: 20px;'>Stok Opname Obat</h3>", unsafe_allow_html=True)
         
         if st.session_state.role != "Admin":
             st.info("Fitur Stok Opname hanya dapat diakses dan diproses oleh Admin. Tampilan di bawah ini bersifat Read-Only.")
 
-        # --- ROW 1: FILE UPLOAD & IMPORT ---
         c_file1, c_file2, c_file3 = st.columns([5, 2, 3])
         with c_file1:
             st.file_uploader("Upload File Opname", type=["xlsx", "csv"], key="import_opname_file", label_visibility="collapsed")
@@ -980,7 +993,6 @@ elif menu == "📋 Kelola Stok":
 
         st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-        # --- ROW 2: GUDANG & ACTION ---
         c_gudang, c_proses, c_reset, _ = st.columns([3, 2, 2, 5])
         with c_gudang:
             opname_gudang = st.selectbox("Pilih Gudang", AVAILABLE_SHEETS, key="opname_gudang_select", label_visibility="collapsed")
@@ -991,21 +1003,17 @@ elif menu == "📋 Kelola Stok":
 
         st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-        # --- ROW 3: SEARCH BAR YANG MEMANGGIL POP UP ---
         c_search, c_btn_cari = st.columns([9, 1])
         with c_search:
             search_opname = st.text_input("Pencarian obat", placeholder="Ketik kata kunci untuk mencari...", label_visibility="collapsed", key="search_opname_input")
         with c_btn_cari:
-            # TOMBOL INI AKAN MEMICU MUNCULNYA POP UP MODAL
             btn_cari_obat = st.button("Cari", type="primary", use_container_width=True, key="btn_cari_obat_opname_trigger")
 
         if btn_cari_obat:
             df_all = build_inventory_print_dataframe()
             if df_all is not None and not df_all.empty:
-                # Memanggil fungsi @st.dialog
                 modal_pilih_obat(df_all, search_opname)
 
-        # --- MENYIAPKAN DATA TABEL OPNAME ---
         df_ws_opname = pd.DataFrame()
         if opname_gudang in workbook_data:
             df_ws_opname = workbook_data[opname_gudang].copy()
@@ -1013,7 +1021,7 @@ elif menu == "📋 Kelola Stok":
             
         df_opname = pd.DataFrame()
         if not df_ws_opname.empty:
-            df_opname["Worksheet"] = opname_gudang  # Kolom Internal Backend
+            df_opname["Worksheet"] = opname_gudang
             df_opname["No."] = range(1, len(df_ws_opname) + 1)
             df_opname["Kode Obat"] = ["OBT" + str(1000 + i) for i in range(len(df_ws_opname))]
             df_opname["Nama Obat"] = df_ws_opname["Nama produk"]
@@ -1029,7 +1037,6 @@ elif menu == "📋 Kelola Stok":
             mask_opname = df_opname.astype(str).apply(lambda col: col.str.contains(search_opname.strip(), case=False, na=False)).any(axis=1)
             df_opname = df_opname[mask_opname]
 
-        # Menarik data yang dipilih dari Pop-up Modal (jika ada)
         if "opname_custom_items" in st.session_state and not st.session_state.opname_custom_items.empty:
             chosen = st.session_state.opname_custom_items
             df_opname = pd.DataFrame()
@@ -1047,7 +1054,6 @@ elif menu == "📋 Kelola Stok":
 
         st.caption(f"Menampilkan 1-{len(df_opname)} dari {len(df_opname)} data")
 
-        # --- TABEL EDITOR DATA OPNAME UTAMA ---
         if st.session_state.role == "Admin":
             edited_opname = st.data_editor(
                 df_opname,
@@ -1055,14 +1061,13 @@ elif menu == "📋 Kelola Stok":
                 hide_index=True,
                 disabled=["No.", "Kode Obat", "Nama Obat", "Satuan", "No. Batch", "Tanggal Expired", "Stok Satuan Terkecil", "Satuan Terkecil"],
                 column_config={
-                    "Worksheet": None,  # Kolom ini di-hide namun tetap ada di backend untuk routing lokasi sheet excel-nya.
+                    "Worksheet": None,
                     "Stok Nyata Terkecil": st.column_config.NumberColumn("Stok Nyata Terkecil", min_value=0.0, step=1.0, format="%.2f"),
                     "Stok Expired Terkecil": st.column_config.NumberColumn("Stok Expired Terkecil", min_value=0.0, step=1.0, format="%.2f")
                 },
                 key="opname_editor_grid_final"
             )
             
-            # Aksi Submit Perubahan Stok Opname
             if btn_proses_opname:
                 if edited_opname is not None and not edited_opname.empty:
                     for idx, row in edited_opname.iterrows():
@@ -1105,7 +1110,6 @@ elif menu == "📋 Kelola Stok":
                     del st.session_state.opname_custom_items
                 st.rerun()
         else:
-            # Sembunyikan juga kolom Worksheet pada tampilan Read-Only (Kasir)
             if "Worksheet" in df_opname.columns:
                 st.dataframe(df_opname.drop(columns=["Worksheet"]), use_container_width=True, hide_index=True)
             else:
@@ -1312,7 +1316,6 @@ elif menu == "🛒 Kasir Utama":
                 axis=1
             )
 
-            # ----- PERBAIKAN IDENTASI MULAI DI SINI -----
             if not st.session_state.checkout_mode:
                 selected_label = st.selectbox("Pilih Obat (Bisa diketik untuk mencari)", available_items["Label"].unique().tolist(), key="kasir_pilih_obat")
                 selected_row_display = available_items[available_items["Label"] == selected_label].iloc[0]
@@ -1387,7 +1390,6 @@ elif menu == "🛒 Kasir Utama":
                         st.session_state.checkout_mode = True
                         st.rerun()
             else:
-                # Blok mode checkout (ketika tombol Lanjut ke Pembayaran sudah diklik)
                 if not st.session_state.nota_confirmed:
                     st.info(f"🛒 **{len(st.session_state.cart)} item** dalam keranjang. Silakan masukkan nominal bayar.")
                     bayar_input = st.number_input("Nominal Bayar Uang Fisik (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
@@ -1459,16 +1461,17 @@ elif menu == "🛒 Kasir Utama":
 
                                 if st.session_state.shift_active:
                                     st.session_state.active_shift_context["accumulated_sales_expected"] += total_belanja_confirm
-                                    try:
-                                        st.query_params["shift_sales"] = str(st.session_state.active_shift_context["accumulated_sales_expected"])
-                                    except Exception:
-                                        pass
+                                    
+                                    # Simpan ke persisten file setelah transaksi berhasil
+                                    save_active_shift({
+                                        "shift_active": True,
+                                        **st.session_state.active_shift_context
+                                    })
 
                                 st.session_state.nota_confirmed = True
                                 st.rerun()
                 else:
                     st.success("✅ Pembayaran sudah dikonfirmasi dan stok sudah diperbarui secara otomatis. Silakan cetak/unduh struk di panel sebelah kanan, lalu klik **Transaksi Baru** untuk melayani pelanggan berikutnya.")
-            # ----- PERBAIKAN IDENTASI SELESAI DI SINI -----
 
     with col_nota:
         st.subheader("📄 Preview Nota")
@@ -2526,13 +2529,12 @@ elif menu == "🕒 Sesi Shift":
             st.session_state.active_shift_context["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             st.session_state.active_shift_context["user_name"] = nama_user_buka
             st.session_state.active_shift_context["shift_name"] = shift_pilih_buka
-
-            st.query_params["shift_active"] = "true"
-            st.query_params["shift_saldo_awal"] = str(float(saldo_awal_buka))
-            st.query_params["shift_sales"] = "0.0"
-            st.query_params["shift_start_time"] = st.session_state.active_shift_context["start_time"]
-            st.query_params["shift_user"] = nama_user_buka
-            st.query_params["shift_name"] = shift_pilih_buka
+            
+            # Simpan status shift ke dalam file aktif
+            save_active_shift({
+                "shift_active": True,
+                **st.session_state.active_shift_context
+            })
 
             st.session_state.target_menu = "🛒 Kasir Utama"
             st.rerun()
@@ -2628,9 +2630,8 @@ elif menu == "🕒 Sesi Shift":
                         "saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "shift_name": "Pagi"
                     }
 
-                    for _qp_key in ["shift_active", "shift_saldo_awal", "shift_sales", "shift_start_time", "shift_user", "shift_name"]:
-                        if _qp_key in st.query_params:
-                            del st.query_params[_qp_key]
+                    # Hapus file penyimpan shift yang berjalan
+                    clear_active_shift()
 
                     st.session_state.last_shift_data = new_log
                     st.session_state.step_tutup_shift = 3
