@@ -1161,7 +1161,6 @@ elif menu == "🛒 Kasir Utama":
 <script>
 function updateClock() {{
     var d = new Date(); 
-    /* Menyesuaikan jam lokal browser pengguna, yang idealnya WIB jika diakses dari Indonesia */
     var h = String(d.getHours()).padStart(2, '0'); var m = String(d.getMinutes()).padStart(2, '0'); var s = String(d.getSeconds()).padStart(2, '0');
     var el = document.getElementById('clock_kasir_realtime'); if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
 }} setInterval(updateClock, 1000); updateClock();
@@ -1171,51 +1170,63 @@ function updateClock() {{
 
             st.markdown("<br>", unsafe_allow_html=True)
             
-            W = 32
-            lines_top = ["APOTEK VETERAN SEHAT BLITAR".center(W), "Jl. Veteran no 64B Blitar Kota".center(W), "(Sebelah Gang Srigading)".center(W), "081331808585".center(W), "-" * W]
-            part_header = "\\n".join([line.replace('"', '\\"') for line in lines_top])
+            html_printable_nota = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cetak Struk Nota - Apotek Veteran Blitar</title>
+<style>
+    @page {{ size: 80mm auto; margin: 0mm; }}
+    * {{ box-sizing: border-box; }}
+    body {{ font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.3; margin: 0; padding: 4mm; color: #000; background: #fff; }}
+    .print-container {{ width: 100%; max-width: 72mm; margin: 0 auto; }}
+    .text-center {{ text-align: center; }}
+    .header-title {{ font-size: 13px; font-weight: bold; }}
+    .border-dash {{ border-bottom: 1px dashed #000; margin: 6px 0; }}
+    .flex-between {{ display: flex; justify-content: space-between; margin-bottom: 2px; }}
+    .info-meta {{ font-size: 10px; word-break: break-word; }}
+    .items-wrapper {{ font-size: 11px; word-break: break-word; }}
+    .footer-text {{ font-size: 9.5px; line-height: 1.3; }}
+    .btn-container {{ text-align: center; margin-top: 15px; }}
+    @media print {{ body {{ padding: 2mm; }} .btn-container {{ display: none !important; }} }}
+</style>
+</head>
+<body>
+<div class="print-container">
+    <div class="text-center">
+        <span class="header-title">APOTEK VETERAN SEHAT BLITAR</span><br>
+        Jl. Veteran no 64B Blitar Kota<br>(Sebelah Gang Srigading)<br>081331808585<br>Harga Sudah Termasuk PPN<br>
+    </div>
+    <div class="border-dash"></div>
+    <div class="info-meta">{tgl_today} <span id="clock_print_realtime"></span> {kasir_nama_nota_html}</div>
+    <div class="border-dash"></div>
+    <div class="items-wrapper">{items_html}</div>
+    <div class="border-dash"></div>
+    <div class="flex-between"><b>Total</b> <b>{format_rupiah(total_belanja)}</b></div>
+    <div class="flex-between">Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
+    <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
+    <div class="border-dash"></div>
+    <div class="text-center footer-text">- Terimakasih Semoga Lekas Sembuh -</div>
+</div>
+<div class="btn-container">
+    <button onclick="window.print()" style="padding: 7px 18px; font-size: 13px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
+</div>
+<script>
+function updatePrintClock() {{
+    var d = new Date(); var h = String(d.getHours()).padStart(2, '0'); var m = String(d.getMinutes()).padStart(2, '0'); var s = String(d.getSeconds()).padStart(2, '0');
+    var el = document.getElementById('clock_print_realtime'); if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
+}} setInterval(updatePrintClock, 1000); updatePrintClock();
+</script></body></html>
+"""
             
-            lines_items = ["-" * W]
-            for item in st.session_state.cart:
-                lines_items.append(str(item['nama'])[:W])
-                qty_sat = f"  {item['qty']} {item['satuan_jual']} x {int(item['harga_per_satuan']):,}".replace(",", ".")
-                subtot = format_rupiah(item['subtotal'])
-                spasi = max(1, W - len(qty_sat) - len(subtot))
-                lines_items.append(f"{qty_sat}{' ' * spasi}{subtot}")
-                
-            lines_items.append("-" * W)
-            for label, nominal in [("Total", format_rupiah(total_belanja)), ("Bayar", format_rupiah(bayar_tunai)), ("Kembali", format_rupiah(max(0, kembali)))]:
-                spasi_n = max(1, W - len(label) - len(nominal))
-                lines_items.append(f"{label}{' ' * spasi_n}{nominal}")
-                
-            lines_items.append("-" * W)
-            lines_items.append("- Terima Kasih Atas -".center(W))
-            lines_items.append("- Kunjungan Anda -".center(W))
-            lines_items.append("- Belanja tanpa struk gratis -".center(W))
-            lines_items.append("- Harga sudah termasuk PPN -".center(W))
-            lines_items.append("\\n\\n")
-            part_body = "\\n".join([line.replace('"', '\\"') for line in lines_items])
-
-            col_d_html, col_d_txt = st.columns(2)
-            with col_d_html:
-                st.download_button("🖨️ Cetak HTML", data=nota_html.encode("utf-8"), file_name=f"Struk_Nota_{get_wib_time().strftime('%Y%m%d_%H%M%S')}.html", mime="text/html", use_container_width=True)
-            with col_d_txt:
-                txt_dl_html = f"""
-                <html><head><style>body {{ margin: 0; padding: 0; background: transparent; }} .btn-txt {{ display: flex; align-items: center; justify-content: center; width: 100%; height: 38px; background: #262730; color: #ffffff; border: 1px solid rgba(250, 250, 250, 0.2); border-radius: 8px; font-family: sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; }} .btn-txt:hover {{ border-color: #ff4b4b; color: #ff4b4b; background: #1e1e24; }}</style></head>
-                <body><button class="btn-txt" onclick="d()">📄 Unduh TXT</button>
-                <script>
-                function d() {{
-                    var now = new Date(); var pad = function(n) {{ return String(n).padStart(2, '0'); }};
-                    var tgl = pad(now.getDate()) + "/" + pad(now.getMonth() + 1) + "/" + now.getFullYear();
-                    var jam = pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
-                    var metaLine = tgl + " " + jam + " ".repeat(Math.max(1, 32 - (tgl+" "+jam).length - "{kasir_nama_nota_html}".length)) + "{kasir_nama_nota_html}";
-                    var blob = new Blob(["{part_header}\\n" + metaLine + "\\n{part_body}"], {{ type: "text/plain;charset=utf-8" }});
-                    var link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "Struk_" + now.getTime() + ".txt";
-                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-                }}
-                </script></body></html>
-                """
-                components.html(txt_dl_html, height=45)
+            st.download_button(
+                label="🖨️ Cetak & Print Nota", 
+                data=html_printable_nota.encode("utf-8"), 
+                file_name=f"Struk_Nota_{get_wib_time().strftime('%Y%m%d_%H%M%S')}.html", 
+                mime="text/html", 
+                use_container_width=True,
+                type="primary"
+            )
 
             if not st.session_state.nota_confirmed:
                 if st.button("🗑️ Batalkan & Kosongkan", type="secondary", use_container_width=True):
@@ -1549,7 +1560,7 @@ elif menu == "🕒 Sesi Shift":
                 elif widget == "select": return st.selectbox(label, options=opts, index=opts.index(val_str) if val_str in opts else 0, label_visibility="collapsed", key=k)
                 elif widget == "text": return st.text_input(label, value=val_str, label_visibility="collapsed", key=k)
 
-    kasir_options = ["A1", "K1", "K2"] if st.session_state.role == "Admin" else ["K1", "K2"]
+    kasir_options = ["Ivonne", "Dian", "Julia"] if st.session_state.role == "Admin" else ["Dian", "Julia"]
 
     if st.session_state.get("step_tutup_shift") == 3 and "last_shift_data" in st.session_state:
         st.markdown("<h2 style='text-align: center; margin-bottom: 10px; color: #e0e0e0;'>Laporan Tutup Shift</h2>", unsafe_allow_html=True)
