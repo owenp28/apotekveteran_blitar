@@ -935,7 +935,7 @@ elif menu == "🖨️ Rekap Data":
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🛒 Kasir Utama":
     
-    # --- DIALOG UNTUK EDIT SALDO AWAL (Harus didefinisikan di awal) ---
+    # --- DIALOG UNTUK EDIT SALDO AWAL ---
     @st.dialog("🔍 Cek / Edit Saldo Awal Shift")
     def dialog_edit_saldo_awal():
         st.info("Periksa kembali atau perbarui uang modal laci (saldo awal) untuk shift ini.")
@@ -948,7 +948,7 @@ elif menu == "🛒 Kasir Utama":
 
     st.title("🛒 Kasir Utama")
     
-    # Validasi Hak Akses Shift (Langsung ke Beranda logic)
+    # Validasi Hak Akses Shift
     if not st.session_state.shift_active:
         st.error("⚠️ Anda belum membuka shift! Buka shift terlebih dahulu agar transaksi kasir dapat direkap.")
         if st.button("🕒 Menuju Halaman Buka Shift", type="primary"):
@@ -1000,7 +1000,6 @@ elif menu == "🛒 Kasir Utama":
     with col_input:
         st.subheader("🛒 Input Penjualan")
         
-        # Pilihan Kasir hanya untuk yang terdaftar di shift
         pilihan_kasir = valid_users if valid_users else [current_kasir_name]
         if current_kasir_name in pilihan_kasir:
             default_kasir_idx = pilihan_kasir.index(current_kasir_name)
@@ -1139,7 +1138,6 @@ elif menu == "🛒 Kasir Utama":
 
                                 if st.session_state.shift_active:
                                     st.session_state.active_shift_context["accumulated_sales_expected"] += total_belanja_confirm
-                                    # Simpan state real-time
                                     save_active_shift({"shift_active": True, **st.session_state.active_shift_context})
 
                                 st.session_state.nota_confirmed = True
@@ -1181,7 +1179,6 @@ elif menu == "🛒 Kasir Utama":
             kasir_mapping = {"Ivonne": "A1", "Dian": "K1", "Julia": "K2"}
             nama_raw = kasir_nama_nota if 'kasir_nama_nota' in locals() else st.session_state.active_shift_context.get("user_name", "")
             kasir_nama_nota_html = kasir_mapping.get(nama_raw, nama_raw)
-            # --------------------------------------------
 
             def format_angka(val):
                 try: return f"{int(val):,}".replace(",", ".")
@@ -1209,7 +1206,6 @@ elif menu == "🛒 Kasir Utama":
 <script>
 function updateClock() {{
     var d = new Date(); 
-    /* Menyesuaikan jam lokal browser pengguna, yang idealnya WIB jika diakses dari Indonesia */
     var h = String(d.getHours()).padStart(2, '0'); var m = String(d.getMinutes()).padStart(2, '0'); var s = String(d.getSeconds()).padStart(2, '0');
     var el = document.getElementById('clock_kasir_realtime'); if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
 }} setInterval(updateClock, 1000); updateClock();
@@ -1749,13 +1745,7 @@ elif menu == "🕒 Sesi Shift":
                     catatan = render_row_erp("Catatan Khusus", disabled=False, widget="text", key_suffix="ts_catatan")
 
                     st.write("")
-                    c_btn1, c_btn2, c_btn3 = st.columns([2, 1, 4])
-                    with c_btn1:
-                        if st.button("⬅️ Hitung Ulang Fisik Kasir", use_container_width=True):
-                            st.session_state.step_tutup_shift = 1
-                            st.rerun()
-                    with c_btn3:
-                        submit_tutup = st.button("✔ Konfirmasi Tutup Shift", type="primary", use_container_width=True)
+                    submit_tutup = st.button("✔ Konfirmasi Tutup Shift", type="primary", use_container_width=True)
 
                     if submit_tutup:
                         if selisih_calc != 0 and str(catatan).strip() == "":
