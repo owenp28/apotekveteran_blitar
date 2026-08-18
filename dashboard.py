@@ -1312,6 +1312,7 @@ elif menu == "🛒 Kasir Utama":
                 axis=1
             )
 
+            # ----- PERBAIKAN IDENTASI MULAI DI SINI -----
             if not st.session_state.checkout_mode:
                 selected_label = st.selectbox("Pilih Obat (Bisa diketik untuk mencari)", available_items["Label"].unique().tolist(), key="kasir_pilih_obat")
                 selected_row_display = available_items[available_items["Label"] == selected_label].iloc[0]
@@ -1357,35 +1358,36 @@ elif menu == "🛒 Kasir Utama":
                             })
                             st.success(f"{nama_obat} ({jumlah} {satuan_jual}) ditambah ke nota!")
 
-            if st.session_state.cart:
-                st.markdown("---")
-                st.markdown("#### 🛒 Rincian Keranjang")
-                for i, item in enumerate(st.session_state.cart):
-                    c1, c2, c3, c4 = st.columns([4, 2, 2, 2])
-                    c1.write(f"**{item['nama']}**")
-                    c2.write(f"x{item['qty']} {item['satuan_jual']}")
-                    c3.write(format_rupiah(item['subtotal']))
-                    with c4:
-                        col_min, col_del = st.columns(2)
-                        with col_min:
-                            if st.button("➖", key=f"min_{i}", help="Kurangi 1"):
-                                if st.session_state.cart[i]["qty"] > 1:
-                                    st.session_state.cart[i]["qty"] -= 1
-                                    st.session_state.cart[i]["subtotal"] = (
-                                        st.session_state.cart[i]["harga_per_satuan"] * st.session_state.cart[i]["qty"]
-                                    )
-                                else:
+                if st.session_state.cart:
+                    st.markdown("---")
+                    st.markdown("#### 🛒 Rincian Keranjang")
+                    for i, item in enumerate(st.session_state.cart):
+                        c1, c2, c3, c4 = st.columns([4, 2, 2, 2])
+                        c1.write(f"**{item['nama']}**")
+                        c2.write(f"x{item['qty']} {item['satuan_jual']}")
+                        c3.write(format_rupiah(item['subtotal']))
+                        with c4:
+                            col_min, col_del = st.columns(2)
+                            with col_min:
+                                if st.button("➖", key=f"min_{i}", help="Kurangi 1"):
+                                    if st.session_state.cart[i]["qty"] > 1:
+                                        st.session_state.cart[i]["qty"] -= 1
+                                        st.session_state.cart[i]["subtotal"] = (
+                                            st.session_state.cart[i]["harga_per_satuan"] * st.session_state.cart[i]["qty"]
+                                        )
+                                    else:
+                                        st.session_state.cart.pop(i)
+                                    st.rerun()
+                            with col_del:
+                                if st.button("🗑️", key=f"del_{i}", help="Hapus item"):
                                     st.session_state.cart.pop(i)
-                                st.rerun()
-                        with col_del:
-                            if st.button("🗑️", key=f"del_{i}", help="Hapus item"):
-                                st.session_state.cart.pop(i)
-                                st.rerun()
-                st.markdown("")
-                if st.button("✅ Lanjut ke Pembayaran", type="primary", use_container_width=True):
-                    st.session_state.checkout_mode = True
-                    st.rerun()
+                                    st.rerun()
+                    st.markdown("")
+                    if st.button("✅ Lanjut ke Pembayaran", type="primary", use_container_width=True):
+                        st.session_state.checkout_mode = True
+                        st.rerun()
             else:
+                # Blok mode checkout (ketika tombol Lanjut ke Pembayaran sudah diklik)
                 if not st.session_state.nota_confirmed:
                     st.info(f"🛒 **{len(st.session_state.cart)} item** dalam keranjang. Silakan masukkan nominal bayar.")
                     bayar_input = st.number_input("Nominal Bayar Uang Fisik (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
@@ -1466,6 +1468,7 @@ elif menu == "🛒 Kasir Utama":
                                 st.rerun()
                 else:
                     st.success("✅ Pembayaran sudah dikonfirmasi dan stok sudah diperbarui secara otomatis. Silakan cetak/unduh struk di panel sebelah kanan, lalu klik **Transaksi Baru** untuk melayani pelanggan berikutnya.")
+            # ----- PERBAIKAN IDENTASI SELESAI DI SINI -----
 
     with col_nota:
         st.subheader("📄 Preview Nota")
