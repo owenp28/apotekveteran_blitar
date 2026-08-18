@@ -36,6 +36,9 @@ st.markdown(
     .stDataFrame th { background: #0f3460; color: #e0e0e0; font-weight: 600; font-size: 13px; padding: 10px; }
     .stDataFrame td { color: #e0e0e0; font-size: 13px; padding: 8px; }
     .stDataFrame tr:hover { background: #1f3a5e; }
+    
+    /* Layout tambahan khusus Laporan Kartu Stok */
+    .filter-label { font-size: 12px; font-weight: bold; color: #a0a0a0; margin-bottom: 4px; display: block; }
     </style>
     """,
     unsafe_allow_html=True
@@ -313,16 +316,6 @@ def build_inventory_print_dataframe():
     combined_df["Worksheet"] = worksheet_series
     return combined_df
 
-def build_rtf_export(df, title="Laporan Stok Obat"):
-    lines = ["{\\rtf1\\ansi\\deff0", "{\\fonttbl\\f0\\fswiss Arial;}", "\\viewkind4\\uc1"]
-    lines.append(f"\\pard\\plain\\f0\\fs20 {title}\\par")
-    lines.append("\\pard\\plain\\f0\\fs18\\b " + "\\tab".join(str(col) for col in df.columns) + "\\par")
-    for _, row in df.iterrows():
-        row_text = "\\tab".join(str(v) if pd.notna(v) else "" for v in row.tolist())
-        lines.append("\\pard\\plain\\f0\\fs18 " + row_text + "\\par")
-    lines.append("}")
-    return "".join(lines).encode("utf-8")
-
 def get_available_sheets():
     cache = st.session_state.get("inventory_data_cache", {})
     if cache: return list(cache.keys())
@@ -334,6 +327,7 @@ def do_opname_processing(edited_opname_df):
     workbook_data = st.session_state.inventory_data_cache
     for idx, row in edited_opname_df.iterrows():
         lokasi = row.get("Worksheet", None)
+        # Proteksi pencegah KeyError jika Worksheet kosong atau tidak ada
         if pd.isna(lokasi) or not str(lokasi).strip() or str(lokasi).strip() not in workbook_data:
             continue
             
@@ -595,7 +589,7 @@ _name = USERS[_username]["name"] if _username in USERS else "Pengguna"
 st.sidebar.markdown(f"👤 **{_name}** — *{_role}*")
 st.sidebar.markdown("---")
 
-if _role == "Admin": _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🖨️ Rekap Data", "📦 Retur & Entry", "🛒 Kasir Utama", "🕒 Sesi Shift"]
+if _role == "Admin": _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "📊 Laporan Kartu Stok Obat", "📦 Retur & Entry", "🛒 Kasir Utama", "🕒 Sesi Shift"]
 else: _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🛒 Kasir Utama", "🕒 Sesi Shift"]
 
 # LOGIKA MENCEGAH REFRESH KEMBALI KE DASHBOARD
@@ -908,101 +902,167 @@ elif menu == "📋 Kelola Stok":
             else: st.dataframe(df_opname, use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR REKAP DATA
+# FITUR REKAP DATA (LAPORAN KARTU STOK OBAT)
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "🖨️ Rekap Data":
-    st.title("🖨️ Rekap Data")
+elif menu == "📊 Laporan Kartu Stok Obat":
+    st.title("📊 Laporan Kartu Stok Obat")
 
     df_inventory = build_inventory_print_dataframe()
     if df_inventory is None or df_inventory.empty:
         st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **📋 Kelola Stok**.")
         st.stop()
 
-    st.subheader("Pilih Opsi Cetak")
-    opsi = st.radio("Opsi Data yang Dicetak", ["Semua Komponen Obat", "Sebagian Komponen Obat (Pilih Manual)"])
-
     df_inventory["Tanggal"] = pd.to_datetime(df_inventory["Tanggal"], errors="coerce")
     if "Tanggal Kadaluwarsa" in df_inventory.columns:
         df_inventory["Tanggal Kadaluwarsa"] = pd.to_datetime(df_inventory["Tanggal Kadaluwarsa"], errors="coerce")
 
-    st.markdown("---")
-    st.subheader("🔍 Filter & Cari Sebelum Cetak")
-    
-    col_a, col_b = st.columns(2)
-    with col_a:
-        tgl_awal = st.date_input("Dari Tanggal", value=df_inventory["Tanggal"].dropna().min().date() if not df_inventory["Tanggal"].dropna().empty else get_wib_time().date())
-    with col_b:
-        tgl_akhir = st.date_input("Sampai Tanggal", value=df_inventory["Tanggal"].dropna().max().date() if not df_inventory["Tanggal"].dropna().empty else get_wib_time().date())
+    with st.container():
+        st.markdown("<div class='filter-label'>Pilihan Periode</div>", unsafe_allow_html=True)
+        c1, c2, c3, c4 = st.columns([2, 2, 2, 4])
+        with c1:
+            periode_opt = st.selectbox("Pilih Periode", ["Semua Waktu", "Berdasarkan Tanggal", "Berdasarkan Bulan", "Berdasarkan Tahun"], label_visibility="collapsed")
+        
+        tgl_awal, tgl_akhir = None, None
+        periode_text = "SEMUA WAKTU"
 
-    search_print = st.text_input("🔍 Cari Spesifik (Nama Produk, Batch, Faktur, dll) - Opsional", placeholder="Ketik kata kunci untuk membatasi print out...")
-    
-    df_print = df_inventory[
-        (df_inventory["Tanggal"] >= pd.Timestamp(tgl_awal)) &
-        (df_inventory["Tanggal"] <= pd.Timestamp(tgl_akhir))
-    ].copy()
+        if periode_opt == "Berdasarkan Tanggal":
+            with c2:
+                tgl_range = st.date_input("Rentang Tanggal", value=(get_wib_time().date(), get_wib_time().date()), label_visibility="collapsed")
+            if len(tgl_range) == 2:
+                tgl_awal, tgl_akhir = tgl_range
+                periode_text = f"{tgl_awal.strftime('%d %b %Y')} - {tgl_akhir.strftime('%d %b %Y')}"
+            else:
+                st.warning("Pilih rentang tanggal yang lengkap.")
+                st.stop()
+        elif periode_opt == "Berdasarkan Bulan":
+            with c2: bln = st.selectbox("Bulan", range(1, 13), index=get_wib_time().month-1, label_visibility="collapsed")
+            with c3: thn = st.number_input("Tahun", min_value=2000, max_value=2100, value=get_wib_time().year, label_visibility="collapsed")
+            tgl_awal = pd.Timestamp(year=thn, month=bln, day=1).date()
+            tgl_akhir = (pd.Timestamp(year=thn, month=bln, day=1) + pd.offsets.MonthEnd(0)).date()
+            periode_text = f"BULAN {bln} TAHUN {thn}"
+        elif periode_opt == "Berdasarkan Tahun":
+            with c2: thn_only = st.number_input("Tahun", min_value=2000, max_value=2100, value=get_wib_time().year, label_visibility="collapsed")
+            tgl_awal = pd.Timestamp(year=thn_only, month=1, day=1).date()
+            tgl_akhir = pd.Timestamp(year=thn_only, month=12, day=31).date()
+            periode_text = f"TAHUN {thn_only}"
 
-    if search_print.strip():
-        mask_print = df_print.astype(str).apply(lambda col: col.str.contains(search_print.strip(), case=False, na=False)).any(axis=1)
-        df_print = df_print[mask_print]
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div class='filter-label'>Filter Spesifik Kolom</div>", unsafe_allow_html=True)
+        c_f1, c_f2, c_f3, c_f4, c_f5 = st.columns(5)
+        with c_f1: filter_gudang = st.selectbox("Gudang", ["SEMUA GUDANG"] + get_available_sheets())
+        with c_f2: filter_kode = st.text_input("Kode Obat", placeholder="Cari Kode...")
+        with c_f3: filter_nama = st.text_input("Nama Obat", placeholder="Cari Nama...")
+        with c_f4: filter_faktur = st.text_input("No. Bukti/Faktur", placeholder="Cari No. Bukti...")
+        with c_f5: filter_ket = st.text_input("Keterangan", placeholder="Cari Keterangan...")
 
-    if opsi == "Sebagian Komponen Obat (Pilih Manual)":
-        kolom_dipilih = st.multiselect(
-            "Pilih Kolom yang Ingin Dicetak",
-            options=df_print.columns.tolist(),
-            default=["Worksheet", "Tanggal", "Nama produk", "Satuan", "Nomor Faktur", "Nomor Batch", "PBF", "Tanggal Kadaluwarsa", "Stok Masuk", "Stok Keluar", "Stok Sisa", "Harga 1", "Harga 2", "Keterangan"]
-        )
-        if kolom_dipilih:
-            df_print = df_print[kolom_dipilih]
-        else:
-            st.warning("Pilih minimal satu kolom.")
-            st.stop()
+    df_print = df_inventory.copy()
+    if tgl_awal and tgl_akhir:
+        df_print = df_print[(df_print["Tanggal"].dt.date >= tgl_awal) & (df_print["Tanggal"].dt.date <= tgl_akhir)]
 
-    st.markdown("---")
-    st.subheader("👁️ Preview Data")
+    if filter_gudang != "SEMUA GUDANG":
+        df_print = df_print[df_print["Worksheet"] == filter_gudang]
+    if filter_nama.strip():
+        df_print = df_print[df_print["Nama produk"].astype(str).str.contains(filter_nama.strip(), case=False, na=False)]
+    if filter_faktur.strip():
+        df_print = df_print[df_print["Nomor Faktur"].astype(str).str.contains(filter_faktur.strip(), case=False, na=False)]
+    if filter_ket.strip():
+        df_print = df_print[df_print["Keterangan"].astype(str).str.contains(filter_ket.strip(), case=False, na=False)]
+
     preview_df = df_print.copy()
-    if "Tanggal" in preview_df.columns:
-        preview_df["Tanggal"] = preview_df["Tanggal"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
-    if "Tanggal Kadaluwarsa" in preview_df.columns:
-        preview_df["Tanggal Kadaluwarsa"] = preview_df["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
-    if "Harga 1" in preview_df.columns:
-        preview_df["Harga 1"] = preview_df["Harga 1"].apply(lambda x: format_rupiah(x) if pd.notna(x) else x)
-    if "Harga 2" in preview_df.columns:
-        preview_df["Harga 2"] = preview_df["Harga 2"].apply(lambda x: format_rupiah(x) if pd.notna(x) else x)
+    preview_df["Kode Obat"] = ["OBT" + str(1000 + i) for i in range(len(preview_df))]
+    preview_df = preview_df[["Tanggal", "Worksheet", "Kode Obat", "Nama produk", "Nomor Faktur", "Keterangan", "Stok Masuk", "Stok Keluar", "Stok Sisa", "Satuan", "Nomor Batch", "Tanggal Kadaluwarsa"]]
+    preview_df.rename(columns={"Worksheet": "Gudang", "Nama produk": "Nama Obat", "Nomor Faktur": "No. Bukti"}, inplace=True)
+    
+    if "Tanggal" in preview_df.columns: preview_df["Tanggal"] = preview_df["Tanggal"].apply(lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "")
+    if "Tanggal Kadaluwarsa" in preview_df.columns: preview_df["Tanggal Kadaluwarsa"] = preview_df["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "")
 
-    st.dataframe(preview_df, use_container_width=True, height=350)
-    st.caption(f"{len(df_print)} baris data siap dicetak")
+    st.markdown("<br>", unsafe_allow_html=True)
+    c_action1, c_action2, c_action3 = st.columns([2, 2, 6])
+    with c_action1:
+        st.button("🔍 Terapkan Filter", type="primary", use_container_width=True)
+        
+    html_rows = ""
+    for i, row in preview_df.iterrows():
+        html_rows += f"<tr><td style='text-align:center;'>{len(html_rows.split('<tr>'))+1}</td>" + "".join(f"<td>{v}</td>" for v in row.values) + "<td>Sistem</td></tr>"
+    html_headers = "".join(f"<th>{c}</th>" for c in preview_df.columns) + "<th>Petugas</th>"
+
+    html_printable_laporan = f"""
+    <!DOCTYPE html>
+    <html><head><meta charset='utf-8'><title>Laporan Kartu Stok Obat - Apotek Veteran Blitar</title>
+    <style>
+        @page {{ size: A4 landscape; margin: 10mm; }}
+        body {{ font-family: 'Courier New', Courier, monospace; font-size: 11px; margin: 0; padding: 20px; background: #fff; color: #000; }}
+        .header {{ text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }}
+        .header h3 {{ margin: 0 0 5px 0; font-size: 16px; font-weight: bold; }}
+        .header p {{ margin: 0; font-size: 11px; }}
+        .title {{ text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 5px; text-decoration: underline; }}
+        .subtitle {{ text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 20px; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+        th, td {{ border: 1px solid #000; padding: 6px 8px; text-align: left; font-size: 10px; }}
+        th {{ text-align: center; font-weight: bold; }}
+        .info-table {{ width: 100%; border: none; margin-bottom: 10px; font-size: 11px; }}
+        .info-table td {{ border: none; padding: 2px 5px; font-weight: bold; }}
+    </style></head>
+    <body>
+        <div class='header'>
+            <h3>APOTEK VETERAN SEHAT BLITAR</h3>
+            <p>No. Surat Izin Apotek : 30032300193080001</p>
+            <p>Jl. Veteran No 64B Kota Blitar, Kota Blitar</p>
+            <p>Telp. 081331808585, Email : veteransehat01@gmail.com</p>
+        </div>
+        <div class='title'>LAPORAN KARTU STOK OBAT</div>
+        <div class='subtitle'>PERIODE {periode_text}</div>
+        
+        <table class='info-table'>
+            <tr>
+                <td style='width: 15%;'>Golongan / Kategori</td><td style='width: 35%;'>: - / -</td>
+                <td style='width: 10%;'>Gudang</td><td style='width: 40%;'>: {filter_gudang}</td>
+            </tr>
+            <tr>
+                <td>Kode Obat</td><td>: {filter_kode if filter_kode else '-'}</td>
+                <td>Nama Obat</td><td>: {filter_nama if filter_nama else 'SEMUA OBAT'}</td>
+            </tr>
+        </table>
+
+        <table>
+            <thead><tr><th>No.</th>{html_headers}</tr></thead>
+            <tbody>{html_rows}</tbody>
+        </table>
+        
+        <script>
+            setTimeout(function() {{ window.print(); }}, 500);
+        </script>
+    </body></html>
+    """
+
+    b64_html_laporan = base64.b64encode(html_printable_laporan.encode("utf-8")).decode("utf-8")
+    
+    with c_action2:
+        custom_print_laporan = f"""
+        <!DOCTYPE html><html><head><style>
+            body {{ margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; background: transparent; }}
+            .btn {{ display: flex; align-items: center; justify-content: center; width: 100%; height: 38px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }}
+            .btn:hover {{ background-color: #218838; }}
+        </style></head><body>
+            <button class="btn" onclick="printReport()">🖨️ Cetak HTML/PDF</button>
+            <script>
+            function printReport() {{
+                const b64 = "{b64_html_laporan}";
+                const binStr = atob(b64);
+                const bytes = new Uint8Array(binStr.length);
+                for (let i = 0; i < binStr.length; i++) {{ bytes[i] = binStr.charCodeAt(i); }}
+                const htmlContent = new TextDecoder('utf-8').decode(bytes);
+                const printWin = window.open('', '_blank');
+                printWin.document.open(); printWin.document.write(htmlContent); printWin.document.close();
+            }}
+            </script>
+        </body></html>
+        """
+        components.html(custom_print_laporan, height=45)
 
     st.markdown("---")
-    st.subheader("⬇️ Unduh File Laporan")
-    st.markdown("Pilih format file untuk mengunduh laporan stok obat sesuai dengan filter yang telah diterapkan.")
-    
-    col_d1, col_d2, col_d3, col_d4 = st.columns(4)
-
-    csv_buf = df_print.copy()
-    csv_data = csv_buf.to_csv(index=False).encode("utf-8-sig")
-    col_d1.download_button("📄 Unduh CSV", data=csv_data, file_name=f"stok_obat_{tgl_awal}_{tgl_akhir}.csv", mime="text/csv", use_container_width=True)
-
-    try:
-        import openpyxl
-        xlsx_buf = io.BytesIO()
-        with pd.ExcelWriter(xlsx_buf, engine="openpyxl") as writer:
-            df_print.copy().to_excel(writer, index=False, sheet_name="Stok Obat")
-        col_d2.download_button("📊 Unduh Excel (XLSX)", data=xlsx_buf.getvalue(), file_name=f"stok_obat_{tgl_awal}_{tgl_akhir}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-    except ImportError: col_d2.info("Install `openpyxl` untuk ekspor Excel.")
-
-    rtf_bytes = build_rtf_export(preview_df)
-    col_d3.download_button("📝 Unduh RTF (Word)", data=rtf_bytes, file_name=f"stok_obat_{tgl_awal}_{tgl_akhir}.rtf", mime="application/rtf", use_container_width=True)
-
-    html_rows = ""
-    for _, row in preview_df.iterrows(): html_rows += "<tr>" + "".join(f"<td>{v}</td>" for v in row.values) + "</tr>"
-    html_headers = "".join(f"<th>{c}</th>" for c in preview_df.columns)
-
-    html_content = f"""
-    <html><head><meta charset='utf-8'><title>Stok Obat Apotek</title><style>body {{ font-family: Arial, sans-serif; font-size: 11px; margin: 20px; }} h2 {{ text-align: center; }} table {{ border-collapse: collapse; width: 100%; }} th, td {{ border: 1px solid #333; padding: 4px 8px; text-align: left; }} th {{ background: #2c7be5; color: white; }} tr:nth-child(even) {{ background: #f2f2f2; }} @media print {{ button {{ display: none; }} }}</style></head><body>
-    <h2>Laporan Stok Obat — Apotek Veteran Blitar</h2><p>Periode: {tgl_awal} s/d {tgl_akhir} &nbsp;|&nbsp; Dicetak: {get_wib_time().strftime('%d-%m-%Y %H:%M')}</p>
-    <table><thead><tr>{html_headers}</tr></thead><tbody>{html_rows}</tbody></table><br><button onclick='window.print()' style='padding:8px 20px;background:#2c7be5;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;'>🖨️ Print / Simpan PDF</button></body></html>
-    """
-    col_d4.download_button("🖨️ Unduh HTML (Print/PDF)", data=html_content.encode("utf-8"), file_name=f"stok_obat_{tgl_awal}_{tgl_akhir}.html", mime="text/html", use_container_width=True)
+    st.caption(f"Menampilkan {len(preview_df)} data dari total {len(df_inventory)} data.")
+    st.dataframe(preview_df, use_container_width=True, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1334,7 +1394,6 @@ function updatePrintClock() {{
 </script></body></html>
 """
             
-            # --- TOMBOL CETAK NOTA TUNGGAL DIRECT PRINT VIA JS ---
             b64_html = base64.b64encode(html_printable_nota.encode("utf-8")).decode("utf-8")
             custom_print_button = f"""
             <!DOCTYPE html>
@@ -1342,11 +1401,7 @@ function updatePrintClock() {{
             <head>
             <style>
                 body {{ margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: transparent; }}
-                .btn {{
-                    display: flex; align-items: center; justify-content: center; width: 100%; height: 40px;
-                    background-color: #ff4b4b; color: white; border: none; border-radius: 8px;
-                    font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.3s;
-                }}
+                .btn {{ display: flex; align-items: center; justify-content: center; width: 100%; height: 40px; background-color: #ff4b4b; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.3s; }}
                 .btn:hover {{ background-color: #ff3333; }}
             </style>
             </head>
@@ -1360,15 +1415,9 @@ function updatePrintClock() {{
                     const bytes = new Uint8Array(len);
                     for (let i = 0; i < len; i++) {{ bytes[i] = binStr.charCodeAt(i); }}
                     const htmlContent = new TextDecoder('utf-8').decode(bytes);
-                    
                     const printWin = window.open('', '_blank', 'width=400,height=600');
-                    printWin.document.open();
-                    printWin.document.write(htmlContent);
-                    printWin.document.close();
-                    setTimeout(function() {{
-                        printWin.focus();
-                        printWin.print();
-                    }}, 500);
+                    printWin.document.open(); printWin.document.write(htmlContent); printWin.document.close();
+                    setTimeout(function() {{ printWin.focus(); printWin.print(); }}, 500);
                 }}
                 </script>
             </body>
@@ -1511,7 +1560,9 @@ elif menu == "📦 Retur & Entry":
             if st.button("💾 Simpan Retur ke Worksheet", type="primary", use_container_width=True):
                 if edited_df.empty or edited_df["Jumlah Retur"].fillna(0).sum() <= 0: st.warning("Daftar retur masih kosong atau belum ada jumlah retur yang valid.")
                 else:
-                    df_history = load_data() or pd.DataFrame(columns=KOLOM_WAJIB)
+                    df_history = load_data() 
+                    if df_history is None:
+                        df_history = pd.DataFrame(columns=KOLOM_WAJIB)
                     new_history_rows = []
                     active_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy())
                     
