@@ -478,6 +478,7 @@ if not st.session_state.logged_in:
                     st.query_params["role"] = role_pilih
                     st.query_params["username"] = uname
                     st.session_state.target_menu = "🏠 Dashboard" 
+                    st.query_params["menu"] = "🏠 Dashboard"
                     st.rerun()
                 else:
                     st.error("❌ Username, password, atau role tidak sesuai.")
@@ -528,19 +529,35 @@ st.sidebar.markdown("---")
 if _role == "Admin": _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🖨️ Rekap Data", "📦 Retur & Entry", "🛒 Kasir Utama", "🕒 Sesi Shift"]
 else: _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🛒 Kasir Utama", "🕒 Sesi Shift"]
 
+# LOGIKA MENCEGAH REFRESH KEMBALI KE DASHBOARD
 if "target_menu" in st.session_state:
     target = st.session_state.target_menu
     del st.session_state.target_menu
-    if target in _menu_options: st.session_state.main_menu = target
+    if target in _menu_options: 
+        st.session_state.main_menu = target
+        st.query_params["menu"] = target
 
-if "main_menu" not in st.session_state or st.session_state.main_menu not in _menu_options: st.session_state.main_menu = _menu_options[0]
-menu = st.sidebar.radio("Pilih Fitur", _menu_options, key="main_menu")
+if "main_menu" not in st.session_state:
+    saved_menu = st.query_params.get("menu")
+    if saved_menu in _menu_options:
+        st.session_state.main_menu = saved_menu
+    else:
+        st.session_state.main_menu = _menu_options[0]
+
+def _on_menu_change():
+    st.query_params["menu"] = st.session_state.main_menu
+
+menu = st.sidebar.radio("Pilih Fitur", _menu_options, key="main_menu", on_change=_on_menu_change)
 
 if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.logged_in = False
     st.session_state.role = None
     st.session_state.username = ""
     st.query_params.clear() 
+    st.session_state.shift_active = False
+    st.session_state.active_shift_context = {"saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "joined_users": [], "shift_name": get_auto_shift_name()}
+    st.session_state.step_tutup_shift = 1
+    st.session_state.input_saldo_kasir = 0.0
     if "main_menu" in st.session_state: del st.session_state["main_menu"]
     st.rerun()
 
@@ -1192,6 +1209,7 @@ elif menu == "🛒 Kasir Utama":
 <script>
 function updateClock() {{
     var d = new Date(); 
+    /* Menyesuaikan jam lokal browser pengguna, yang idealnya WIB jika diakses dari Indonesia */
     var h = String(d.getHours()).padStart(2, '0'); var m = String(d.getMinutes()).padStart(2, '0'); var s = String(d.getSeconds()).padStart(2, '0');
     var el = document.getElementById('clock_kasir_realtime'); if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
 }} setInterval(updateClock, 1000); updateClock();
@@ -1407,7 +1425,7 @@ elif menu == "📦 Retur & Entry":
                             "Tanggal": pd.Timestamp(get_wib_time().date()), "Nama Obat": nama_item, "Kategori": sheet_name, "Satuan": str(item["Satuan"]) if pd.notna(item["Satuan"]) else "",
                             "Stok Masuk": 0.0, "Stok Keluar": qty_retur_item, "Stok Akhir": stok_baru, "Harga Satuan (Rp)": harga_1_item,
                             "Total Nilai (Rp)": qty_retur_item * harga_1_item, "Tanggal Kadaluarsa": pd.Timestamp(item["Tanggal Kadaluwarsa"]) if pd.notna(item["Tanggal Kadaluwarsa"]) else pd.Timestamp(get_wib_time().date()),
-                            "Keterangan": f"Retur Pembelian (Batch: {batch_item})"
+                            "Keterangan": f"Retur Pembelian (Batch: {batch_item}) - {ket_baru}"
                         })
 
                     workbook_data[sheet_name] = normalize_inventory_df(active_df)
