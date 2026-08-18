@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone, timedelta
 import os
 import json
 import time
+import base64
 from io import BytesIO
 from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
@@ -333,7 +334,6 @@ def do_opname_processing(edited_opname_df):
     workbook_data = st.session_state.inventory_data_cache
     for idx, row in edited_opname_df.iterrows():
         lokasi = row.get("Worksheet", None)
-        # Proteksi pencegah KeyError jika Worksheet kosong atau tidak ada
         if pd.isna(lokasi) or not str(lokasi).strip() or str(lokasi).strip() not in workbook_data:
             continue
             
@@ -1326,9 +1326,6 @@ function updateClock() {{
     <div class="border-dash"></div>
     <div class="text-center footer-text">- Terimakasih Semoga Lekas Sembuh -</div>
 </div>
-<div class="btn-container">
-    <button onclick="window.print()" style="padding: 7px 18px; font-size: 13px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
-</div>
 <script>
 function updatePrintClock() {{
     var d = new Date(); var h = String(d.getHours()).padStart(2, '0'); var m = String(d.getMinutes()).padStart(2, '0'); var s = String(d.getSeconds()).padStart(2, '0');
@@ -1337,15 +1334,47 @@ function updatePrintClock() {{
 </script></body></html>
 """
             
-            # --- TOMBOL CETAK NOTA TUNGGAL ---
-            st.download_button(
-                label="🖨️ Cetak & Print Nota", 
-                data=html_printable_nota.encode("utf-8"), 
-                file_name=f"Struk_Nota_{get_wib_time().strftime('%Y%m%d_%H%M%S')}.html", 
-                mime="text/html", 
-                use_container_width=True,
-                type="primary"
-            )
+            # --- TOMBOL CETAK NOTA TUNGGAL DIRECT PRINT VIA JS ---
+            b64_html = base64.b64encode(html_printable_nota.encode("utf-8")).decode("utf-8")
+            custom_print_button = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <style>
+                body {{ margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: transparent; }}
+                .btn {{
+                    display: flex; align-items: center; justify-content: center; width: 100%; height: 40px;
+                    background-color: #ff4b4b; color: white; border: none; border-radius: 8px;
+                    font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.3s;
+                }}
+                .btn:hover {{ background-color: #ff3333; }}
+            </style>
+            </head>
+            <body>
+                <button class="btn" onclick="printReceipt()">🖨️ Cetak & Print Nota</button>
+                <script>
+                function printReceipt() {{
+                    const b64 = "{b64_html}";
+                    const binStr = atob(b64);
+                    const len = binStr.length;
+                    const bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) {{ bytes[i] = binStr.charCodeAt(i); }}
+                    const htmlContent = new TextDecoder('utf-8').decode(bytes);
+                    
+                    const printWin = window.open('', '_blank', 'width=400,height=600');
+                    printWin.document.open();
+                    printWin.document.write(htmlContent);
+                    printWin.document.close();
+                    setTimeout(function() {{
+                        printWin.focus();
+                        printWin.print();
+                    }}, 500);
+                }}
+                </script>
+            </body>
+            </html>
+            """
+            components.html(custom_print_button, height=45)
 
             if not st.session_state.nota_confirmed:
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -1452,7 +1481,6 @@ elif menu == "📦 Retur & Entry":
             edited_df = st.data_editor(st.session_state.retur_items.copy(), use_container_width=True, num_rows="dynamic", hide_index=True,
                 column_config={"Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_r, width="large"), "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluwarsa", format="YYYY-MM-DD")}, key="data_editor_retur")
             
-            # Aman dari masalah tipe tanggal pada editor
             for i, row in edited_df.iterrows():
                 if pd.isna(row.get("Tanggal Kadaluwarsa")): edited_df.at[i, "Tanggal Kadaluwarsa"] = None
                 elif isinstance(row["Tanggal Kadaluwarsa"], pd.Timestamp): edited_df.at[i, "Tanggal Kadaluwarsa"] = row["Tanggal Kadaluwarsa"].date()
@@ -1483,9 +1511,7 @@ elif menu == "📦 Retur & Entry":
             if st.button("💾 Simpan Retur ke Worksheet", type="primary", use_container_width=True):
                 if edited_df.empty or edited_df["Jumlah Retur"].fillna(0).sum() <= 0: st.warning("Daftar retur masih kosong atau belum ada jumlah retur yang valid.")
                 else:
-                    df_history = load_data()
-                    if df_history is None:
-                        df_history = pd.DataFrame(columns=KOLOM_WAJIB)
+                    df_history = load_data() or pd.DataFrame(columns=KOLOM_WAJIB)
                     new_history_rows = []
                     active_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy())
                     
