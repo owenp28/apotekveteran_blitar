@@ -6,6 +6,7 @@ import re
 from datetime import date, datetime, timezone, timedelta
 import os
 import json
+import time
 from io import BytesIO
 from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
@@ -326,9 +327,36 @@ def get_available_sheets():
     if cache: return list(cache.keys())
     return INVENTORY_SHEETS
 
+# ── LOGIKA BACKEND PROSES OPNAME ──
+def do_opname_processing(edited_opname_df):
+    workbook_data = st.session_state.inventory_data_cache
+    for idx, row in edited_opname_df.iterrows():
+        lokasi = row["Worksheet"]
+        nama = row["Nama Obat"]
+        batch = row["No. Batch"]
+        nyata = float(row["Stok Nyata Terkecil"])
+        sistem = float(row["Stok Satuan Terkecil"])
+        stok_exp = float(row["Stok Expired Terkecil"])
+        
+        if nyata > 0 or stok_exp > 0:
+            ws_target = prepare_sheet_for_editor(workbook_data[lokasi].copy())
+            mask_target = (ws_target["Nama produk"].astype(str) == str(nama)) & (ws_target["Nomor Batch"].astype(str) == str(batch))
+            if mask_target.any():
+                target_idx = ws_target[mask_target].index[-1]
+                ws_target.loc[target_idx, "Stok Sisa"] = nyata
+                diff = nyata - sistem
+                if diff > 0: 
+                    stok_masuk_lama = float(ws_target.loc[target_idx, "Stok Masuk"]) if pd.notna(ws_target.loc[target_idx, "Stok Masuk"]) else 0.0
+                    ws_target.loc[target_idx, "Stok Masuk"] = stok_masuk_lama + diff
+                elif diff < 0: 
+                    stok_keluar_lama = float(ws_target.loc[target_idx, "Stok Keluar"]) if pd.notna(ws_target.loc[target_idx, "Stok Keluar"]) else 0.0
+                    ws_target.loc[target_idx, "Stok Keluar"] = stok_keluar_lama + abs(diff)
+                workbook_data[lokasi] = normalize_inventory_df(ws_target)
+    save_inventory_workbook(workbook_data)
+    st.session_state.inventory_data_cache = workbook_data
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STOK OPNAME MODAL
+# STOK OPNAME MODAL (POP UP CARI & PILIH OBAT)
 # ══════════════════════════════════════════════════════════════════════════════
 @st.dialog("Pilih Obat", width="large")
 def modal_pilih_obat(df_source, initial_search=""):
@@ -427,6 +455,43 @@ def modal_pilih_obat(df_source, initial_search=""):
                     st.session_state.opname_custom_items = pd.DataFrame()
             st.rerun()
 
+# ══════════════════════════════════════════════════════════════════════════════
+# STOK OPNAME MODAL (POP UP KONFIRMASI PROSES & LOADING ANIMATION)
+# ══════════════════════════════════════════════════════════════════════════════
+@st.dialog("Konfirmasi Proses Stok Opname", width="large")
+def dialog_konfirmasi_proses(edited_opname):
+    if "opname_berhasil" not in st.session_state:
+        st.session_state.opname_berhasil = False
+
+    if not st.session_state.opname_berhasil:
+        st.write("Apakah anda yakin untuk melanjutkan proses stok opname?")
+        st.markdown("<br>", unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        if c1.button("Batal", use_container_width=True):
+            st.rerun()
+        if c2.button("Lanjutkan", type="primary", use_container_width=True):
+            ph = st.empty()
+            bar = ph.progress(0, text="Mengupload dan memvalidasi data...")
+            time.sleep(0.5)
+            
+            total = len(edited_opname)
+            for i, (idx, row) in enumerate(edited_opname.iterrows()):
+                bar.progress(int(((i+1)/total)*90), text=f"Memproses item {i+1} dari {total}...")
+                time.sleep(0.1) # Simulasi progress bar per item
+                
+            # Proses Backend Aktual
+            do_opname_processing(edited_opname)
+            
+            bar.progress(100, text="Selesai")
+            st.session_state.opname_berhasil = True
+            st.rerun()
+    else:
+        st.success("Stok opname berhasil diproses!")
+        if st.button("Tutup", use_container_width=True):
+            st.session_state.opname_berhasil = False
+            if "opname_custom_items" in st.session_state:
+                del st.session_state.opname_custom_items
+            st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AUTENTIKASI — LOGIN & USER MAPPING
@@ -807,23 +872,8 @@ elif menu == "📋 Kelola Stok":
             
             if btn_proses_opname:
                 if edited_opname is not None and not edited_opname.empty:
-                    for idx, row in edited_opname.iterrows():
-                        lokasi = row["Worksheet"]; nama = row["Nama Obat"]; batch = row["No. Batch"]; nyata = float(row["Stok Nyata Terkecil"]); sistem = float(row["Stok Satuan Terkecil"]); stok_exp = float(row["Stok Expired Terkecil"])
-                        if nyata > 0 or stok_exp > 0:
-                            ws_target = prepare_sheet_for_editor(workbook_data[lokasi].copy())
-                            mask_target = (ws_target["Nama produk"].astype(str) == str(nama)) & (ws_target["Nomor Batch"].astype(str) == str(batch))
-                            if mask_target.any():
-                                target_idx = ws_target[mask_target].index[-1]
-                                ws_target.loc[target_idx, "Stok Sisa"] = nyata
-                                diff = nyata - sistem
-                                if diff > 0: ws_target.loc[target_idx, "Stok Masuk"] = float(ws_target.loc[target_idx, "Stok Masuk"] if pd.notna(ws_target.loc[target_idx, "Stok Masuk"]) else 0) + diff
-                                elif diff < 0: ws_target.loc[target_idx, "Stok Keluar"] = float(ws_target.loc[target_idx, "Stok Keluar"] if pd.notna(ws_target.loc[target_idx, "Stok Keluar"]) else 0) + abs(diff)
-                                workbook_data[lokasi] = normalize_inventory_df(ws_target)
-                    if save_inventory_workbook(workbook_data):
-                        st.session_state.inventory_data_cache = workbook_data
-                        st.success(f"✅ Stok Opname berhasil diproses! Selisih stok telah disesuaikan.")
-                        if "opname_custom_items" in st.session_state: del st.session_state.opname_custom_items
-                        st.rerun()
+                    # Memanggil Pop Up Loading Animasi dari fungsi di atas
+                    dialog_konfirmasi_proses(edited_opname)
 
             if btn_reset_opname:
                 if "opname_custom_items" in st.session_state: del st.session_state.opname_custom_items
@@ -1680,7 +1730,6 @@ elif menu == "🕒 Sesi Shift":
                 
                 current_login_name = USERS.get(st.session_state.username, {}).get("name", "Unknown")
                 
-                # Fitur Gabung Shift
                 if current_login_name != nama_pembuka and current_login_name not in joined_users:
                     st.warning(f"Sistem mendeteksi Anda ({current_login_name}) login namun belum tergabung di sesi ini.")
                     if st.button("🤝 Gabung Shift Ini", type="primary"):
@@ -1693,7 +1742,6 @@ elif menu == "🕒 Sesi Shift":
                     
                 st.markdown("---")
 
-                # ALUR TUTUP SHIFT
                 saldo_awal_context = st.session_state.active_shift_context["saldo_awal"]
                 penjualan_sistem = st.session_state.active_shift_context["accumulated_sales_expected"]
                 total_pendapatan_calc = saldo_awal_context + penjualan_sistem
@@ -1716,7 +1764,6 @@ elif menu == "🕒 Sesi Shift":
                     saldo_kasir_in = st.session_state.input_saldo_kasir
                     selisih_calc = saldo_kasir_in - saldo_akhir_calc
 
-                    # BLIND CLOSE LOGIC
                     blind_mode = False
                     if st.session_state.role != "Admin":
                         blind_mode = True
@@ -1745,7 +1792,11 @@ elif menu == "🕒 Sesi Shift":
                     catatan = render_row_erp("Catatan Khusus", disabled=False, widget="text", key_suffix="ts_catatan")
 
                     st.write("")
-                    submit_tutup = st.button("✔ Konfirmasi Tutup Shift", type="primary", use_container_width=True)
+                    
+                    # --- TOMBOL KONFIRMASI (TanPA TOMBOL HITUNG ULANG) ---
+                    c_space, c_btn = st.columns([6, 4])
+                    with c_btn:
+                        submit_tutup = st.button("✔ Konfirmasi Tutup Shift", type="primary", use_container_width=True)
 
                     if submit_tutup:
                         if selisih_calc != 0 and str(catatan).strip() == "":
