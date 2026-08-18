@@ -541,6 +541,10 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.role = None
     st.session_state.username = ""
     st.query_params.clear() 
+    st.session_state.shift_active = False
+    st.session_state.active_shift_context = {"saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "joined_users": [], "shift_name": get_auto_shift_name()}
+    st.session_state.step_tutup_shift = 1
+    st.session_state.input_saldo_kasir = 0.0
     if "main_menu" in st.session_state: del st.session_state["main_menu"]
     st.rerun()
 
@@ -1116,12 +1120,22 @@ elif menu == "🛒 Kasir Utama":
                                 st.rerun()
                 else:
                     st.success("✅ Pembayaran sudah dikonfirmasi dan stok sudah diperbarui. Silakan cetak/unduh struk di panel kanan.")
-                    if st.button("🆕 Transaksi Baru", type="primary", use_container_width=True):
-                        st.session_state.cart = []
-                        st.session_state.checkout_mode = False
-                        st.session_state.bayar_tunai = 0
-                        st.session_state.nota_confirmed = False
-                        st.rerun()
+                    col_trx1, col_trx2 = st.columns(2)
+                    with col_trx1:
+                        if st.button("🆕 Transaksi Baru", type="primary", use_container_width=True):
+                            st.session_state.cart = []
+                            st.session_state.checkout_mode = False
+                            st.session_state.bayar_tunai = 0
+                            st.session_state.nota_confirmed = False
+                            st.rerun()
+                    with col_trx2:
+                        if st.button("🛑 Tutup Shift", type="secondary", use_container_width=True):
+                            st.session_state.cart = []
+                            st.session_state.checkout_mode = False
+                            st.session_state.bayar_tunai = 0
+                            st.session_state.nota_confirmed = False
+                            st.session_state.target_menu = "🕒 Sesi Shift"
+                            st.rerun()
 
     with col_nota:
         st.subheader("📄 Preview Nota")
@@ -1169,7 +1183,7 @@ function updateClock() {{
 }} setInterval(updateClock, 1000); updateClock();
 </script></body></html>
 """
-            components.html(nota_html, height=500, scrolling=True)
+            components.html(nota_html, height=450, scrolling=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
             
