@@ -1549,7 +1549,7 @@ elif menu == "🕒 Sesi Shift":
                 elif widget == "select": return st.selectbox(label, options=opts, index=opts.index(val_str) if val_str in opts else 0, label_visibility="collapsed", key=k)
                 elif widget == "text": return st.text_input(label, value=val_str, label_visibility="collapsed", key=k)
 
-    kasir_options = ["Ivonne", "Dian", "Julia"] if st.session_state.role == "Admin" else ["Dian", "Julia"]
+    kasir_options = ["A1", "K1", "K2"] if st.session_state.role == "Admin" else ["K1", "K2"]
 
     if st.session_state.get("step_tutup_shift") == 3 and "last_shift_data" in st.session_state:
         st.markdown("<h2 style='text-align: center; margin-bottom: 10px; color: #e0e0e0;'>Laporan Tutup Shift</h2>", unsafe_allow_html=True)
