@@ -6,6 +6,7 @@ import re
 from datetime import date, datetime, timezone, timedelta
 import os
 import json
+import time
 from io import BytesIO
 from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
@@ -327,8 +328,36 @@ def get_available_sheets():
     return INVENTORY_SHEETS
 
 
+# ── LOGIKA BACKEND PROSES OPNAME ──
+def do_opname_processing(edited_opname_df):
+    workbook_data = st.session_state.inventory_data_cache
+    for idx, row in edited_opname_df.iterrows():
+        lokasi = row["Worksheet"]
+        nama = row["Nama Obat"]
+        batch = row["No. Batch"]
+        nyata = float(row["Stok Nyata Terkecil"])
+        sistem = float(row["Stok Satuan Terkecil"])
+        stok_exp = float(row["Stok Expired Terkecil"])
+        
+        if nyata > 0 or stok_exp > 0:
+            ws_target = prepare_sheet_for_editor(workbook_data[lokasi].copy())
+            mask_target = (ws_target["Nama produk"].astype(str) == str(nama)) & (ws_target["Nomor Batch"].astype(str) == str(batch))
+            if mask_target.any():
+                target_idx = ws_target[mask_target].index[-1]
+                ws_target.loc[target_idx, "Stok Sisa"] = nyata
+                diff = nyata - sistem
+                if diff > 0: 
+                    stok_masuk_lama = float(ws_target.loc[target_idx, "Stok Masuk"]) if pd.notna(ws_target.loc[target_idx, "Stok Masuk"]) else 0.0
+                    ws_target.loc[target_idx, "Stok Masuk"] = stok_masuk_lama + diff
+                elif diff < 0: 
+                    stok_keluar_lama = float(ws_target.loc[target_idx, "Stok Keluar"]) if pd.notna(ws_target.loc[target_idx, "Stok Keluar"]) else 0.0
+                    ws_target.loc[target_idx, "Stok Keluar"] = stok_keluar_lama + abs(diff)
+                workbook_data[lokasi] = normalize_inventory_df(ws_target)
+    save_inventory_workbook(workbook_data)
+    st.session_state.inventory_data_cache = workbook_data
+
 # ══════════════════════════════════════════════════════════════════════════════
-# STOK OPNAME MODAL
+# STOK OPNAME MODAL (POP UP CARI & PILIH OBAT)
 # ══════════════════════════════════════════════════════════════════════════════
 @st.dialog("Pilih Obat", width="large")
 def modal_pilih_obat(df_source, initial_search=""):
@@ -417,53 +446,33 @@ def modal_pilih_obat(df_source, initial_search=""):
                     st.session_state.opname_custom_items = pd.DataFrame()
             st.rerun()
 
-# ── LOGIKA BACKEND PROSES OPNAME ──
-def do_opname_processing(edited_opname_df):
-    workbook_data = st.session_state.inventory_data_cache
-    for idx, row in edited_opname_df.iterrows():
-        lokasi = row["Worksheet"]
-        nama = row["Nama Obat"]
-        batch = row["No. Batch"]
-        nyata = float(row["Stok Nyata Terkecil"])
-        sistem = float(row["Stok Satuan Terkecil"])
-        stok_exp = float(row["Stok Expired Terkecil"])
-        
-        if nyata > 0 or stok_exp > 0:
-            ws_target = prepare_sheet_for_editor(workbook_data[lokasi].copy())
-            mask_target = (ws_target["Nama produk"].astype(str) == str(nama)) & (ws_target["Nomor Batch"].astype(str) == str(batch))
-            if mask_target.any():
-                target_idx = ws_target[mask_target].index[-1]
-                ws_target.loc[target_idx, "Stok Sisa"] = nyata
-                diff = nyata - sistem
-                if diff > 0: 
-                    stok_masuk_lama = float(ws_target.loc[target_idx, "Stok Masuk"]) if pd.notna(ws_target.loc[target_idx, "Stok Masuk"]) else 0.0
-                    ws_target.loc[target_idx, "Stok Masuk"] = stok_masuk_lama + diff
-                elif diff < 0: 
-                    stok_keluar_lama = float(ws_target.loc[target_idx, "Stok Keluar"]) if pd.notna(ws_target.loc[target_idx, "Stok Keluar"]) else 0.0
-                    ws_target.loc[target_idx, "Stok Keluar"] = stok_keluar_lama + abs(diff)
-                workbook_data[lokasi] = normalize_inventory_df(ws_target)
-    save_inventory_workbook(workbook_data)
-    st.session_state.inventory_data_cache = workbook_data
-
+# ══════════════════════════════════════════════════════════════════════════════
+# STOK OPNAME MODAL (POP UP KONFIRMASI PROSES & LOADING ANIMATION)
+# ══════════════════════════════════════════════════════════════════════════════
 @st.dialog("Konfirmasi Proses Stok Opname", width="large")
 def dialog_konfirmasi_proses(edited_opname):
-    if "opname_berhasil" not in st.session_state: st.session_state.opname_berhasil = False
+    if "opname_berhasil" not in st.session_state:
+        st.session_state.opname_berhasil = False
 
     if not st.session_state.opname_berhasil:
         st.write("Apakah anda yakin untuk melanjutkan proses stok opname?")
         st.markdown("<br>", unsafe_allow_html=True)
         c1, c2 = st.columns(2)
-        if c1.button("Batal", use_container_width=True): st.rerun()
+        if c1.button("Batal", use_container_width=True):
+            st.rerun()
         if c2.button("Lanjutkan", type="primary", use_container_width=True):
-            import time
             ph = st.empty()
             bar = ph.progress(0, text="Mengupload dan memvalidasi data...")
             time.sleep(0.5)
+            
             total = len(edited_opname)
             for i, (idx, row) in enumerate(edited_opname.iterrows()):
                 bar.progress(int(((i+1)/total)*90), text=f"Memproses item {i+1} dari {total}...")
-                time.sleep(0.1) 
+                time.sleep(0.1) # Simulasi progress bar per item
+                
+            # Proses Backend Aktual
             do_opname_processing(edited_opname)
+            
             bar.progress(100, text="Selesai")
             st.session_state.opname_berhasil = True
             st.rerun()
@@ -471,7 +480,8 @@ def dialog_konfirmasi_proses(edited_opname):
         st.success("Stok opname berhasil diproses!")
         if st.button("Tutup", use_container_width=True):
             st.session_state.opname_berhasil = False
-            if "opname_custom_items" in st.session_state: del st.session_state.opname_custom_items
+            if "opname_custom_items" in st.session_state:
+                del st.session_state.opname_custom_items
             st.rerun()
 
 
@@ -1227,7 +1237,6 @@ elif menu == "🛒 Kasir Utama":
             kembali = bayar_tunai - total_belanja
             tgl_today = get_wib_time().strftime("%d/%m/%Y")
             
-            # --- MAPPING NAMA KASIR KHUSUS UNTUK NOTA ---
             kasir_mapping = {"Ivonne": "A1", "Dian": "K1", "Julia": "K2"}
             nama_raw = kasir_nama_nota if 'kasir_nama_nota' in locals() else st.session_state.active_shift_context.get("user_name", "")
             kasir_nama_nota_html = kasir_mapping.get(nama_raw, nama_raw)
@@ -1316,7 +1325,6 @@ function updatePrintClock() {{
 </script></body></html>
 """
             
-            # --- TOMBOL CETAK NOTA TUNGGAL ---
             st.download_button(
                 label="🖨️ Cetak & Print Nota", 
                 data=html_printable_nota.encode("utf-8"), 
@@ -1431,7 +1439,6 @@ elif menu == "📦 Retur & Entry":
             edited_df = st.data_editor(st.session_state.retur_items.copy(), use_container_width=True, num_rows="dynamic", hide_index=True,
                 column_config={"Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_r, width="large"), "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluwarsa", format="YYYY-MM-DD")}, key="data_editor_retur")
             
-            # Aman dari masalah tipe tanggal pada editor
             for i, row in edited_df.iterrows():
                 if pd.isna(row.get("Tanggal Kadaluwarsa")): edited_df.at[i, "Tanggal Kadaluwarsa"] = None
                 elif isinstance(row["Tanggal Kadaluwarsa"], pd.Timestamp): edited_df.at[i, "Tanggal Kadaluwarsa"] = row["Tanggal Kadaluwarsa"].date()
@@ -1462,7 +1469,9 @@ elif menu == "📦 Retur & Entry":
             if st.button("💾 Simpan Retur ke Worksheet", type="primary", use_container_width=True):
                 if edited_df.empty or edited_df["Jumlah Retur"].fillna(0).sum() <= 0: st.warning("Daftar retur masih kosong atau belum ada jumlah retur yang valid.")
                 else:
-                    df_history = load_data() or pd.DataFrame(columns=KOLOM_WAJIB)
+                    df_history = load_data()
+                    if df_history is None:
+                        df_history = pd.DataFrame(columns=KOLOM_WAJIB)
                     new_history_rows = []
                     active_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy())
                     
@@ -1606,7 +1615,9 @@ elif menu == "📦 Retur & Entry":
                 else:
                     workbook_data = st.session_state.inventory_data_cache
                     jumlah_disimpan = 0
-                    df_history = load_data() or pd.DataFrame(columns=KOLOM_WAJIB)
+                    df_history = load_data()
+                    if df_history is None:
+                        df_history = pd.DataFrame(columns=KOLOM_WAJIB)
                     new_history_rows = []
                     
                     for _, row in edited_df.iterrows():
@@ -1654,7 +1665,7 @@ elif menu == "📦 Retur & Entry":
                 st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR SESI SHIFT
+# FITUR SESI SHIFT (SOP BARU TERINTEGRASI)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🕒 Sesi Shift":
 
