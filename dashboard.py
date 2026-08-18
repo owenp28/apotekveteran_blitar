@@ -327,7 +327,6 @@ def do_opname_processing(edited_opname_df):
     workbook_data = st.session_state.inventory_data_cache
     for idx, row in edited_opname_df.iterrows():
         lokasi = row.get("Worksheet", None)
-        # Proteksi pencegah KeyError jika Worksheet kosong atau tidak ada
         if pd.isna(lokasi) or not str(lokasi).strip() or str(lokasi).strip() not in workbook_data:
             continue
             
@@ -916,6 +915,10 @@ elif menu == "🖨️ Rekap Data":
     if "Tanggal Kadaluwarsa" in df_inventory.columns:
         df_inventory["Tanggal Kadaluwarsa"] = pd.to_datetime(df_inventory["Tanggal Kadaluwarsa"], errors="coerce")
 
+    # Dapatkan daftar obat unik untuk Selectbox
+    obat_list = sorted([str(x).strip() for x in df_inventory["Nama produk"].dropna().unique() if str(x).strip()])
+    pilihan_obat = ["SEMUA OBAT"] + obat_list
+
     with st.container():
         st.markdown("<div class='filter-label'>Pilihan Periode</div>", unsafe_allow_html=True)
         c1, c2, c3, c4 = st.columns([2, 2, 2, 4])
@@ -949,16 +952,21 @@ elif menu == "🖨️ Rekap Data":
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<div class='filter-label'>Filter Spesifik Kolom</div>", unsafe_allow_html=True)
         c_f1, c_f2, c_f3 = st.columns(3)
-        with c_f1: filter_kode = st.text_input("Kode Obat", placeholder="Cari Kode...")
-        with c_f2: filter_nama = st.text_input("Nama Obat", placeholder="Cari Nama...")
+        with c_f1: filter_gudang = st.selectbox("Gudang", ["SEMUA GUDANG"] + get_available_sheets())
+        with c_f2: filter_nama = st.selectbox("Pilih Obat (Seperti Kasir)", options=pilihan_obat)
         with c_f3: filter_ket = st.text_input("Keterangan", placeholder="Cari Keterangan...")
 
     df_print = df_inventory.copy()
+    
     if tgl_awal and tgl_akhir:
         df_print = df_print[(df_print["Tanggal"].dt.date >= tgl_awal) & (df_print["Tanggal"].dt.date <= tgl_akhir)]
 
-    if filter_nama.strip():
-        df_print = df_print[df_print["Nama produk"].astype(str).str.contains(filter_nama.strip(), case=False, na=False)]
+    if filter_gudang != "SEMUA GUDANG":
+        df_print = df_print[df_print["Worksheet"] == filter_gudang]
+        
+    if filter_nama != "SEMUA OBAT":
+        df_print = df_print[df_print["Nama produk"].astype(str).str.strip() == filter_nama]
+
     if filter_ket.strip():
         df_print = df_print[df_print["Keterangan"].astype(str).str.contains(filter_ket.strip(), case=False, na=False)]
 
@@ -973,9 +981,6 @@ elif menu == "🖨️ Rekap Data":
         return ket if ket and ket.lower() not in ["none", "nan"] else "-"
 
     preview_df["Keterangan"] = preview_df.apply(format_keterangan, axis=1)
-    
-    if filter_kode.strip():
-        preview_df = preview_df[preview_df["Kode Obat"].astype(str).str.contains(filter_kode.strip(), case=False, na=False)]
 
     current_user_name = USERS.get(st.session_state.username, {}).get("name", "Sistem")
     preview_df["Petugas"] = current_user_name
@@ -1026,11 +1031,11 @@ elif menu == "🖨️ Rekap Data":
         <table class='info-table'>
             <tr>
                 <td style='width: 15%;'>Golongan / Kategori</td><td style='width: 35%;'>: - / -</td>
-                <td style='width: 15%;'>Nama Obat</td><td style='width: 35%;'>: {filter_nama if filter_nama else 'SEMUA OBAT'}</td>
+                <td style='width: 15%;'>Gudang</td><td style='width: 35%;'>: {filter_gudang}</td>
             </tr>
             <tr>
-                <td>Kode Obat</td><td>: {filter_kode if filter_kode else '-'}</td>
-                <td></td><td></td>
+                <td>Kode Obat</td><td>: -</td>
+                <td>Nama Obat</td><td>: {filter_nama}</td>
             </tr>
         </table>
 
@@ -1396,9 +1401,6 @@ function updateClock() {{
     <div class="border-dash"></div>
     <div class="text-center footer-text">- Terimakasih Semoga Lekas Sembuh -</div>
 </div>
-<div class="btn-container">
-    <button onclick="window.print()" style="padding: 7px 18px; font-size: 13px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
-</div>
 <script>
 function updatePrintClock() {{
     var d = new Date(); var h = String(d.getHours()).padStart(2, '0'); var m = String(d.getMinutes()).padStart(2, '0'); var s = String(d.getSeconds()).padStart(2, '0');
@@ -1543,7 +1545,6 @@ elif menu == "📦 Retur & Entry":
             edited_df = st.data_editor(st.session_state.retur_items.copy(), use_container_width=True, num_rows="dynamic", hide_index=True,
                 column_config={"Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_r, width="large"), "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluwarsa", format="YYYY-MM-DD")}, key="data_editor_retur")
             
-            # Aman dari masalah tipe tanggal pada editor
             for i, row in edited_df.iterrows():
                 if pd.isna(row.get("Tanggal Kadaluwarsa")): edited_df.at[i, "Tanggal Kadaluwarsa"] = None
                 elif isinstance(row["Tanggal Kadaluwarsa"], pd.Timestamp): edited_df.at[i, "Tanggal Kadaluwarsa"] = row["Tanggal Kadaluwarsa"].date()
@@ -1603,7 +1604,7 @@ elif menu == "📦 Retur & Entry":
                             "Tanggal": pd.Timestamp(get_wib_time().date()), "Nama Obat": nama_item, "Kategori": sheet_name, "Satuan": str(item["Satuan"]) if pd.notna(item["Satuan"]) else "",
                             "Stok Masuk": 0.0, "Stok Keluar": qty_retur_item, "Stok Akhir": stok_baru, "Harga Satuan (Rp)": harga_1_item,
                             "Total Nilai (Rp)": qty_retur_item * harga_1_item, "Tanggal Kadaluarsa": t_exp_s if pd.notna(t_exp_s) else pd.Timestamp(get_wib_time().date()),
-                            "Keterangan": f"Retur Pembelian (Batch: {batch_item}) - {ket_baru}"
+                            "Keterangan": f"Retur Pembelian (Batch: {batch_item})"
                         })
 
                     workbook_data[sheet_name] = normalize_inventory_df(active_df)
