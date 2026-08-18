@@ -91,9 +91,10 @@ def clear_active_shift():
 
 def get_auto_shift_name():
     hour = get_wib_time().hour
-    if 6 <= hour < 14: return "Pagi"
-    elif 14 <= hour < 18: return "Siang"
-    elif 18 <= hour < 22: return "Sore"
+    # Pembagian Waktu di Indonesia
+    if 4 <= hour < 10: return "Pagi"
+    elif 10 <= hour < 15: return "Siang"
+    elif 15 <= hour < 18: return "Sore"
     else: return "Malam"
 
 # ── FUNGSI DATA I/O ──
@@ -540,10 +541,6 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.role = None
     st.session_state.username = ""
     st.query_params.clear() 
-    st.session_state.shift_active = False
-    st.session_state.active_shift_context = {"saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "joined_users": [], "shift_name": get_auto_shift_name()}
-    st.session_state.step_tutup_shift = 1
-    st.session_state.input_saldo_kasir = 0.0
     if "main_menu" in st.session_state: del st.session_state["main_menu"]
     st.rerun()
 
@@ -1194,6 +1191,8 @@ function updateClock() {{
             lines_items.append("-" * W)
             lines_items.append("- Terima Kasih Atas -".center(W))
             lines_items.append("- Kunjungan Anda -".center(W))
+            lines_items.append("- Belanja tanpa struk gratis -".center(W))
+            lines_items.append("- Harga sudah termasuk PPN -".center(W))
             lines_items.append("\\n\\n")
             part_body = "\\n".join([line.replace('"', '\\"') for line in lines_items])
 
