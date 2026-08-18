@@ -541,10 +541,6 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.role = None
     st.session_state.username = ""
     st.query_params.clear() 
-    st.session_state.shift_active = False
-    st.session_state.active_shift_context = {"saldo_awal": 0.0, "accumulated_sales_expected": 0.0, "start_time": None, "user_name": "", "joined_users": [], "shift_name": get_auto_shift_name()}
-    st.session_state.step_tutup_shift = 1
-    st.session_state.input_saldo_kasir = 0.0
     if "main_menu" in st.session_state: del st.session_state["main_menu"]
     st.rerun()
 
@@ -921,6 +917,18 @@ elif menu == "🖨️ Rekap Data":
 # FITUR KASIR UTAMA
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🛒 Kasir Utama":
+    
+    # --- DIALOG UNTUK EDIT SALDO AWAL (Harus didefinisikan di awal) ---
+    @st.dialog("🔍 Cek / Edit Saldo Awal Shift")
+    def dialog_edit_saldo_awal():
+        st.info("Periksa kembali atau perbarui uang modal laci (saldo awal) untuk shift ini.")
+        curr_saldo = st.session_state.active_shift_context.get("saldo_awal", 0.0)
+        new_saldo = st.number_input("Nominal Saldo Awal (Rp)", min_value=0.0, step=500.0, value=float(curr_saldo))
+        if st.button("💾 Simpan Perubahan", type="primary", use_container_width=True):
+            st.session_state.active_shift_context["saldo_awal"] = new_saldo
+            save_active_shift({"shift_active": True, **st.session_state.active_shift_context})
+            st.rerun()
+
     st.title("🛒 Kasir Utama")
     
     # Validasi Hak Akses Shift (Langsung ke Beranda logic)
@@ -1114,13 +1122,16 @@ elif menu == "🛒 Kasir Utama":
 
                                 if st.session_state.shift_active:
                                     st.session_state.active_shift_context["accumulated_sales_expected"] += total_belanja_confirm
+                                    # Simpan state real-time
                                     save_active_shift({"shift_active": True, **st.session_state.active_shift_context})
 
                                 st.session_state.nota_confirmed = True
                                 st.rerun()
                 else:
                     st.success("✅ Pembayaran sudah dikonfirmasi dan stok sudah diperbarui. Silakan cetak/unduh struk di panel kanan.")
-                    col_trx1, col_trx2 = st.columns(2)
+                    
+                    # --- TOMBOL AKSI SETELAH TRANSAKSI ---
+                    col_trx1, col_trx2, col_trx3 = st.columns([1.2, 1, 1])
                     with col_trx1:
                         if st.button("🆕 Transaksi Baru", type="primary", use_container_width=True):
                             st.session_state.cart = []
@@ -1129,6 +1140,9 @@ elif menu == "🛒 Kasir Utama":
                             st.session_state.nota_confirmed = False
                             st.rerun()
                     with col_trx2:
+                        if st.button("🔍 Cek Saldo Awal", use_container_width=True):
+                            dialog_edit_saldo_awal()
+                    with col_trx3:
                         if st.button("🛑 Tutup Shift", type="secondary", use_container_width=True):
                             st.session_state.cart = []
                             st.session_state.checkout_mode = False
@@ -1236,6 +1250,7 @@ function updatePrintClock() {{
 </script></body></html>
 """
             
+            # --- TOMBOL CETAK NOTA TUNGGAL ---
             st.download_button(
                 label="🖨️ Cetak & Print Nota", 
                 data=html_printable_nota.encode("utf-8"), 
