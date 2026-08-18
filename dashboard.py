@@ -589,7 +589,7 @@ _name = USERS[_username]["name"] if _username in USERS else "Pengguna"
 st.sidebar.markdown(f"👤 **{_name}** — *{_role}*")
 st.sidebar.markdown("---")
 
-if _role == "Admin": _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "📊 Laporan Kartu Stok Obat", "📦 Retur & Entry", "🛒 Kasir Utama", "🕒 Sesi Shift"]
+if _role == "Admin": _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🖨️ Rekap Data", "📦 Retur & Entry", "🛒 Kasir Utama", "🕒 Sesi Shift"]
 else: _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🛒 Kasir Utama", "🕒 Sesi Shift"]
 
 # LOGIKA MENCEGAH REFRESH KEMBALI KE DASHBOARD
@@ -904,8 +904,8 @@ elif menu == "📋 Kelola Stok":
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR REKAP DATA (LAPORAN KARTU STOK OBAT)
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "📊 Laporan Kartu Stok Obat":
-    st.title("📊 Laporan Kartu Stok Obat")
+elif menu == "🖨️ Rekap Data":
+    st.title("🖨️ Rekap Data")
 
     df_inventory = build_inventory_print_dataframe()
     if df_inventory is None or df_inventory.empty:
@@ -948,30 +948,40 @@ elif menu == "📊 Laporan Kartu Stok Obat":
 
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<div class='filter-label'>Filter Spesifik Kolom</div>", unsafe_allow_html=True)
-        c_f1, c_f2, c_f3, c_f4, c_f5 = st.columns(5)
-        with c_f1: filter_gudang = st.selectbox("Gudang", ["SEMUA GUDANG"] + get_available_sheets())
-        with c_f2: filter_kode = st.text_input("Kode Obat", placeholder="Cari Kode...")
-        with c_f3: filter_nama = st.text_input("Nama Obat", placeholder="Cari Nama...")
-        with c_f4: filter_faktur = st.text_input("No. Bukti/Faktur", placeholder="Cari No. Bukti...")
-        with c_f5: filter_ket = st.text_input("Keterangan", placeholder="Cari Keterangan...")
+        c_f1, c_f2, c_f3 = st.columns(3)
+        with c_f1: filter_kode = st.text_input("Kode Obat", placeholder="Cari Kode...")
+        with c_f2: filter_nama = st.text_input("Nama Obat", placeholder="Cari Nama...")
+        with c_f3: filter_ket = st.text_input("Keterangan", placeholder="Cari Keterangan...")
 
     df_print = df_inventory.copy()
     if tgl_awal and tgl_akhir:
         df_print = df_print[(df_print["Tanggal"].dt.date >= tgl_awal) & (df_print["Tanggal"].dt.date <= tgl_akhir)]
 
-    if filter_gudang != "SEMUA GUDANG":
-        df_print = df_print[df_print["Worksheet"] == filter_gudang]
     if filter_nama.strip():
         df_print = df_print[df_print["Nama produk"].astype(str).str.contains(filter_nama.strip(), case=False, na=False)]
-    if filter_faktur.strip():
-        df_print = df_print[df_print["Nomor Faktur"].astype(str).str.contains(filter_faktur.strip(), case=False, na=False)]
     if filter_ket.strip():
         df_print = df_print[df_print["Keterangan"].astype(str).str.contains(filter_ket.strip(), case=False, na=False)]
 
     preview_df = df_print.copy()
     preview_df["Kode Obat"] = ["OBT" + str(1000 + i) for i in range(len(preview_df))]
-    preview_df = preview_df[["Tanggal", "Worksheet", "Kode Obat", "Nama produk", "Nomor Faktur", "Keterangan", "Stok Masuk", "Stok Keluar", "Stok Sisa", "Satuan", "Nomor Batch", "Tanggal Kadaluwarsa"]]
-    preview_df.rename(columns={"Worksheet": "Gudang", "Nama produk": "Nama Obat", "Nomor Faktur": "No. Bukti"}, inplace=True)
+    
+    def format_keterangan(row):
+        faktur = str(row.get('Nomor Faktur', '')).strip()
+        ket = str(row.get('Keterangan', '')).strip()
+        if faktur and faktur.lower() not in ["none", "nan", "-"]:
+            return f"Penjualan dengan No Faktur {faktur}"
+        return ket if ket and ket.lower() not in ["none", "nan"] else "-"
+
+    preview_df["Keterangan"] = preview_df.apply(format_keterangan, axis=1)
+    
+    if filter_kode.strip():
+        preview_df = preview_df[preview_df["Kode Obat"].astype(str).str.contains(filter_kode.strip(), case=False, na=False)]
+
+    current_user_name = USERS.get(st.session_state.username, {}).get("name", "Sistem")
+    preview_df["Petugas"] = current_user_name
+
+    preview_df = preview_df[["Tanggal", "Kode Obat", "Nama produk", "Keterangan", "Stok Masuk", "Stok Keluar", "Stok Sisa", "Satuan", "Nomor Batch", "Tanggal Kadaluwarsa", "Petugas"]]
+    preview_df.rename(columns={"Nama produk": "Nama Obat"}, inplace=True)
     
     if "Tanggal" in preview_df.columns: preview_df["Tanggal"] = preview_df["Tanggal"].apply(lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "")
     if "Tanggal Kadaluwarsa" in preview_df.columns: preview_df["Tanggal Kadaluwarsa"] = preview_df["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d %b %Y") if pd.notna(x) else "")
@@ -982,9 +992,9 @@ elif menu == "📊 Laporan Kartu Stok Obat":
         st.button("🔍 Terapkan Filter", type="primary", use_container_width=True)
         
     html_rows = ""
-    for i, row in preview_df.iterrows():
-        html_rows += f"<tr><td style='text-align:center;'>{len(html_rows.split('<tr>'))+1}</td>" + "".join(f"<td>{v}</td>" for v in row.values) + "<td>Sistem</td></tr>"
-    html_headers = "".join(f"<th>{c}</th>" for c in preview_df.columns) + "<th>Petugas</th>"
+    for i, row in enumerate(preview_df.values):
+        html_rows += f"<tr><td style='text-align:center;'>{i+1}</td>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>"
+    html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.columns)
 
     html_printable_laporan = f"""
     <!DOCTYPE html>
@@ -1016,16 +1026,16 @@ elif menu == "📊 Laporan Kartu Stok Obat":
         <table class='info-table'>
             <tr>
                 <td style='width: 15%;'>Golongan / Kategori</td><td style='width: 35%;'>: - / -</td>
-                <td style='width: 10%;'>Gudang</td><td style='width: 40%;'>: {filter_gudang}</td>
+                <td style='width: 15%;'>Nama Obat</td><td style='width: 35%;'>: {filter_nama if filter_nama else 'SEMUA OBAT'}</td>
             </tr>
             <tr>
                 <td>Kode Obat</td><td>: {filter_kode if filter_kode else '-'}</td>
-                <td>Nama Obat</td><td>: {filter_nama if filter_nama else 'SEMUA OBAT'}</td>
+                <td></td><td></td>
             </tr>
         </table>
 
         <table>
-            <thead><tr><th>No.</th>{html_headers}</tr></thead>
+            <thead><tr>{html_headers}</tr></thead>
             <tbody>{html_rows}</tbody>
         </table>
         
@@ -1041,10 +1051,10 @@ elif menu == "📊 Laporan Kartu Stok Obat":
         custom_print_laporan = f"""
         <!DOCTYPE html><html><head><style>
             body {{ margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; background: transparent; }}
-            .btn {{ display: flex; align-items: center; justify-content: center; width: 100%; height: 38px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }}
+            .btn {{ display: flex; align-items: center; justify-content: center; width: 100%; height: 38px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.3s; }}
             .btn:hover {{ background-color: #218838; }}
         </style></head><body>
-            <button class="btn" onclick="printReport()">🖨️ Cetak HTML/PDF</button>
+            <button class="btn" onclick="printReport()">🖨️ Cetak Laporan (Print)</button>
             <script>
             function printReport() {{
                 const b64 = "{b64_html_laporan}";
@@ -1386,6 +1396,9 @@ function updateClock() {{
     <div class="border-dash"></div>
     <div class="text-center footer-text">- Terimakasih Semoga Lekas Sembuh -</div>
 </div>
+<div class="btn-container">
+    <button onclick="window.print()" style="padding: 7px 18px; font-size: 13px; background: #2c7be5; color: white; border: none; border-radius: 4px; cursor: pointer;">🖨️ Cetak Struk</button>
+</div>
 <script>
 function updatePrintClock() {{
     var d = new Date(); var h = String(d.getHours()).padStart(2, '0'); var m = String(d.getMinutes()).padStart(2, '0'); var s = String(d.getSeconds()).padStart(2, '0');
@@ -1530,6 +1543,7 @@ elif menu == "📦 Retur & Entry":
             edited_df = st.data_editor(st.session_state.retur_items.copy(), use_container_width=True, num_rows="dynamic", hide_index=True,
                 column_config={"Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_r, width="large"), "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluwarsa", format="YYYY-MM-DD")}, key="data_editor_retur")
             
+            # Aman dari masalah tipe tanggal pada editor
             for i, row in edited_df.iterrows():
                 if pd.isna(row.get("Tanggal Kadaluwarsa")): edited_df.at[i, "Tanggal Kadaluwarsa"] = None
                 elif isinstance(row["Tanggal Kadaluwarsa"], pd.Timestamp): edited_df.at[i, "Tanggal Kadaluwarsa"] = row["Tanggal Kadaluwarsa"].date()
@@ -1560,7 +1574,7 @@ elif menu == "📦 Retur & Entry":
             if st.button("💾 Simpan Retur ke Worksheet", type="primary", use_container_width=True):
                 if edited_df.empty or edited_df["Jumlah Retur"].fillna(0).sum() <= 0: st.warning("Daftar retur masih kosong atau belum ada jumlah retur yang valid.")
                 else:
-                    df_history = load_data() 
+                    df_history = load_data()
                     if df_history is None:
                         df_history = pd.DataFrame(columns=KOLOM_WAJIB)
                     new_history_rows = []
@@ -1589,7 +1603,7 @@ elif menu == "📦 Retur & Entry":
                             "Tanggal": pd.Timestamp(get_wib_time().date()), "Nama Obat": nama_item, "Kategori": sheet_name, "Satuan": str(item["Satuan"]) if pd.notna(item["Satuan"]) else "",
                             "Stok Masuk": 0.0, "Stok Keluar": qty_retur_item, "Stok Akhir": stok_baru, "Harga Satuan (Rp)": harga_1_item,
                             "Total Nilai (Rp)": qty_retur_item * harga_1_item, "Tanggal Kadaluarsa": t_exp_s if pd.notna(t_exp_s) else pd.Timestamp(get_wib_time().date()),
-                            "Keterangan": f"Retur Pembelian (Batch: {batch_item})"
+                            "Keterangan": f"Retur Pembelian (Batch: {batch_item}) - {ket_baru}"
                         })
 
                     workbook_data[sheet_name] = normalize_inventory_df(active_df)
