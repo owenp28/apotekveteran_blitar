@@ -332,16 +332,28 @@ def get_available_sheets():
 def do_opname_processing(edited_opname_df):
     workbook_data = st.session_state.inventory_data_cache
     for idx, row in edited_opname_df.iterrows():
-        lokasi = row["Worksheet"]
-        nama = row["Nama Obat"]
-        batch = row["No. Batch"]
-        nyata = float(row["Stok Nyata Terkecil"])
-        sistem = float(row["Stok Satuan Terkecil"])
-        stok_exp = float(row["Stok Expired Terkecil"])
+        lokasi = row.get("Worksheet", None)
+        # Proteksi pencegah KeyError jika Worksheet kosong atau tidak ada
+        if pd.isna(lokasi) or not str(lokasi).strip() or str(lokasi).strip() not in workbook_data:
+            continue
+            
+        lokasi_str = str(lokasi).strip()
+        nama = str(row.get("Nama Obat", "")).strip()
+        batch = str(row.get("No. Batch", "")).strip()
+        
+        try: nyata = float(row.get("Stok Nyata Terkecil", 0.0))
+        except: nyata = 0.0
+        
+        try: sistem = float(row.get("Stok Satuan Terkecil", 0.0))
+        except: sistem = 0.0
+        
+        try: stok_exp = float(row.get("Stok Expired Terkecil", 0.0))
+        except: stok_exp = 0.0
         
         if nyata > 0 or stok_exp > 0:
-            ws_target = prepare_sheet_for_editor(workbook_data[lokasi].copy())
-            mask_target = (ws_target["Nama produk"].astype(str) == str(nama)) & (ws_target["Nomor Batch"].astype(str) == str(batch))
+            ws_target = prepare_sheet_for_editor(workbook_data[lokasi_str].copy())
+            mask_target = (ws_target["Nama produk"].astype(str).str.strip() == nama) & (ws_target["Nomor Batch"].astype(str).str.strip() == batch)
+            
             if mask_target.any():
                 target_idx = ws_target[mask_target].index[-1]
                 ws_target.loc[target_idx, "Stok Sisa"] = nyata
@@ -352,7 +364,8 @@ def do_opname_processing(edited_opname_df):
                 elif diff < 0: 
                     stok_keluar_lama = float(ws_target.loc[target_idx, "Stok Keluar"]) if pd.notna(ws_target.loc[target_idx, "Stok Keluar"]) else 0.0
                     ws_target.loc[target_idx, "Stok Keluar"] = stok_keluar_lama + abs(diff)
-                workbook_data[lokasi] = normalize_inventory_df(ws_target)
+                workbook_data[lokasi_str] = normalize_inventory_df(ws_target)
+                
     save_inventory_workbook(workbook_data)
     st.session_state.inventory_data_cache = workbook_data
 
@@ -468,9 +481,8 @@ def dialog_konfirmasi_proses(edited_opname):
             total = len(edited_opname)
             for i, (idx, row) in enumerate(edited_opname.iterrows()):
                 bar.progress(int(((i+1)/total)*90), text=f"Memproses item {i+1} dari {total}...")
-                time.sleep(0.1) # Simulasi progress bar per item
+                time.sleep(0.1) 
                 
-            # Proses Backend Aktual
             do_opname_processing(edited_opname)
             
             bar.progress(100, text="Selesai")
@@ -1325,6 +1337,7 @@ function updatePrintClock() {{
 </script></body></html>
 """
             
+            # --- TOMBOL CETAK NOTA TUNGGAL ---
             st.download_button(
                 label="🖨️ Cetak & Print Nota", 
                 data=html_printable_nota.encode("utf-8"), 
@@ -1439,6 +1452,7 @@ elif menu == "📦 Retur & Entry":
             edited_df = st.data_editor(st.session_state.retur_items.copy(), use_container_width=True, num_rows="dynamic", hide_index=True,
                 column_config={"Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_r, width="large"), "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluwarsa", format="YYYY-MM-DD")}, key="data_editor_retur")
             
+            # Aman dari masalah tipe tanggal pada editor
             for i, row in edited_df.iterrows():
                 if pd.isna(row.get("Tanggal Kadaluwarsa")): edited_df.at[i, "Tanggal Kadaluwarsa"] = None
                 elif isinstance(row["Tanggal Kadaluwarsa"], pd.Timestamp): edited_df.at[i, "Tanggal Kadaluwarsa"] = row["Tanggal Kadaluwarsa"].date()
@@ -1615,9 +1629,7 @@ elif menu == "📦 Retur & Entry":
                 else:
                     workbook_data = st.session_state.inventory_data_cache
                     jumlah_disimpan = 0
-                    df_history = load_data()
-                    if df_history is None:
-                        df_history = pd.DataFrame(columns=KOLOM_WAJIB)
+                    df_history = load_data() or pd.DataFrame(columns=KOLOM_WAJIB)
                     new_history_rows = []
                     
                     for _, row in edited_df.iterrows():
@@ -1766,6 +1778,7 @@ elif menu == "🕒 Sesi Shift":
                 
                 current_login_name = USERS.get(st.session_state.username, {}).get("name", "Unknown")
                 
+                # Fitur Gabung Shift
                 if current_login_name != nama_pembuka and current_login_name not in joined_users:
                     st.warning(f"Sistem mendeteksi Anda ({current_login_name}) login namun belum tergabung di sesi ini.")
                     if st.button("🤝 Gabung Shift Ini", type="primary"):
@@ -1778,6 +1791,7 @@ elif menu == "🕒 Sesi Shift":
                     
                 st.markdown("---")
 
+                # ALUR TUTUP SHIFT
                 saldo_awal_context = st.session_state.active_shift_context["saldo_awal"]
                 penjualan_sistem = st.session_state.active_shift_context["accumulated_sales_expected"]
                 total_pendapatan_calc = saldo_awal_context + penjualan_sistem
@@ -1800,6 +1814,7 @@ elif menu == "🕒 Sesi Shift":
                     saldo_kasir_in = st.session_state.input_saldo_kasir
                     selisih_calc = saldo_kasir_in - saldo_akhir_calc
 
+                    # BLIND CLOSE LOGIC
                     blind_mode = False
                     if st.session_state.role != "Admin":
                         blind_mode = True
