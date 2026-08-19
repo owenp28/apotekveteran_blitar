@@ -588,7 +588,7 @@ _name = USERS[_username]["name"] if _username in USERS else "Pengguna"
 st.sidebar.markdown(f"👤 **{_name}** — *{_role}*")
 st.sidebar.markdown("---")
 
-if _role == "Admin": _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🖨️ Rekap Data", "📦 Retur & Entry", "🛒 Kasir Utama", "🕒 Sesi Shift"]
+if _role == "Admin": _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🖨️ Rekap Data", "📦 Retur & Entry Pembelian", "🛒 Kasir Utama", "🕒 Sesi Shift"]
 else: _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🛒 Kasir Utama", "🕒 Sesi Shift"]
 
 # LOGIKA MENCEGAH REFRESH KEMBALI KE DASHBOARD
@@ -1436,9 +1436,9 @@ function updatePrintClock() {{
 # ══════════════════════════════════════════════════════════════════════════════
 # FITUR RETUR & ENTRY PEMBELIAN
 # ══════════════════════════════════════════════════════════════════════════════
-elif menu == "📦 Retur & Entry":
-    st.markdown("<h2 style='text-align: center; color: #333333;'>Retur & Entry Pembelian</h2>", unsafe_allow_html=True)
-    st.write("---")
+elif menu == "📦 Retur & Entry Pembelian":
+    st.title("📦 Retur & Entry Pembelian")
+    st.caption("Kelola pengembalian obat dan pencatatan restok (pembelian) secara langsung ke sistem.")
 
     def get_dataset_options(df_current=None):
         df_inv = build_inventory_print_dataframe()
@@ -1530,7 +1530,6 @@ elif menu == "📦 Retur & Entry":
             edited_df = st.data_editor(st.session_state.retur_items.copy(), use_container_width=True, num_rows="dynamic", hide_index=True,
                 column_config={"Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_r, width="large"), "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluwarsa", format="YYYY-MM-DD")}, key="data_editor_retur")
             
-            # Aman dari masalah tipe tanggal pada editor
             for i, row in edited_df.iterrows():
                 if pd.isna(row.get("Tanggal Kadaluwarsa")): edited_df.at[i, "Tanggal Kadaluwarsa"] = None
                 elif isinstance(row["Tanggal Kadaluwarsa"], pd.Timestamp): edited_df.at[i, "Tanggal Kadaluwarsa"] = row["Tanggal Kadaluwarsa"].date()
@@ -1856,7 +1855,6 @@ elif menu == "🕒 Sesi Shift":
                 
                 current_login_name = USERS.get(st.session_state.username, {}).get("name", "Unknown")
                 
-                # Fitur Gabung Shift
                 if current_login_name != nama_pembuka and current_login_name not in joined_users:
                     st.warning(f"Sistem mendeteksi Anda ({current_login_name}) login namun belum tergabung di sesi ini.")
                     if st.button("🤝 Gabung Shift Ini", type="primary"):
@@ -1869,7 +1867,6 @@ elif menu == "🕒 Sesi Shift":
                     
                 st.markdown("---")
 
-                # ALUR TUTUP SHIFT
                 saldo_awal_context = st.session_state.active_shift_context["saldo_awal"]
                 penjualan_sistem = st.session_state.active_shift_context["accumulated_sales_expected"]
                 total_pendapatan_calc = saldo_awal_context + penjualan_sistem
@@ -1892,7 +1889,6 @@ elif menu == "🕒 Sesi Shift":
                     saldo_kasir_in = st.session_state.input_saldo_kasir
                     selisih_calc = saldo_kasir_in - saldo_akhir_calc
 
-                    # BLIND CLOSE LOGIC
                     blind_mode = False
                     if st.session_state.role != "Admin":
                         blind_mode = True
