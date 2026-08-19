@@ -327,7 +327,6 @@ def do_opname_processing(edited_opname_df):
     workbook_data = st.session_state.inventory_data_cache
     for idx, row in edited_opname_df.iterrows():
         lokasi = row.get("Worksheet", None)
-        # Proteksi pencegah KeyError jika Worksheet kosong atau tidak ada
         if pd.isna(lokasi) or not str(lokasi).strip() or str(lokasi).strip() not in workbook_data:
             continue
             
@@ -1044,10 +1043,6 @@ elif menu == "🖨️ Rekap Data":
             <thead><tr>{html_headers}</tr></thead>
             <tbody>{html_rows}</tbody>
         </table>
-        
-        <script>
-            setTimeout(function() {{ window.print(); }}, 500);
-        </script>
     </body></html>
     """
 
@@ -1069,7 +1064,10 @@ elif menu == "🖨️ Rekap Data":
                 for (let i = 0; i < binStr.length; i++) {{ bytes[i] = binStr.charCodeAt(i); }}
                 const htmlContent = new TextDecoder('utf-8').decode(bytes);
                 const printWin = window.open('', '_blank');
-                printWin.document.open(); printWin.document.write(htmlContent); printWin.document.close();
+                printWin.document.open(); 
+                printWin.document.write(htmlContent); 
+                printWin.document.close();
+                setTimeout(function() {{ printWin.focus(); printWin.print(); }}, 500);
             }}
             </script>
         </body></html>
@@ -1086,17 +1084,6 @@ elif menu == "🖨️ Rekap Data":
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🛒 Kasir Utama":
     
-    # --- DIALOG UNTUK EDIT SALDO AWAL ---
-    @st.dialog("🔍 Cek / Edit Saldo Awal Shift")
-    def dialog_edit_saldo_awal():
-        st.info("Periksa kembali atau perbarui uang modal laci (saldo awal) untuk shift ini.")
-        curr_saldo = st.session_state.active_shift_context.get("saldo_awal", 0.0)
-        new_saldo = st.number_input("Nominal Saldo Awal (Rp)", min_value=0.0, step=500.0, value=float(curr_saldo))
-        if st.button("💾 Simpan Perubahan", type="primary", use_container_width=True):
-            st.session_state.active_shift_context["saldo_awal"] = new_saldo
-            save_active_shift({"shift_active": True, **st.session_state.active_shift_context})
-            st.rerun()
-
     st.title("🛒 Kasir Utama")
     
     # Validasi Hak Akses Shift
@@ -1296,7 +1283,7 @@ elif menu == "🛒 Kasir Utama":
                 else:
                     st.success("✅ Pembayaran sudah dikonfirmasi dan stok sudah diperbarui. Silakan cetak/unduh struk di panel kanan.")
                     
-                    col_trx1, col_trx2, col_trx3 = st.columns([1.2, 1, 1])
+                    col_trx1, col_trx2 = st.columns([1, 1])
                     with col_trx1:
                         if st.button("🆕 Transaksi Baru", type="primary", use_container_width=True):
                             st.session_state.cart = []
@@ -1305,9 +1292,6 @@ elif menu == "🛒 Kasir Utama":
                             st.session_state.nota_confirmed = False
                             st.rerun()
                     with col_trx2:
-                        if st.button("🔍 Cek Saldo Awal", use_container_width=True):
-                            dialog_edit_saldo_awal()
-                    with col_trx3:
                         if st.button("🛑 Tutup Shift", type="secondary", use_container_width=True):
                             st.session_state.cart = []
                             st.session_state.checkout_mode = False
@@ -1723,9 +1707,7 @@ elif menu == "📦 Retur & Entry":
                 else:
                     workbook_data = st.session_state.inventory_data_cache
                     jumlah_disimpan = 0
-                    df_history = load_data()
-                    if df_history is None:
-                        df_history = pd.DataFrame(columns=KOLOM_WAJIB)
+                    df_history = load_data() or pd.DataFrame(columns=KOLOM_WAJIB)
                     new_history_rows = []
                     
                     for _, row in edited_df.iterrows():
