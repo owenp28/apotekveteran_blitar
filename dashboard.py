@@ -4,7 +4,7 @@ import pandas as pd
 import io
 import re
 from datetime import date, datetime, timezone, timedelta
-import os
+from pathlib import Path
 import json
 import time
 import base64
@@ -12,7 +12,7 @@ from io import BytesIO
 from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
 
-# Pastikan Streamlit Anda versi 1.37.0 ke atas untuk fitur @st.dialog
+# Pastikan Streamlit Anda versi 1.37.0 ke atas
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
 
 # ── CSS Custom untuk Menyesuaikan Tampilan ERP ─────────────────────────────────
@@ -54,16 +54,18 @@ def get_wib_time():
     return wib_now.replace(tzinfo=None)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# KONFIGURASI FILE & PATH
+# KONFIGURASI FILE & PATH MENGGUNAKAN PATHLIB (LEBIH AMAN DAN MODERN)
 # ─────────────────────────────────────────────────────────────────────────────
-DATASET_PATH = os.path.join(os.path.dirname(__file__), "stok_obat.csv")
-RETUR_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "retur_history.csv")
-WORKBOOK_PATH = os.path.join(os.path.dirname(__file__), "DatasetObat_ApotekVeteran_4.xlsx")
-SHIFT_LOG_PATH = os.path.join(os.path.dirname(__file__), "shift_log.csv")
-ACTIVE_SHIFT_PATH = os.path.join(os.path.dirname(__file__), "active_shift.json") # File persistensi shift
+BASE_DIR = Path(__file__).parent
+DATASET_PATH = BASE_DIR / "stok_obat.csv"
+RETUR_HISTORY_PATH = BASE_DIR / "retur_history.csv"
+WORKBOOK_PATH = BASE_DIR / "DatasetObat_ApotekVeteran_4.xlsx"
+SHIFT_LOG_PATH = BASE_DIR / "shift_log.csv"
+ACTIVE_SHIFT_PATH = BASE_DIR / "active_shift.json"
+
 DEFAULT_LINK_ONEDRIVE = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=V5jQMP"
-DEFAULT_SOURCE_URL = WORKBOOK_PATH
-DEFAULT_SOURCE_LABEL = WORKBOOK_PATH
+DEFAULT_SOURCE_URL = str(WORKBOOK_PATH)
+DEFAULT_SOURCE_LABEL = str(WORKBOOK_PATH)
 
 INVENTORY_SHEETS = ["PCS", "SACHET", "BOTOL", "TAB", "BOX", "STRIP"]
 INVENTORY_COLUMNS = [
@@ -79,7 +81,7 @@ RETUR_HISTORY_COLUMNS = ["Nomor Faktur", "Tanggal Retur", "Jumlah Item", "Total 
 
 # ── FUNGSI PERSISTENSI SHIFT LOKAL ──
 def load_active_shift():
-    if os.path.exists(ACTIVE_SHIFT_PATH):
+    if ACTIVE_SHIFT_PATH.exists():
         try:
             with open(ACTIVE_SHIFT_PATH, "r") as f:
                 return json.load(f)
@@ -91,12 +93,11 @@ def save_active_shift(data):
         json.dump(data, f)
 
 def clear_active_shift():
-    if os.path.exists(ACTIVE_SHIFT_PATH):
-        os.remove(ACTIVE_SHIFT_PATH)
+    if ACTIVE_SHIFT_PATH.exists():
+        ACTIVE_SHIFT_PATH.unlink()
 
 def get_auto_shift_name():
     hour = get_wib_time().hour
-    # Pembagian Waktu di Indonesia
     if 4 <= hour < 10: return "Pagi"
     elif 10 <= hour < 15: return "Siang"
     elif 15 <= hour < 18: return "Sore"
@@ -104,7 +105,7 @@ def get_auto_shift_name():
 
 # ── FUNGSI DATA I/O ──
 def load_data():
-    if os.path.exists(DATASET_PATH):
+    if DATASET_PATH.exists():
         df = pd.read_csv(DATASET_PATH, parse_dates=["Tanggal", "Tanggal Kadaluarsa"])
         for kolom_lama in df.columns.tolist():
             if kolom_lama not in KOLOM_WAJIB: df = df.drop(columns=[kolom_lama])
@@ -114,7 +115,7 @@ def load_data():
     return None
 
 def load_retur_history():
-    if os.path.exists(RETUR_HISTORY_PATH):
+    if RETUR_HISTORY_PATH.exists():
         df = pd.read_csv(RETUR_HISTORY_PATH, parse_dates=["Tanggal Retur", "Tanggal Disimpan"])
         for kolom_lama in df.columns.tolist():
             if kolom_lama not in RETUR_HISTORY_COLUMNS: df = df.drop(columns=[kolom_lama])
@@ -124,7 +125,7 @@ def load_retur_history():
     return None
 
 def load_shift_log():
-    if os.path.exists(SHIFT_LOG_PATH):
+    if SHIFT_LOG_PATH.exists():
         return pd.read_csv(SHIFT_LOG_PATH)
     else:
         return pd.DataFrame(columns=[
@@ -238,25 +239,11 @@ def sync_inventory_from_source(source_url=None):
         return True
     except Exception: return False
 
-def load_inventory_from_bytes(file_bytes, filename):
-    if filename.lower().endswith(".csv"):
-        df = pd.read_csv(BytesIO(file_bytes))
-        return {"Sheet1": normalize_inventory_df(df)}
-    wb = load_workbook(BytesIO(file_bytes), data_only=True)
-    workbook_data = {}
-    for sheet_name in wb.sheetnames:
-        ws = wb[sheet_name]
-        workbook_data[sheet_name] = load_inventory_sheet_dataframe(ws)
-    return workbook_data
-
-def load_inventory_workbook(source_url=None, uploaded_file=None):
-    if uploaded_file is not None:
-        data = uploaded_file.getvalue()
-        loaded = load_inventory_from_bytes(data, uploaded_file.name)
-        if loaded: return loaded
+# ── LOGIKA BARU: Pastikan file upload langsung ditimpa (overwrite) di server ──
+def load_inventory_workbook(source_url=None):
     if source_url and source_url != DEFAULT_SOURCE_URL and source_url.startswith("http"):
         sync_inventory_from_source(source_url)
-    if os.path.exists(WORKBOOK_PATH):
+    if WORKBOOK_PATH.exists():
         try:
             wb = load_workbook(WORKBOOK_PATH, data_only=True)
             workbook_data = {}
@@ -489,7 +476,6 @@ def dialog_konfirmasi_proses(edited_opname):
                 del st.session_state.opname_custom_items
             st.rerun()
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # AUTENTIKASI — LOGIN & USER MAPPING
 # ══════════════════════════════════════════════════════════════════════════════
@@ -639,7 +625,6 @@ if menu == "🏠 Dashboard":
     if all_items_df is None or all_items_df.empty:
         st.info("Dataset belum tersedia. Silakan upload dataset di menu **📋 Kelola Stok**.")
     else:
-        # --- EXPORT TEMPLATE DI DASHBOARD ---
         col_btn_export, _ = st.columns([3, 7])
         with col_btn_export:
             template_buf = io.BytesIO()
@@ -735,20 +720,27 @@ elif menu == "📋 Kelola Stok":
                     wb_data = load_inventory_workbook()
                     if wb_data:
                         st.session_state.inventory_data_cache = wb_data
-                        st.success("✅ Dataset berhasil diunduh dan dimuat!")
+                        st.toast("✅ Dataset berhasil diunduh dan dimuat secara permanen!")
+                        time.sleep(1)
                         st.rerun()
                     else: st.error("❌ Gagal memuat data dari file yang diunduh.")
 
+        # LOGIKA OVERWRITE FISIK SAAT UPLOAD (AGAR MENETAP)
         uploaded_inventory = st.file_uploader("Atau upload file Excel/CSV langsung dari perangkat Anda:", type=["xlsx", "xlsm", "csv"], key="upload_inventory_source")
         if uploaded_inventory is not None:
             file_id = f"{uploaded_inventory.name}_{uploaded_inventory.size}"
             if st.session_state.get("last_uploaded_file") != file_id:
-                workbook_data = load_inventory_workbook(uploaded_file=uploaded_inventory)
+                # 1. TIMPA FILE SECARA FISIK KE DISK (AGAR TIDAK HILANG)
+                with open(WORKBOOK_PATH, "wb") as f:
+                    f.write(uploaded_inventory.getbuffer())
+                
+                # 2. MUAT ULANG DARI FILE FISIK
+                workbook_data = load_inventory_workbook()
                 if workbook_data:
                     st.session_state.inventory_data_cache = workbook_data
-                    save_inventory_workbook(workbook_data)
                     st.session_state["last_uploaded_file"] = file_id
-                    st.success("✅ Data berhasil dimuat langsung dari file upload.")
+                    st.toast("✅ Data Excel berhasil menimpa file di server secara permanen!")
+                    time.sleep(1)
                     st.rerun()
 
     workbook_data = st.session_state.inventory_data_cache
@@ -806,7 +798,8 @@ elif menu == "📋 Kelola Stok":
                 workbook_data[sheet_name] = normalize_inventory_df(current_ws_df)
                 if save_inventory_workbook(workbook_data):
                     st.session_state.inventory_data_cache = workbook_data
-                    st.success(f"✅ Perubahan pada worksheet {sheet_name} berhasil disimpan.")
+                    st.toast(f"✅ Perubahan pada worksheet {sheet_name} berhasil disimpan.")
+                    time.sleep(1)
                     st.rerun()
         else:
             st.dataframe(display_df, use_container_width=True, hide_index=True, column_order=INVENTORY_COLUMNS,
@@ -1192,7 +1185,7 @@ elif menu == "🛒 Kasir Utama":
                                 "satuan_jual": satuan_jual, "qty": jumlah, "skema_harga": skema_harga,
                                 "harga_per_satuan": harga_per_satuan, "subtotal": subtotal, "tgl_exp": selected_row["Tanggal Kadaluwarsa"]
                             })
-                            st.success(f"{nama_obat} ({jumlah} {satuan_jual}) ditambah ke nota!")
+                            st.toast(f"✅ {nama_obat} ({jumlah} {satuan_jual}) ditambah ke nota!")
 
                 if st.session_state.cart:
                     st.markdown("---")
@@ -1515,7 +1508,8 @@ elif menu == "📦 Retur & Entry Pembelian":
                                 "Harga 1": float(selected_row.get("Harga 1", 0)), "Keterangan": keterangan_retur
                             }
                             st.session_state.retur_items = pd.concat([st.session_state.retur_items, pd.DataFrame([new_item])], ignore_index=True)
-                            st.success(f"Produk **{selected_product}** berhasil ditambahkan ke daftar retur.")
+                            st.toast(f"✅ Produk **{selected_product}** berhasil ditambahkan ke daftar retur.")
+                            time.sleep(1)
                             st.rerun()
 
         st.markdown("---")
@@ -1604,7 +1598,8 @@ elif menu == "📦 Retur & Entry Pembelian":
                     st.session_state.retur_history = pd.concat([st.session_state.retur_history, history_row], ignore_index=True)
                     save_retur_history(st.session_state.retur_history)
 
-                    st.success("✅ Retur berhasil disimpan.")
+                    st.toast("✅ Retur berhasil disimpan!")
+                    time.sleep(1)
                     st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
                     st.rerun()
         with col_reset:
@@ -1655,7 +1650,8 @@ elif menu == "📦 Retur & Entry Pembelian":
                             df_existing = st.session_state.df_beli
                             if len(df_existing) == 1 and not str(df_existing.iloc[0]["Nama produk"]).strip(): st.session_state.df_beli = pd.DataFrame([new_row])
                             else: st.session_state.df_beli = pd.concat([df_existing, pd.DataFrame([new_row])], ignore_index=True)
-                            st.success(f"{selected_row['Nama produk']} ditambahkan ke tabel entry!")
+                            st.toast(f"✅ {selected_row['Nama produk']} ditambahkan ke tabel entry!")
+                            time.sleep(0.5)
                             st.rerun()
 
         st.markdown("---")
@@ -1744,7 +1740,8 @@ elif menu == "📦 Retur & Entry Pembelian":
                         save_inventory_workbook(workbook_data)
                         if new_history_rows: save_data(pd.concat([df_history, pd.DataFrame(new_history_rows)], ignore_index=True))
                         st.session_state.df_beli = pd.DataFrame([{"No.": 1, "Worksheet": "TAB", "Nama produk": "", "Satuan": "", "Nomor Batch": "", "Tanggal Kadaluwarsa": get_wib_time().date(), "Stok Masuk": 0.0, "Harga 1": 0.0, "Harga 2": 0.0, "Keterangan": ""}])
-                        st.success(f"✅ {jumlah_disimpan} entri berhasil disimpan langsung ke worksheet masing-masing!")
+                        st.toast(f"✅ {jumlah_disimpan} entri berhasil disimpan langsung ke worksheet masing-masing!")
+                        time.sleep(1)
                         st.rerun()
                     else: st.warning("Tidak ada item valid (Stok Masuk > 0 / Worksheet Tersedia) untuk disimpan.")
 
