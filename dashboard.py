@@ -629,6 +629,7 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     if "main_menu" in st.session_state: del st.session_state["main_menu"]
     st.rerun()
 
+
 # ══════════════════════════════════════════════════════════════════════════════
 # DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
@@ -713,6 +714,7 @@ if menu == "🏠 Dashboard":
                 exp_show = exp_df[["Nama produk", "Worksheet", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa"]].copy()
                 exp_show["Tanggal Kadaluwarsa"] = exp_show["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(exp_show.rename(columns={"Nama produk": "Nama Obat", "Tanggal Kadaluwarsa": "Tgl Expired", "Nomor Batch": "Batch"}), use_container_width=True, hide_index=True)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # KELOLA STOK
@@ -908,8 +910,9 @@ elif menu == "📋 Kelola Stok":
             if "Worksheet" in df_opname.columns: st.dataframe(df_opname.drop(columns=["Worksheet"]), use_container_width=True, hide_index=True)
             else: st.dataframe(df_opname, use_container_width=True, hide_index=True)
 
+
 # ══════════════════════════════════════════════════════════════════════════════
-# (UPDATE TERBARU) FITUR REKAP DATA - SESUAI TEMPLATE DAN PERMINTAAN
+# (UPDATE TERBARU) FITUR REKAP DATA
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🖨️ Rekap Data":
     st.title("🖨️ Rekap Data")
@@ -923,7 +926,7 @@ elif menu == "🖨️ Rekap Data":
     if "Tanggal Kadaluarsa" in df_history.columns:
         df_history["Tanggal Kadaluarsa"] = pd.to_datetime(df_history["Tanggal Kadaluarsa"], errors="coerce")
 
-    # [PERBAIKAN] Mengambil daftar obat dari gabungan Master Excel dan History, agar pencarian lengkap sesuai dataset
+    # Ambil List Obat dan Satuan
     all_items_df = build_inventory_print_dataframe()
     obat_excel_list = []
     if all_items_df is not None and not all_items_df.empty:
@@ -931,8 +934,6 @@ elif menu == "🖨️ Rekap Data":
     obat_history_list = [str(x).strip() for x in df_history["Nama Obat"].dropna().unique() if str(x).strip()]
     
     pilihan_obat = ["SEMUA OBAT"] + sorted(list(set(obat_excel_list + obat_history_list)))
-    
-    # [PERBAIKAN] Daftar satuan unik sesuai historis transaksi
     satuan_list = sorted([str(x).strip() for x in df_history["Satuan"].dropna().unique() if str(x).strip()])
     pilihan_satuan = ["SEMUA SATUAN"] + satuan_list
 
@@ -969,12 +970,11 @@ elif menu == "🖨️ Rekap Data":
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<div class='filter-label'>Filter Spesifik Kolom</div>", unsafe_allow_html=True)
         c_f1, c_f2, c_f3 = st.columns(3)
-        # [PERBAIKAN] Menggunakan Filter Satuan, menghapus Gudang
         with c_f1: filter_satuan = st.selectbox("Satuan Obat", options=pilihan_satuan)
         with c_f2: filter_nama = st.selectbox("Pilih Obat", options=pilihan_obat)
         with c_f3: filter_ket = st.text_input("Keterangan", placeholder="Cari Keterangan/Faktur...")
 
-    # Terapkan Filter
+    # Filter Eksekusi
     df_print = df_history.copy()
     
     if tgl_awal and tgl_akhir:
@@ -993,13 +993,12 @@ elif menu == "🖨️ Rekap Data":
 
     preview_df = df_print.copy()
     
-    # [PERBAIKAN] Menyusun ulang kolom dan MENGHAPUS 'Nomor Faktur' atau 'No. Bukti'
+    # [PERBAIKAN] Tambahkan NAMA OBAT kembali ke tabel
     preview_df = preview_df[[
-        "Tanggal", "Keterangan", "Stok Masuk", "Stok Keluar", 
+        "Tanggal", "Nama Obat", "Keterangan", "Stok Masuk", "Stok Keluar", 
         "Stok Akhir", "Satuan", "Nomor Batch", "Tanggal Kadaluarsa", "Petugas"
     ]]
     
-    # Mengisi nilai kosong agar tidak rancu
     preview_df["Nomor Batch"] = preview_df["Nomor Batch"].fillna("-")
     preview_df["Petugas"] = preview_df["Petugas"].fillna("-")
     
@@ -1010,7 +1009,6 @@ elif menu == "🖨️ Rekap Data":
         "Tanggal Kadaluarsa": "Tanggal Expired"
     }, inplace=True)
     
-    # [PERBAIKAN] Menampilkan Waktu secara real time (Tanggal dan Waktu Lengkap)
     if "Tanggal" in preview_df.columns: 
         preview_df["Tanggal"] = preview_df["Tanggal"].apply(lambda x: x.strftime("%d %b %Y %H:%M:%S") if pd.notna(x) else "")
     if "Tanggal Expired" in preview_df.columns: 
@@ -1026,22 +1024,22 @@ elif menu == "🖨️ Rekap Data":
         html_rows += f"<tr><td style='text-align:center;'>{i+1}</td>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>"
     html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.columns)
 
-    # [PERBAIKAN] Template Cetak (Disesuaikan tabel tanpa Gudang & Bukti)
+    # [PERBAIKAN] Format Print Resmi: Font Times New Roman 12pt, Garis border tebal 1pt
     html_printable_laporan = f"""
     <!DOCTYPE html>
     <html><head><meta charset='utf-8'><title>Laporan Kartu Stok Obat - Apotek Veteran Blitar</title>
     <style>
-        @page {{ size: A4 landscape; margin: 10mm; }}
-        body {{ font-family: 'Courier New', Courier, monospace; font-size: 11px; margin: 0; padding: 20px; background: #fff; color: #000; }}
-        .header {{ text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }}
-        .header h3 {{ margin: 0 0 5px 0; font-size: 16px; font-weight: bold; }}
-        .header p {{ margin: 0; font-size: 11px; }}
-        .title {{ text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 5px; text-decoration: underline; }}
-        .subtitle {{ text-align: center; font-size: 12px; font-weight: bold; margin-bottom: 20px; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-        th, td {{ border: 1px solid #000; padding: 6px 8px; text-align: left; font-size: 10px; }}
-        th {{ text-align: center; font-weight: bold; }}
-        .info-table {{ width: 100%; border: none; margin-bottom: 10px; font-size: 11px; }}
+        @page {{ size: A4 landscape; margin: 15mm; }}
+        body {{ font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 0; padding: 0; background: #fff; color: #000; }}
+        .header {{ text-align: center; border-bottom: 2pt solid #000; padding-bottom: 10px; margin-bottom: 20px; }}
+        .header h3 {{ margin: 0 0 5px 0; font-size: 14pt; font-weight: bold; text-transform: uppercase; }}
+        .header p {{ margin: 0; font-size: 12pt; }}
+        .title {{ text-align: center; font-size: 14pt; font-weight: bold; margin-bottom: 5px; text-decoration: underline; }}
+        .subtitle {{ text-align: center; font-size: 12pt; font-weight: bold; margin-bottom: 20px; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; color: #000; }}
+        th, td {{ border: 1pt solid #000; padding: 6px 8px; text-align: left; font-size: 12pt; }}
+        th {{ text-align: center; font-weight: bold; background-color: #fff; }}
+        .info-table {{ width: 100%; border: none; margin-bottom: 15px; font-size: 12pt; }}
         .info-table td {{ border: none; padding: 2px 5px; font-weight: bold; }}
     </style></head>
     <body>
@@ -1106,7 +1104,7 @@ elif menu == "🖨️ Rekap Data":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# (UPDATE) KASIR UTAMA - MENYIMPAN WAKTU REAL TIME DAN NAMA PETUGAS 
+# KASIR UTAMA
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🛒 Kasir Utama":
     
@@ -1265,7 +1263,6 @@ elif menu == "🛒 Kasir Utama":
                                 new_history_rows = []
                                 total_belanja_confirm = 0.0
                                 
-                                # Auto Generate nomor bukti nota
                                 invoice_no = f"INV-{get_wib_time().strftime('%y%m%d%H%M%S')}"
 
                                 for item in st.session_state.cart:
@@ -1285,7 +1282,7 @@ elif menu == "🛒 Kasir Utama":
 
                                     total_belanja_confirm += item["subtotal"]
                                     
-                                    # [PERBAIKAN] Logika pencatatan realtime ini sekarang menyimpan get_wib_time() penuh format YYYY-MM-DD HH:MM:SS
+                                    # [PERBAIKAN] Keterangan menggunakan template "Penjualan dengan No Faktur ..."
                                     new_history_rows.append({
                                         "Tanggal": get_wib_time().strftime("%Y-%m-%d %H:%M:%S"),
                                         "Nomor Faktur": invoice_no,
@@ -1464,7 +1461,6 @@ function updatePrintClock() {{
                     st.session_state.cart = []; st.session_state.checkout_mode = False; st.session_state.bayar_tunai = 0; st.session_state.nota_confirmed = False; st.rerun()
         else:
             st.info("Keranjang masih kosong. Tambahkan obat dari form di sebelah kiri.")
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RETUR & ENTRY PEMBELIAN
