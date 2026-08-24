@@ -226,6 +226,7 @@ def normalize_inventory_df(df):
         elif nama_kolom.lower() == "keterangan ": renamed[kolom] = "Keterangan"
     if renamed: df = df.rename(columns=renamed)
     
+    # Amankan filter khusus data Master Dataset
     cols_check = [c for c in INVENTORY_COLUMNS if c != "Worksheet"]
     for kolom in cols_check:
         if kolom not in df.columns: df[kolom] = None
@@ -269,6 +270,7 @@ def load_inventory_sheet_dataframe(ws):
     data_rows = rows[header_index + 1:]
     if not data_rows: return pd.DataFrame(columns=[c for c in INVENTORY_COLUMNS if c != "Worksheet"])
     
+    # Amankan panjang kolom jika tidak sama
     data_rows = [tuple(row[:len(header)]) for row in data_rows]
     df = pd.DataFrame(data_rows, columns=header)
     return normalize_inventory_df(df)
@@ -295,6 +297,7 @@ def save_inventory_workbook(workbook_data):
         
     if frames:
         combined = pd.concat(frames, ignore_index=True)
+        # Hapus baris yang kosong atau tidak valid namanya
         combined = combined.dropna(subset=["Nama produk"], how="all")
         for col in combined.columns:
             combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
@@ -489,7 +492,7 @@ def dialog_konfirmasi_proses(edited_opname):
             st.rerun()
         if c2.button("Lanjutkan", type="primary", use_container_width=True):
             ph = st.empty()
-            bar = ph.progress(0, text="Menyimpan ke Database...")
+            bar = ph.progress(0, text="Mengupload dan memvalidasi data...")
             time.sleep(0.5)
             
             total = len(edited_opname)
@@ -564,6 +567,8 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ── INIT SESSION STATE UMUM ──
+if "inventory_source_url" not in st.session_state: st.session_state.inventory_source_url = DEFAULT_LINK_ONEDRIVE
+if "retur_form_data" not in st.session_state: st.session_state.retur_form_data = {}
 if "retur_items" not in st.session_state:
     st.session_state.retur_items = pd.DataFrame(columns=["Nama produk", "Satuan", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa", "Jumlah Retur", "Harga 1", "Keterangan"])
 if "retur_history" not in st.session_state:
@@ -874,17 +879,8 @@ elif menu == "📋 Kelola Stok":
             st.markdown("<h3 style='text-align: center; color: #e94560; margin-bottom: 20px;'>Stok Opname Obat</h3>", unsafe_allow_html=True)
             if st.session_state.role != "Admin": st.info("Fitur Stok Opname hanya dapat diakses dan diproses oleh Admin. Tampilan di bawah ini bersifat Read-Only.")
 
-            c_file1, c_file2, c_file3 = st.columns([5, 2, 3])
-            with c_file1: st.file_uploader("Upload File Opname", type=["xlsx", "csv"], key="import_opname_file", label_visibility="collapsed")
-            with c_file2: 
-                st.markdown("<div style='margin-top: 2px;'></div>", unsafe_allow_html=True); st.button("Cari File", key="btn_cari_file_opname", use_container_width=True)
-            with c_file3: 
-                st.markdown("<div style='margin-top: 2px;'></div>", unsafe_allow_html=True); st.button("Import Stok Opname", key="btn_import_opname", use_container_width=True)
-
-            st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
-
             c_gudang, c_proses, c_reset, _ = st.columns([3, 2, 2, 5])
-            with c_gudang: opname_gudang = st.selectbox("Pilih Gudang", AVAILABLE_SHEETS, key="opname_gudang_select", label_visibility="collapsed")
+            with c_gudang: opname_gudang = st.selectbox("Pilih Gudang / Satuan", AVAILABLE_SHEETS, key="opname_gudang_select", label_visibility="collapsed")
             with c_proses: btn_proses_opname = st.button("✅ Proses", use_container_width=True, type="primary", key="btn_proses_opname_action")
             with c_reset: btn_reset_opname = st.button("🔄 Reset", use_container_width=True, key="btn_reset_opname_action")
 
@@ -971,7 +967,7 @@ elif menu == "🖨️ Rekap Data":
         mask_legacy = df_history["Keterangan"].astype(str).str.contains("Kasir Pembelian Obat", case=False, na=False)
         if mask_legacy.any():
             df_history = df_history[~mask_legacy]
-            save_data(df_history)
+            save_data(df_history) # Timpa database untuk bersihkan secara permanen
 
     if df_history is None or df_history.empty:
         st.warning("Belum ada data riwayat transaksi (Penjualan, Opname, atau Entry Pembelian). Silakan lakukan transaksi terlebih dahulu.")
@@ -1076,6 +1072,7 @@ elif menu == "🖨️ Rekap Data":
         html_rows += f"<tr><td style='text-align:center;'>{i+1}</td>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>"
     html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.columns)
 
+    # [FORMAT CETAK RESMI] Times New Roman, 12pt, Garis 1pt Black Solid
     html_printable_laporan = f"""
     <!DOCTYPE html>
     <html><head><meta charset='utf-8'><title>Laporan Kartu Stok Obat - Apotek Veteran Blitar</title>
@@ -1578,8 +1575,8 @@ elif menu == "📦 Retur & Entry Pembelian":
 
                 with st.form("form_retur_entry"):
                     qty_retur = st.number_input("Jumlah Retur (unit)", min_value=0.0, step=1.0, value=0.0)
-                    ket_val = str(selected_row.get("Keterangan", "")) if pd.notna(selected_row.get("Keterangan")) else ""
-                    keterangan_retur = st.text_area("Keterangan Retur", value=ket_val, height=90)
+                    ket_val = sanitize_excel_value(selected_row.get("Keterangan", ""))
+                    keterangan_retur = st.text_area("Keterangan Retur", value=str(ket_val) if ket_val else "", height=90)
                     if st.form_submit_button("➕ Tambahkan ke Daftar Retur", type="primary"):
                         if qty_retur <= 0: st.warning("Jumlah retur harus lebih dari 0.")
                         else:
