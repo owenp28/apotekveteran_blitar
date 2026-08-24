@@ -444,7 +444,7 @@ def dialog_konfirmasi_proses(edited_opname):
             st.rerun()
         if c2.button("Lanjutkan", type="primary", use_container_width=True):
             ph = st.empty()
-            bar = ph.progress(0, text="Menyimpan ke Database...")
+            bar = ph.progress(0, text="Mengupload dan memvalidasi data...")
             time.sleep(0.5)
             
             total = len(edited_opname)
@@ -458,7 +458,7 @@ def dialog_konfirmasi_proses(edited_opname):
             st.session_state.opname_berhasil = True
             st.rerun()
     else:
-        st.success("Stok opname berhasil diproses ke Database!")
+        st.success("Stok opname berhasil diproses!")
         if st.button("Tutup", use_container_width=True):
             st.session_state.opname_berhasil = False
             if "opname_custom_items" in st.session_state:
@@ -679,7 +679,7 @@ if menu == "🏠 Dashboard":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# KELOLA STOK
+# KELOLA STOK (DATABASE & BACKUP)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
@@ -704,29 +704,44 @@ elif menu == "📋 Kelola Stok":
             )
             
         with col_up:
-            uploaded_inventory = st.file_uploader("Upload file Excel langsung dari perangkat Anda (untuk menimpa Database Master):", type=["xlsx", "xlsm", "csv"], key="upload_inventory_source")
+            uploaded_inventory = st.file_uploader("Upload file Excel/CSV langsung dari perangkat Anda (untuk menimpa Database Master):", type=["xlsx", "xlsm", "csv"], key="upload_inventory_source")
             if uploaded_inventory is not None:
                 file_id = f"{uploaded_inventory.name}_{uploaded_inventory.size}"
                 if st.session_state.get("last_uploaded_file") != file_id:
                     try:
-                        xls = pd.ExcelFile(uploaded_inventory)
-                        frames = []
-                        for sheet in xls.sheet_names:
-                            df = pd.read_excel(xls, sheet_name=sheet)
+                        filename_lower = uploaded_inventory.name.lower()
+                        # Handle CSV upload correctly
+                        if filename_lower.endswith(".csv"):
+                            df = pd.read_csv(uploaded_inventory)
+                            if "Worksheet" not in df.columns:
+                                df["Worksheet"] = "TAB" # Default fallback
+                            
                             df = prepare_sheet_for_editor(df)
-                            df["Worksheet"] = sheet
-                            frames.append(df)
-                        if frames:
-                            combined = pd.concat(frames, ignore_index=True)
-                            for col in combined.columns:
-                                combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
+                            for col in df.columns:
+                                df[col] = df[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
                             with get_db_conn() as conn:
-                                combined.to_sql("inventory_master", conn, if_exists="replace", index=False)
-                            st.session_state.inventory_data_cache = load_inventory_workbook()
-                            st.session_state["last_uploaded_file"] = file_id
-                            st.toast("✅ Data Excel berhasil dimasukkan permanen ke Database!")
-                            time.sleep(1)
-                            st.rerun()
+                                df.to_sql("inventory_master", conn, if_exists="replace", index=False)
+                        else:
+                            # Handle Excel upload
+                            xls = pd.ExcelFile(uploaded_inventory)
+                            frames = []
+                            for sheet in xls.sheet_names:
+                                df = pd.read_excel(xls, sheet_name=sheet)
+                                df = prepare_sheet_for_editor(df)
+                                df["Worksheet"] = sheet
+                                frames.append(df)
+                            if frames:
+                                combined = pd.concat(frames, ignore_index=True)
+                                for col in combined.columns:
+                                    combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
+                                with get_db_conn() as conn:
+                                    combined.to_sql("inventory_master", conn, if_exists="replace", index=False)
+                        
+                        st.session_state.inventory_data_cache = load_inventory_workbook()
+                        st.session_state["last_uploaded_file"] = file_id
+                        st.toast("✅ Data berhasil dimasukkan permanen ke Database!")
+                        time.sleep(1)
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Gagal memproses file ke Database: {e}")
 
@@ -735,7 +750,7 @@ elif menu == "📋 Kelola Stok":
         workbook_data = load_inventory_workbook()
         st.session_state.inventory_data_cache = workbook_data
 
-    if not workbook_data: st.info("Database kosong. Silakan upload file Excel pada kotak di atas.")
+    if not workbook_data: st.info("Database kosong. Silakan upload file Excel/CSV pada kotak di atas.")
     AVAILABLE_SHEETS = get_available_sheets()
 
     tab_edit, tab_opname = st.tabs(["✏️ Edit Stok", "📦 Stok Opname"])
@@ -884,14 +899,14 @@ elif menu == "📋 Kelola Stok":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR REKAP DATA (DATABASE + AUTO CLEANER)
+# FITUR REKAP DATA
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🖨️ Rekap Data":
     st.title("🖨️ Rekap Data")
 
     df_history = load_data()
 
-    # [AUTO-CLEANER] Menghapus data legacy yang salah dari database (Keterangan berisi "Kasir Pembelian Obat")
+    # [AUTO-CLEANER] Menghapus data lama dengan keterangan "Kasir Pembelian Obat" secara permanen dari Database
     if df_history is not None and not df_history.empty:
         mask_legacy = df_history["Keterangan"].astype(str).str.contains("Kasir Pembelian Obat", case=False, na=False)
         if mask_legacy.any():
@@ -971,7 +986,6 @@ elif menu == "🖨️ Rekap Data":
 
     preview_df = df_print.copy()
     
-    # MENGAMBIL NAMA OBAT, Menghapus No Faktur di Tabel Rekap Data
     preview_df = preview_df[[
         "Tanggal", "Nama Obat", "Keterangan", "Stok Masuk", "Stok Keluar", 
         "Stok Akhir", "Satuan", "Nomor Batch", "Tanggal Kadaluarsa", "Petugas"
@@ -1002,7 +1016,6 @@ elif menu == "🖨️ Rekap Data":
         html_rows += f"<tr><td style='text-align:center;'>{i+1}</td>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>"
     html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.columns)
 
-    # [FORMAT CETAK RESMI] Times New Roman, 12pt, Garis 1pt Black Solid
     html_printable_laporan = f"""
     <!DOCTYPE html>
     <html><head><meta charset='utf-8'><title>Laporan Kartu Stok Obat - Apotek Veteran Blitar</title>
@@ -1505,8 +1518,8 @@ elif menu == "📦 Retur & Entry Pembelian":
 
                 with st.form("form_retur_entry"):
                     qty_retur = st.number_input("Jumlah Retur (unit)", min_value=0.0, step=1.0, value=0.0)
-                    ket_val = sanitize_excel_value(selected_row.get("Keterangan", ""))
-                    keterangan_retur = st.text_area("Keterangan Retur", value=str(ket_val) if ket_val else "", height=90)
+                    ket_val = str(selected_row.get("Keterangan", "")) if pd.notna(selected_row.get("Keterangan")) else ""
+                    keterangan_retur = st.text_area("Keterangan Retur", value=ket_val, height=90)
                     if st.form_submit_button("➕ Tambahkan ke Daftar Retur", type="primary"):
                         if qty_retur <= 0: st.warning("Jumlah retur harus lebih dari 0.")
                         else:
@@ -1978,7 +1991,6 @@ elif menu == "🕒 Sesi Shift":
                 st.dataframe(log_df, use_container_width=True, hide_index=True)
                 st.caption("ℹ️ Tips SOP: Laporan ini hanya untuk pengecekan kecocokan uang fisik dan sistem. Pembatalan/Retur harus dilakukan di dalam jam shift yang sama agar laporan tidak terganggu.")
 
-# ══════════════════════════════════════════════════════════════════════════════
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
 st.sidebar.caption("© Apotek Veteran Blitar")
