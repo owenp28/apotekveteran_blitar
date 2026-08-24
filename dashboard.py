@@ -100,7 +100,7 @@ DEFAULT_LINK_ONEDRIVE = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4f
 
 INVENTORY_SHEETS = ["PCS", "SACHET", "BOTOL", "TAB", "BOX", "STRIP"]
 INVENTORY_COLUMNS = [
-    "Nama produk", "Satuan", "Tanggal", "Nomor Faktur", "Nomor Batch", 
+    "Worksheet", "Nama produk", "Satuan", "Tanggal", "Nomor Faktur", "Nomor Batch", 
     "PBF", "Tanggal Kadaluwarsa", "Stok Masuk", "Stok Keluar", "Stok Sisa", 
     "Harga 1", "Harga 2", "Keterangan"
 ]
@@ -226,8 +226,9 @@ def normalize_inventory_df(df):
         elif nama_kolom.lower() == "keterangan ": renamed[kolom] = "Keterangan"
     if renamed: df = df.rename(columns=renamed)
     
-    # Jangan memaksa hapus Worksheet, tapi pastikan kolom Inventory ada
-    for kolom in INVENTORY_COLUMNS:
+    # Amankan filter khusus data Master Dataset
+    cols_check = [c for c in INVENTORY_COLUMNS if c != "Worksheet"]
+    for kolom in cols_check:
         if kolom not in df.columns: df[kolom] = None
 
     for kolom in ["Nama produk", "Satuan", "Nomor Faktur", "Nomor Batch", "PBF", "Keterangan"]:
@@ -239,13 +240,40 @@ def normalize_inventory_df(df):
     for col in ["Tanggal", "Tanggal Kadaluwarsa"]:
         if col in df.columns: df[col] = df[col].apply(parse_excel_date)
         
-    return df
+    final_cols = cols_check.copy()
+    if "Worksheet" in df.columns:
+        final_cols.insert(0, "Worksheet")
+    
+    return df[final_cols]
 
 def prepare_sheet_for_editor(df):
     df = normalize_inventory_df(df)
     for kolom in ["Nomor Faktur", "Nomor Batch", "PBF", "Keterangan", "Nama produk", "Satuan", "Worksheet"]:
         if kolom in df.columns: df[kolom] = df[kolom].astype("string")
     return df
+
+# [PERBAIKAN] - Pendeteksi Cerdas Baris Judul
+def _find_inventory_header_row(rows):
+    known_headers = {"nama produk", "nama obat", "satuan", "tanggal", "nomor faktur", "nomor batch", "pbf", "tanggal kadaluarsa", "stok masuk", "stok keluar", "stok sisa", "harga 1", "harga 2", "keterangan"}
+    for index, row in enumerate(rows):
+        cleaned = [str(cell).strip().lower() if cell is not None else "" for cell in row]
+        score = sum(1 for cell in cleaned if cell in known_headers)
+        if score >= 3: return index, list(row)
+    return 0, list(rows[0]) if rows else []
+
+# [PERBAIKAN] - Membaca File Excel Langsung Lewat OpenPyxl Agar Header Terdeteksi
+def load_inventory_sheet_dataframe(ws):
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows: return pd.DataFrame(columns=[c for c in INVENTORY_COLUMNS if c != "Worksheet"])
+    header_index, raw_header = _find_inventory_header_row(rows)
+    header = [str(cell).strip() if cell is not None else "" for cell in raw_header]
+    data_rows = rows[header_index + 1:]
+    if not data_rows: return pd.DataFrame(columns=[c for c in INVENTORY_COLUMNS if c != "Worksheet"])
+    
+    # Amankan panjang kolom jika tidak sama
+    data_rows = [tuple(row[:len(header)]) for row in data_rows]
+    df = pd.DataFrame(data_rows, columns=header)
+    return normalize_inventory_df(df)
 
 def load_inventory_workbook():
     df_all = db_read_table("inventory_master")
@@ -262,13 +290,15 @@ def save_inventory_workbook(workbook_data):
     frames = []
     for sheet_name, df_sheet in workbook_data.items():
         if df_sheet is None or df_sheet.empty: 
-            df_sheet = pd.DataFrame(columns=[c for c in INVENTORY_COLUMNS])
+            df_sheet = pd.DataFrame(columns=[c for c in INVENTORY_COLUMNS if c != "Worksheet"])
         df_copy = df_sheet.copy()
         df_copy["Worksheet"] = sheet_name
         frames.append(df_copy)
         
     if frames:
         combined = pd.concat(frames, ignore_index=True)
+        # Hapus baris yang kosong atau tidak valid namanya
+        combined = combined.dropna(subset=["Nama produk"], how="all")
         for col in combined.columns:
             combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
         return db_write_table(combined, "inventory_master")
@@ -462,7 +492,7 @@ def dialog_konfirmasi_proses(edited_opname):
             st.rerun()
         if c2.button("Lanjutkan", type="primary", use_container_width=True):
             ph = st.empty()
-            bar = ph.progress(0, text="Menyimpan ke Database...")
+            bar = ph.progress(0, text="Mengupload dan memvalidasi data...")
             time.sleep(0.5)
             
             total = len(edited_opname)
@@ -537,8 +567,6 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ── INIT SESSION STATE UMUM ──
-if "inventory_source_url" not in st.session_state: st.session_state.inventory_source_url = DEFAULT_LINK_ONEDRIVE
-if "retur_form_data" not in st.session_state: st.session_state.retur_form_data = {}
 if "retur_items" not in st.session_state:
     st.session_state.retur_items = pd.DataFrame(columns=["Nama produk", "Satuan", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa", "Jumlah Retur", "Harga 1", "Keterangan"])
 if "retur_history" not in st.session_state:
@@ -696,7 +724,7 @@ if menu == "🏠 Dashboard":
                 st.dataframe(exp_show.rename(columns={"Nama produk": "Nama Obat", "Tanggal Kadaluwarsa": "Tgl Expired", "Nomor Batch": "Batch"}), use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# KELOLA STOK (DATABASE & BACKUP)
+# KELOLA STOK (DATABASE & BACKUP) - PERBAIKAN PENDETEKSIAN HEADER
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
@@ -728,7 +756,7 @@ elif menu == "📋 Kelola Stok":
                 if st.session_state.get("last_uploaded_file") != file_id:
                     try:
                         filename_lower = uploaded_inventory.name.lower()
-                        # [PERBAIKAN] Deteksi delimiter CSV pintar agar tidak None semua
+                        # Tangani CSV
                         if filename_lower.endswith(".csv"):
                             uploaded_inventory.seek(0)
                             try:
@@ -737,24 +765,31 @@ elif menu == "📋 Kelola Stok":
                                 uploaded_inventory.seek(0)
                                 df = pd.read_csv(uploaded_inventory, sep=';')
                                 
-                            if "Worksheet" not in df.columns:
-                                df["Worksheet"] = "TAB" # Default fallback
+                            if "Worksheet" not in df.columns: df["Worksheet"] = "TAB"
                             
                             df = prepare_sheet_for_editor(df)
                             for col in df.columns:
                                 df[col] = df[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
                             db_write_table(df, "inventory_master")
                         else:
-                            # Handle Excel upload
-                            xls = pd.ExcelFile(uploaded_inventory)
+                            # [PERBAIKAN] Menggunakan openpyxl load_workbook untuk memindai baris header dengan cerdas!
+                            wb = load_workbook(io.BytesIO(uploaded_inventory.getvalue()), data_only=True)
                             frames = []
-                            for sheet in xls.sheet_names:
-                                df = pd.read_excel(xls, sheet_name=sheet)
-                                df = prepare_sheet_for_editor(df)
-                                df["Worksheet"] = sheet
-                                frames.append(df)
+                            for sheet in wb.sheetnames:
+                                ws = wb[sheet]
+                                df_sheet = load_inventory_sheet_dataframe(ws)
+                                
+                                # Lewati sheet yang kosong atau tidak valid
+                                if df_sheet.empty or df_sheet["Nama produk"].isnull().all():
+                                    continue
+                                    
+                                df_sheet = prepare_sheet_for_editor(df_sheet)
+                                df_sheet["Worksheet"] = sheet
+                                frames.append(df_sheet)
+                                
                             if frames:
                                 combined = pd.concat(frames, ignore_index=True)
+                                combined = combined.dropna(subset=["Nama produk"], how="all")
                                 for col in combined.columns:
                                     combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
                                 db_write_table(combined, "inventory_master")
@@ -796,7 +831,6 @@ elif menu == "📋 Kelola Stok":
             else: display_df = sheet_df.copy()
 
             if st.session_state.role == "Admin":
-                # Hilangkan kolom Worksheet dari tampilan editor
                 editor_cols = [c for c in INVENTORY_COLUMNS if c != "Worksheet"]
                 edited_display_df = st.data_editor(
                     display_df, use_container_width=True, num_rows="dynamic", hide_index=True, column_order=editor_cols,
@@ -931,12 +965,11 @@ elif menu == "🖨️ Rekap Data":
 
     df_history = load_data()
 
-    # [AUTO-CLEANER] Menghapus data lama dengan keterangan "Kasir Pembelian Obat" secara permanen dari Database
     if df_history is not None and not df_history.empty:
         mask_legacy = df_history["Keterangan"].astype(str).str.contains("Kasir Pembelian Obat", case=False, na=False)
         if mask_legacy.any():
             df_history = df_history[~mask_legacy]
-            save_data(df_history) # Timpa database untuk bersihkan secara permanen
+            save_data(df_history)
 
     if df_history is None or df_history.empty:
         st.warning("Belum ada data riwayat transaksi (Penjualan, Opname, atau Entry Pembelian). Silakan lakukan transaksi terlebih dahulu.")
@@ -1011,7 +1044,6 @@ elif menu == "🖨️ Rekap Data":
 
     preview_df = df_print.copy()
     
-    # MENGAMBIL NAMA OBAT, Menghapus No Faktur di Tabel Rekap Data
     preview_df = preview_df[[
         "Tanggal", "Nama Obat", "Keterangan", "Stok Masuk", "Stok Keluar", 
         "Stok Akhir", "Satuan", "Nomor Batch", "Tanggal Kadaluarsa", "Petugas"
@@ -1042,7 +1074,6 @@ elif menu == "🖨️ Rekap Data":
         html_rows += f"<tr><td style='text-align:center;'>{i+1}</td>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>"
     html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.columns)
 
-    # [FORMAT CETAK RESMI] Times New Roman, 12pt, Garis 1pt Black Solid
     html_printable_laporan = f"""
     <!DOCTYPE html>
     <html><head><meta charset='utf-8'><title>Laporan Kartu Stok Obat - Apotek Veteran Blitar</title>
