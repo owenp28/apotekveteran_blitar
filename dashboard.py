@@ -45,7 +45,7 @@ st.markdown(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FUNGSI WAKTU LOKAL (WIB) - MENGATASI ISU ZONA WAKTU SERVER
+# FUNGSI WAKTU LOKAL (WIB)
 # ─────────────────────────────────────────────────────────────────────────────
 def get_wib_time():
     utc_now = datetime.now(timezone.utc)
@@ -53,7 +53,7 @@ def get_wib_time():
     return wib_now.replace(tzinfo=None)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# KONFIGURASI FILE & PATH MENGGUNAKAN PATHLIB
+# KONFIGURASI FILE & PATH
 # ─────────────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 DATASET_PATH = BASE_DIR / "stok_obat.csv"
@@ -597,8 +597,10 @@ _name = USERS[_username]["name"] if _username in USERS else "Pengguna"
 st.sidebar.markdown(f"👤 **{_name}** — *{_role}*")
 st.sidebar.markdown("---")
 
-if _role == "Admin": _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🖨️ Rekap Data", "📦 Retur & Entry Pembelian", "🛒 Kasir Utama", "🕒 Sesi Shift"]
-else: _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🛒 Kasir Utama", "🕒 Sesi Shift"]
+# FITUR BACKUP DITAMBAHKAN KE SIDEBAR AGAR SELALU BISA DIAKSES
+_menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🖨️ Rekap Data", "📦 Retur & Entry Pembelian", "🛒 Kasir Utama", "🕒 Sesi Shift", "💾 Backup & Simpan Data"]
+if _role != "Admin":
+    _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🛒 Kasir Utama", "🕒 Sesi Shift", "💾 Backup & Simpan Data"]
 
 if "target_menu" in st.session_state:
     target = st.session_state.target_menu
@@ -629,11 +631,59 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     if "main_menu" in st.session_state: del st.session_state["main_menu"]
     st.rerun()
 
+# ══════════════════════════════════════════════════════════════════════════════
+# MENU BACKUP (BARU)
+# ══════════════════════════════════════════════════════════════════════════════
+if menu == "💾 Backup & Simpan Data":
+    st.title("💾 Backup Data PENTING!")
+    st.warning("⚠️ **WAJIB DIBACA:** Karena aplikasi ini di-hosting di server gratis (Streamlit Cloud), server akan me-reset/menghapus file Excel dan CSV Anda secara otomatis saat aplikasi tertidur (sleep) atau tidak ada yang membuka dalam waktu lama.")
+    st.info("💡 **SOLUSINYA:** Setiap kali Anda selesai mengubah stok (Stok Opname, Tutup Kasir, atau Retur) di penghujung hari, silakan **Download File Excel & CSV** di bawah ini ke komputer Anda. Besok paginya, Anda tinggal 'Upload' kembali file tersebut di menu Kelola Stok.")
+    
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        st.subheader("1. File Master Excel (Stok Terkini)")
+        df_print = build_inventory_print_dataframe()
+        if df_print is not None and not df_print.empty:
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                for sheet in get_available_sheets():
+                    if sheet in st.session_state.inventory_data_cache:
+                        st.session_state.inventory_data_cache[sheet].to_excel(writer, sheet_name=sheet, index=False)
+            st.download_button(
+                label="📥 Download Excel Dataset (Stok Akhir)", 
+                data=buffer.getvalue(), 
+                file_name=f"DatasetObat_ApotekVeteran_Backup_{get_wib_time().date()}.xlsx", 
+                mime="application/vnd.ms-excel",
+                use_container_width=True,
+                type="primary"
+            )
+        else:
+            st.error("Dataset Excel belum dimuat.")
+
+    with c2:
+        st.subheader("2. File CSV (Riwayat & Log)")
+        # Csv Transaksi
+        if DATASET_PATH.exists():
+            with open(DATASET_PATH, "rb") as f:
+                st.download_button("📥 Download Log Transaksi (stok_obat.csv)", data=f, file_name=f"stok_obat_backup_{get_wib_time().date()}.csv", mime="text/csv", use_container_width=True)
+        # Csv Retur
+        if RETUR_HISTORY_PATH.exists():
+            with open(RETUR_HISTORY_PATH, "rb") as f:
+                st.download_button("📥 Download Log Retur (retur_history.csv)", data=f, file_name=f"retur_history_backup_{get_wib_time().date()}.csv", mime="text/csv", use_container_width=True)
+        # Csv Shift
+        if SHIFT_LOG_PATH.exists():
+            with open(SHIFT_LOG_PATH, "rb") as f:
+                st.download_button("📥 Download Log Kasir/Shift (shift_log.csv)", data=f, file_name=f"shift_log_backup_{get_wib_time().date()}.csv", mime="text/csv", use_container_width=True)
+
+    st.markdown("<br><br><br><p style='text-align:center; color:gray;'>*Untuk menghindari kerepotan download/upload setiap hari, aplikasi ini sangat disarankan untuk di-run secara lokal di komputer Apotek (tanpa Streamlit Cloud), sehingga file akan menetap selamanya di hardisk komputer.</p>", unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
-if menu == "🏠 Dashboard":
+elif menu == "🏠 Dashboard":
     st.title("💊 Dashboard Apotek Veteran Blitar")
     st.markdown("Selamat datang! Pilih fitur di sidebar untuk mulai mengelola stok obat.")
     st.markdown("---")
@@ -912,21 +962,28 @@ elif menu == "📋 Kelola Stok":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# (UPDATE TERBARU) FITUR REKAP DATA
+# REKAP DATA (AUTO CLEANER DI DALAMNYA)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🖨️ Rekap Data":
     st.title("🖨️ Rekap Data")
 
     df_history = load_data()
+
+    # [AUTO CLEANER PENTING] Membersihkan dan membuang data lama yang mengandung "Kasir Pembelian Obat" agar tidak merusak tabel
+    if df_history is not None and not df_history.empty:
+        mask_legacy = df_history["Keterangan"].astype(str).str.contains("Kasir Pembelian Obat", case=False, na=False)
+        if mask_legacy.any():
+            df_history = df_history[~mask_legacy]
+            save_data(df_history) # Timpa CSV aslinya, data lama musnah selamanya.
+
     if df_history is None or df_history.empty:
-        st.warning("Belum ada data riwayat transaksi (Penjualan, Opname, atau Entry Pembelian). Silakan lakukan transaksi terlebih dahulu.")
+        st.warning("Belum ada data riwayat transaksi terbaru. Silakan lakukan transaksi kasir terlebih dahulu.")
         st.stop()
 
     df_history["Tanggal"] = pd.to_datetime(df_history["Tanggal"], errors="coerce")
     if "Tanggal Kadaluarsa" in df_history.columns:
         df_history["Tanggal Kadaluarsa"] = pd.to_datetime(df_history["Tanggal Kadaluarsa"], errors="coerce")
 
-    # Ambil List Obat dan Satuan
     all_items_df = build_inventory_print_dataframe()
     obat_excel_list = []
     if all_items_df is not None and not all_items_df.empty:
@@ -974,7 +1031,6 @@ elif menu == "🖨️ Rekap Data":
         with c_f2: filter_nama = st.selectbox("Pilih Obat", options=pilihan_obat)
         with c_f3: filter_ket = st.text_input("Keterangan", placeholder="Cari Keterangan/Faktur...")
 
-    # Filter Eksekusi
     df_print = df_history.copy()
     
     if tgl_awal and tgl_akhir:
@@ -993,7 +1049,6 @@ elif menu == "🖨️ Rekap Data":
 
     preview_df = df_print.copy()
     
-    # [PERBAIKAN] Tambahkan NAMA OBAT kembali ke tabel
     preview_df = preview_df[[
         "Tanggal", "Nama Obat", "Keterangan", "Stok Masuk", "Stok Keluar", 
         "Stok Akhir", "Satuan", "Nomor Batch", "Tanggal Kadaluarsa", "Petugas"
@@ -1024,7 +1079,6 @@ elif menu == "🖨️ Rekap Data":
         html_rows += f"<tr><td style='text-align:center;'>{i+1}</td>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>"
     html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.columns)
 
-    # [PERBAIKAN] Format Print Resmi: Font Times New Roman 12pt, Garis border tebal 1pt
     html_printable_laporan = f"""
     <!DOCTYPE html>
     <html><head><meta charset='utf-8'><title>Laporan Kartu Stok Obat - Apotek Veteran Blitar</title>
@@ -1282,7 +1336,6 @@ elif menu == "🛒 Kasir Utama":
 
                                     total_belanja_confirm += item["subtotal"]
                                     
-                                    # [PERBAIKAN] Keterangan menggunakan template "Penjualan dengan No Faktur ..."
                                     new_history_rows.append({
                                         "Tanggal": get_wib_time().strftime("%Y-%m-%d %H:%M:%S"),
                                         "Nomor Faktur": invoice_no,
