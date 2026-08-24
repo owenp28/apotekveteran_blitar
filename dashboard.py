@@ -14,19 +14,55 @@ from io import BytesIO
 from urllib.request import Request, urlopen
 from openpyxl import load_workbook, Workbook
 
-# Pastikan Streamlit Anda versi 1.37.0 ke atas
+# [SAFE IMPORT SQLALCHEMY]
+HAS_SQLALCHEMY = False
+try:
+    import sqlalchemy as sa
+    HAS_SQLALCHEMY = True
+except ImportError:
+    HAS_SQLALCHEMY = False
+
+# Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
 
-# ── KONFIGURASI DATABASE INTERNAL (SQLITE) ─────────────────────────────────────
-# Database akan otomatis dibuat di folder yang sama dengan file aplikasi
-BASE_DIR = Path(__file__).parent
-DB_PATH = BASE_DIR / "apotek_veteran.db"
+# ── SETUP KONEKSI DATABASE (HYBRID: SUPABASE / POSTGRESQL / BUILT-IN SQLITE) ──
+SQLITE_DB_PATH = Path(__file__).parent / "apotek_veteran.db"
 
-def get_db_conn():
-    """Membuka koneksi ke Database SQLite lokal."""
-    return sqlite3.connect(str(DB_PATH))
+def get_db_engine():
+    if HAS_SQLALCHEMY:
+        try:
+            db_url = st.secrets["DB_URL"]
+            return sa.create_engine(db_url)
+        except Exception:
+            return sa.create_engine(f"sqlite:///{SQLITE_DB_PATH}")
+    return None
 
-# ── CSS Custom untuk Menyesuaikan Tampilan ERP ─────────────────────────────────
+engine = get_db_engine()
+
+# Helper Eksekusi Query Database yang Kompatibel (SQLAlchemy & Native SQLite3)
+def db_read_table(table_name):
+    try:
+        if engine is not None:
+            return pd.read_sql(table_name, engine)
+        else:
+            with sqlite3.connect(SQLITE_DB_PATH) as conn:
+                return pd.read_sql(f"SELECT * FROM {table_name}", conn)
+    except Exception:
+        return pd.DataFrame()
+
+def db_write_table(df, table_name):
+    try:
+        if engine is not None:
+            df.to_sql(table_name, engine, if_exists="replace", index=False)
+        else:
+            with sqlite3.connect(SQLITE_DB_PATH) as conn:
+                df.to_sql(table_name, conn, if_exists="replace", index=False)
+        return True
+    except Exception as e:
+        st.error(f"Gagal menyimpan ke Database: {e}")
+        return False
+
+# ── CSS Custom ERP ────────────────────────────────────────────────────────────
 st.markdown(
     """
     <style>
@@ -47,31 +83,28 @@ st.markdown(
     .stDataFrame th { background: #0f3460; color: #e0e0e0; font-weight: 600; font-size: 13px; padding: 10px; }
     .stDataFrame td { color: #e0e0e0; font-size: 13px; padding: 8px; }
     .stDataFrame tr:hover { background: #1f3a5e; }
-    
     .filter-label { font-size: 12px; font-weight: bold; color: #a0a0a0; margin-bottom: 4px; display: block; }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
-# FUNGSI WAKTU LOKAL (WIB) - MENGATASI ISU ZONA WAKTU SERVER
-# ─────────────────────────────────────────────────────────────────────────────
+# ── FUNGSI WAKTU LOKAL (WIB) ──────────────────────────────────────────────────
 def get_wib_time():
     utc_now = datetime.now(timezone.utc)
     wib_now = utc_now + timedelta(hours=7)
     return wib_now.replace(tzinfo=None)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# KONFIGURASI DEFAULT & KOLOM
-# ─────────────────────────────────────────────────────────────────────────────
+# ── KONFIGURASI KOLOM STANDAR ─────────────────────────────────────────────────
 DEFAULT_LINK_ONEDRIVE = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=V5jQMP"
+
 INVENTORY_SHEETS = ["PCS", "SACHET", "BOTOL", "TAB", "BOX", "STRIP"]
 INVENTORY_COLUMNS = [
-    "Worksheet", "Nama produk", "Satuan", "Tanggal", "Nomor Faktur", "Nomor Batch", 
+    "Nama produk", "Satuan", "Tanggal", "Nomor Faktur", "Nomor Batch", 
     "PBF", "Tanggal Kadaluwarsa", "Stok Masuk", "Stok Keluar", "Stok Sisa", 
     "Harga 1", "Harga 2", "Keterangan"
 ]
+
 KOLOM_WAJIB = [
     "Tanggal", "Nomor Faktur", "Nama Obat", "Kategori", "Satuan", "Nomor Batch",
     "Stok Masuk", "Stok Keluar", "Stok Akhir", "Harga Satuan (Rp)", "Total Nilai (Rp)", 
@@ -85,15 +118,14 @@ SHIFT_COLUMNS = [
     "Saldo Akhir Sistem", "Fisik Kasir Aktual", "Selisih", "Diserahkan Ke", "Catatan"
 ]
 
-# ── FUNGSI PERSISTENSI SHIFT LOKAL (KE DATABASE) ──
+# ── PERSISTENSI SHIFT LOGIC (DATABASE) ────────────────────────────────────────
 def load_active_shift():
     try:
-        with get_db_conn() as conn:
-            df = pd.read_sql("SELECT * FROM active_shift", conn)
-            if not df.empty:
-                data = df.iloc[0].to_dict()
-                data["joined_users"] = json.loads(data["joined_users"]) if isinstance(data.get("joined_users"), str) else []
-                return data
+        df = db_read_table("active_shift_state")
+        if not df.empty:
+            data = df.iloc[0].to_dict()
+            data["joined_users"] = json.loads(data["joined_users"]) if isinstance(data.get("joined_users"), str) else []
+            return data
     except Exception: pass
     return None
 
@@ -101,13 +133,16 @@ def save_active_shift(data):
     df_save = data.copy()
     df_save["joined_users"] = json.dumps(df_save.get("joined_users", []))
     df = pd.DataFrame([df_save])
-    with get_db_conn() as conn:
-        df.to_sql("active_shift", conn, if_exists="replace", index=False)
+    db_write_table(df, "active_shift_state")
 
 def clear_active_shift():
     try:
-        with get_db_conn() as conn:
-            conn.execute("DROP TABLE IF EXISTS active_shift")
+        if engine is not None:
+            with engine.begin() as conn:
+                conn.execute(sa.text("DROP TABLE IF EXISTS active_shift_state"))
+        else:
+            with sqlite3.connect(SQLITE_DB_PATH) as conn:
+                conn.execute("DROP TABLE IF EXISTS active_shift_state")
     except Exception: pass
 
 def get_auto_shift_name():
@@ -117,52 +152,45 @@ def get_auto_shift_name():
     elif 15 <= hour < 18: return "Sore"
     else: return "Malam"
 
-# ── FUNGSI DATA I/O (KE DATABASE SQLITE) ──
+# ── FUNGSI DATA I/O (DATABASE) ────────────────────────────────────────────────
 def load_data():
-    try:
-        with get_db_conn() as conn:
-            df = pd.read_sql("SELECT * FROM history_transaksi", conn)
-            for col in ["Tanggal", "Tanggal Kadaluarsa"]:
-                if col in df.columns: df[col] = pd.to_datetime(df[col], errors="coerce")
-            return df
-    except Exception:
+    df = db_read_table("history_transaksi")
+    if df.empty:
         return pd.DataFrame(columns=KOLOM_WAJIB)
+    for col in ["Tanggal", "Tanggal Kadaluarsa"]:
+        if col in df.columns: df[col] = pd.to_datetime(df[col], errors="coerce")
+    return df
 
 def save_data(df):
-    with get_db_conn() as conn:
-        df.to_sql("history_transaksi", conn, if_exists="replace", index=False)
+    db_write_table(df, "history_transaksi")
 
 def load_retur_history():
-    try:
-        with get_db_conn() as conn:
-            df = pd.read_sql("SELECT * FROM history_retur", conn)
-            for col in ["Tanggal Retur", "Tanggal Disimpan"]:
-                if col in df.columns: df[col] = pd.to_datetime(df[col], errors="coerce")
-            return df
-    except Exception:
+    df = db_read_table("history_retur")
+    if df.empty:
         return pd.DataFrame(columns=RETUR_HISTORY_COLUMNS)
+    for col in ["Tanggal Retur", "Tanggal Disimpan"]:
+        if col in df.columns: df[col] = pd.to_datetime(df[col], errors="coerce")
+    return df
 
 def save_retur_history(df):
-    with get_db_conn() as conn:
-        df.to_sql("history_retur", conn, if_exists="replace", index=False)
+    db_write_table(df, "history_retur")
 
 def load_shift_log():
-    try:
-        with get_db_conn() as conn:
-            return pd.read_sql("SELECT * FROM shift_log", conn)
-    except Exception:
+    df = db_read_table("log_shift")
+    if df.empty:
         return pd.DataFrame(columns=SHIFT_COLUMNS)
+    return df
 
 def save_shift_log(df):
-    with get_db_conn() as conn:
-        df.to_sql("shift_log", conn, if_exists="replace", index=False)
+    db_write_table(df, "log_shift")
 
-# Auto-zipper database untuk Download Backup
 def get_backup_zip():
     mem_zip = io.BytesIO()
     with zipfile.ZipFile(mem_zip, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        if DB_PATH.exists():
-            zf.write(DB_PATH, arcname="apotek_veteran.db")
+        for t_name in ["inventory_master", "history_transaksi", "history_retur", "log_shift"]:
+            df_t = db_read_table(t_name)
+            if not df_t.empty:
+                zf.writestr(f"{t_name}.csv", df_t.to_csv(index=False))
     return mem_zip.getvalue()
 
 def format_rupiah(val):
@@ -198,8 +226,8 @@ def normalize_inventory_df(df):
         elif nama_kolom.lower() == "keterangan ": renamed[kolom] = "Keterangan"
     if renamed: df = df.rename(columns=renamed)
     
-    cols_check = [c for c in INVENTORY_COLUMNS if c != "Worksheet"]
-    for kolom in cols_check:
+    # Jangan memaksa hapus Worksheet, tapi pastikan kolom Inventory ada
+    for kolom in INVENTORY_COLUMNS:
         if kolom not in df.columns: df[kolom] = None
 
     for kolom in ["Nama produk", "Satuan", "Nomor Faktur", "Nomor Batch", "PBF", "Keterangan"]:
@@ -210,47 +238,41 @@ def normalize_inventory_df(df):
 
     for col in ["Tanggal", "Tanggal Kadaluwarsa"]:
         if col in df.columns: df[col] = df[col].apply(parse_excel_date)
+        
     return df
 
 def prepare_sheet_for_editor(df):
     df = normalize_inventory_df(df)
-    for kolom in ["Nomor Faktur", "Nomor Batch", "PBF", "Keterangan", "Nama produk", "Satuan"]:
+    for kolom in ["Nomor Faktur", "Nomor Batch", "PBF", "Keterangan", "Nama produk", "Satuan", "Worksheet"]:
         if kolom in df.columns: df[kolom] = df[kolom].astype("string")
     return df
 
 def load_inventory_workbook():
-    try:
-        with get_db_conn() as conn:
-            df_all = pd.read_sql("SELECT * FROM inventory_master", conn)
-            workbook_data = {}
-            if "Worksheet" not in df_all.columns: df_all["Worksheet"] = "TAB"
-            for sheet in df_all["Worksheet"].unique():
-                df_sheet = df_all[df_all["Worksheet"] == sheet].drop(columns=["Worksheet"])
-                workbook_data[sheet] = df_sheet
-            return workbook_data
-    except Exception:
+    df_all = db_read_table("inventory_master")
+    if df_all.empty:
         return {}
+    workbook_data = {}
+    if "Worksheet" not in df_all.columns: df_all["Worksheet"] = "TAB"
+    for sheet in df_all["Worksheet"].unique():
+        df_sheet = df_all[df_all["Worksheet"] == sheet].drop(columns=["Worksheet"], errors='ignore')
+        workbook_data[sheet] = df_sheet
+    return workbook_data
 
 def save_inventory_workbook(workbook_data):
-    try:
-        frames = []
-        for sheet_name, df_sheet in workbook_data.items():
-            if df_sheet is None or df_sheet.empty: 
-                df_sheet = pd.DataFrame(columns=[c for c in INVENTORY_COLUMNS if c != "Worksheet"])
-            df_copy = df_sheet.copy()
-            df_copy["Worksheet"] = sheet_name
-            frames.append(df_copy)
-            
-        if frames:
-            combined = pd.concat(frames, ignore_index=True)
-            for col in combined.columns:
-                combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
-            with get_db_conn() as conn:
-                combined.to_sql("inventory_master", conn, if_exists="replace", index=False)
-        return True
-    except Exception as e:
-        st.error(f"Gagal menyimpan ke Database: {e}")
-        return False
+    frames = []
+    for sheet_name, df_sheet in workbook_data.items():
+        if df_sheet is None or df_sheet.empty: 
+            df_sheet = pd.DataFrame(columns=[c for c in INVENTORY_COLUMNS])
+        df_copy = df_sheet.copy()
+        df_copy["Worksheet"] = sheet_name
+        frames.append(df_copy)
+        
+    if frames:
+        combined = pd.concat(frames, ignore_index=True)
+        for col in combined.columns:
+            combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
+        return db_write_table(combined, "inventory_master")
+    return False
 
 def build_inventory_print_dataframe():
     workbook_data = st.session_state.get("inventory_data_cache")
@@ -258,11 +280,13 @@ def build_inventory_print_dataframe():
         workbook_data = load_inventory_workbook()
         st.session_state.inventory_data_cache = workbook_data
     if not workbook_data: return None
+    
     frames = []
     for sheet_name, df_sheet in workbook_data.items():
         df_copy = prepare_sheet_for_editor(df_sheet.copy())
         df_copy["Worksheet"] = sheet_name
         frames.append(df_copy)
+        
     if not frames: return pd.DataFrame(columns=INVENTORY_COLUMNS)
     return pd.concat(frames, ignore_index=True)
 
@@ -271,13 +295,10 @@ def get_available_sheets():
     if cache: return list(cache.keys())
     return INVENTORY_SHEETS
 
-
 # ── LOGIKA BACKEND PROSES OPNAME ──
 def do_opname_processing(edited_opname_df):
     workbook_data = st.session_state.inventory_data_cache
-    
     df_history = load_data()
-    if df_history is None: df_history = pd.DataFrame(columns=KOLOM_WAJIB)
     new_history_rows = []
     
     for idx, row in edited_opname_df.iterrows():
@@ -341,10 +362,7 @@ def do_opname_processing(edited_opname_df):
     save_inventory_workbook(workbook_data)
     st.session_state.inventory_data_cache = workbook_data
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# STOK OPNAME MODAL & LOGIN MAPPING
-# ══════════════════════════════════════════════════════════════════════════════
+# ── STOK OPNAME MODAL & LOGIN ─────────────────────────────────────────────────
 @st.dialog("Pilih Obat", width="large")
 def modal_pilih_obat(df_source, initial_search=""):
     st.markdown("<style>.stDialog > div { padding: 15px; }</style>", unsafe_allow_html=True)
@@ -444,7 +462,7 @@ def dialog_konfirmasi_proses(edited_opname):
             st.rerun()
         if c2.button("Lanjutkan", type="primary", use_container_width=True):
             ph = st.empty()
-            bar = ph.progress(0, text="Mengupload dan memvalidasi data...")
+            bar = ph.progress(0, text="Menyimpan ke Database...")
             time.sleep(0.5)
             
             total = len(edited_opname)
@@ -458,7 +476,7 @@ def dialog_konfirmasi_proses(edited_opname):
             st.session_state.opname_berhasil = True
             st.rerun()
     else:
-        st.success("Stok opname berhasil diproses!")
+        st.success("Stok opname berhasil diproses ke Database!")
         if st.button("Tutup", use_container_width=True):
             st.session_state.opname_berhasil = False
             if "opname_custom_items" in st.session_state:
@@ -677,15 +695,15 @@ if menu == "🏠 Dashboard":
                 exp_show["Tanggal Kadaluwarsa"] = exp_show["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(exp_show.rename(columns={"Nama produk": "Nama Obat", "Tanggal Kadaluwarsa": "Tgl Expired", "Nomor Batch": "Batch"}), use_container_width=True, hide_index=True)
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # KELOLA STOK (DATABASE & BACKUP)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
-    if st.session_state.role == "Admin": 
-        st.warning("⚠️ **INFO PENTING:** Menggunakan mode Database Internal. Ingat untuk **Download Backup Database** secara berkala di tombol kanan.")
-    else: st.caption("Tampilan data stok obat secara Read-Only.")
+    if not HAS_SQLALCHEMY:
+        st.info("ℹ️ Mode Database Lokal Aktif. Tambahkan `SQLAlchemy` dan `psycopg2-binary` ke `requirements.txt` jika ingin mengaktifkan Cloud Database (Supabase).")
+    else:
+        st.caption("Kelola dan sesuaikan data stok obat secara langsung atau melalui Stok Opname.")
 
     if "inventory_data_cache" not in st.session_state: st.session_state.inventory_data_cache = {}
 
@@ -710,17 +728,22 @@ elif menu == "📋 Kelola Stok":
                 if st.session_state.get("last_uploaded_file") != file_id:
                     try:
                         filename_lower = uploaded_inventory.name.lower()
-                        # Handle CSV upload correctly
+                        # [PERBAIKAN] Deteksi delimiter CSV pintar agar tidak None semua
                         if filename_lower.endswith(".csv"):
-                            df = pd.read_csv(uploaded_inventory)
+                            uploaded_inventory.seek(0)
+                            try:
+                                df = pd.read_csv(uploaded_inventory, sep=None, engine='python')
+                            except Exception:
+                                uploaded_inventory.seek(0)
+                                df = pd.read_csv(uploaded_inventory, sep=';')
+                                
                             if "Worksheet" not in df.columns:
                                 df["Worksheet"] = "TAB" # Default fallback
                             
                             df = prepare_sheet_for_editor(df)
                             for col in df.columns:
                                 df[col] = df[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
-                            with get_db_conn() as conn:
-                                df.to_sql("inventory_master", conn, if_exists="replace", index=False)
+                            db_write_table(df, "inventory_master")
                         else:
                             # Handle Excel upload
                             xls = pd.ExcelFile(uploaded_inventory)
@@ -734,8 +757,7 @@ elif menu == "📋 Kelola Stok":
                                 combined = pd.concat(frames, ignore_index=True)
                                 for col in combined.columns:
                                     combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
-                                with get_db_conn() as conn:
-                                    combined.to_sql("inventory_master", conn, if_exists="replace", index=False)
+                                db_write_table(combined, "inventory_master")
                         
                         st.session_state.inventory_data_cache = load_inventory_workbook()
                         st.session_state["last_uploaded_file"] = file_id
@@ -774,8 +796,10 @@ elif menu == "📋 Kelola Stok":
             else: display_df = sheet_df.copy()
 
             if st.session_state.role == "Admin":
+                # Hilangkan kolom Worksheet dari tampilan editor
+                editor_cols = [c for c in INVENTORY_COLUMNS if c != "Worksheet"]
                 edited_display_df = st.data_editor(
-                    display_df, use_container_width=True, num_rows="dynamic", hide_index=True, column_order=INVENTORY_COLUMNS,
+                    display_df, use_container_width=True, num_rows="dynamic", hide_index=True, column_order=editor_cols,
                     column_config={
                         "Nama produk": st.column_config.TextColumn("✏️ Nama Produk", width="large"),
                         "Tanggal": st.column_config.DateColumn("✏️ Tanggal", format="YYYY-MM-DD", width="medium"),
@@ -805,7 +829,8 @@ elif menu == "📋 Kelola Stok":
                         time.sleep(1)
                         st.rerun()
             else:
-                st.dataframe(display_df, use_container_width=True, hide_index=True, column_order=INVENTORY_COLUMNS,
+                editor_cols = [c for c in INVENTORY_COLUMNS if c != "Worksheet"]
+                st.dataframe(display_df, use_container_width=True, hide_index=True, column_order=editor_cols,
                     column_config={"Tanggal": st.column_config.DateColumn("Tanggal", format="YYYY-MM-DD"), "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluarsa", format="YYYY-MM-DD")},
                     key="viewer_inventory_grid")
 
@@ -899,7 +924,7 @@ elif menu == "📋 Kelola Stok":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR REKAP DATA
+# FITUR REKAP DATA (DATABASE + AUTO CLEANER)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🖨️ Rekap Data":
     st.title("🖨️ Rekap Data")
@@ -986,6 +1011,7 @@ elif menu == "🖨️ Rekap Data":
 
     preview_df = df_print.copy()
     
+    # MENGAMBIL NAMA OBAT, Menghapus No Faktur di Tabel Rekap Data
     preview_df = preview_df[[
         "Tanggal", "Nama Obat", "Keterangan", "Stok Masuk", "Stok Keluar", 
         "Stok Akhir", "Satuan", "Nomor Batch", "Tanggal Kadaluarsa", "Petugas"
@@ -1016,6 +1042,7 @@ elif menu == "🖨️ Rekap Data":
         html_rows += f"<tr><td style='text-align:center;'>{i+1}</td>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>"
     html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.columns)
 
+    # [FORMAT CETAK RESMI] Times New Roman, 12pt, Garis 1pt Black Solid
     html_printable_laporan = f"""
     <!DOCTYPE html>
     <html><head><meta charset='utf-8'><title>Laporan Kartu Stok Obat - Apotek Veteran Blitar</title>
