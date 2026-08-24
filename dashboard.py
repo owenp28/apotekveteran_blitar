@@ -226,7 +226,6 @@ def normalize_inventory_df(df):
         elif nama_kolom.lower() == "keterangan ": renamed[kolom] = "Keterangan"
     if renamed: df = df.rename(columns=renamed)
     
-    # Amankan filter khusus data Master Dataset
     cols_check = [c for c in INVENTORY_COLUMNS if c != "Worksheet"]
     for kolom in cols_check:
         if kolom not in df.columns: df[kolom] = None
@@ -252,7 +251,7 @@ def prepare_sheet_for_editor(df):
         if kolom in df.columns: df[kolom] = df[kolom].astype("string")
     return df
 
-# [PERBAIKAN] - Pendeteksi Cerdas Baris Judul
+# Pendeteksi Cerdas Baris Judul
 def _find_inventory_header_row(rows):
     known_headers = {"nama produk", "nama obat", "satuan", "tanggal", "nomor faktur", "nomor batch", "pbf", "tanggal kadaluarsa", "stok masuk", "stok keluar", "stok sisa", "harga 1", "harga 2", "keterangan"}
     for index, row in enumerate(rows):
@@ -261,7 +260,7 @@ def _find_inventory_header_row(rows):
         if score >= 3: return index, list(row)
     return 0, list(rows[0]) if rows else []
 
-# [PERBAIKAN] - Membaca File Excel Langsung Lewat OpenPyxl Agar Header Terdeteksi
+# Membaca File Excel Langsung Lewat OpenPyxl Agar Header Terdeteksi
 def load_inventory_sheet_dataframe(ws):
     rows = list(ws.iter_rows(values_only=True))
     if not rows: return pd.DataFrame(columns=[c for c in INVENTORY_COLUMNS if c != "Worksheet"])
@@ -270,7 +269,6 @@ def load_inventory_sheet_dataframe(ws):
     data_rows = rows[header_index + 1:]
     if not data_rows: return pd.DataFrame(columns=[c for c in INVENTORY_COLUMNS if c != "Worksheet"])
     
-    # Amankan panjang kolom jika tidak sama
     data_rows = [tuple(row[:len(header)]) for row in data_rows]
     df = pd.DataFrame(data_rows, columns=header)
     return normalize_inventory_df(df)
@@ -297,7 +295,6 @@ def save_inventory_workbook(workbook_data):
         
     if frames:
         combined = pd.concat(frames, ignore_index=True)
-        # Hapus baris yang kosong atau tidak valid namanya
         combined = combined.dropna(subset=["Nama produk"], how="all")
         for col in combined.columns:
             combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
@@ -492,7 +489,7 @@ def dialog_konfirmasi_proses(edited_opname):
             st.rerun()
         if c2.button("Lanjutkan", type="primary", use_container_width=True):
             ph = st.empty()
-            bar = ph.progress(0, text="Mengupload dan memvalidasi data...")
+            bar = ph.progress(0, text="Menyimpan ke Database...")
             time.sleep(0.5)
             
             total = len(edited_opname)
@@ -723,17 +720,23 @@ if menu == "🏠 Dashboard":
                 exp_show["Tanggal Kadaluwarsa"] = exp_show["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
                 st.dataframe(exp_show.rename(columns={"Nama produk": "Nama Obat", "Tanggal Kadaluwarsa": "Tgl Expired", "Nomor Batch": "Batch"}), use_container_width=True, hide_index=True)
 
+
 # ══════════════════════════════════════════════════════════════════════════════
-# KELOLA STOK (DATABASE & BACKUP) - PERBAIKAN PENDETEKSIAN HEADER
+# KELOLA STOK (DATABASE & BACKUP) - PERBAIKAN UX LOCK DATASET
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
     if not HAS_SQLALCHEMY:
         st.info("ℹ️ Mode Database Lokal Aktif. Tambahkan `SQLAlchemy` dan `psycopg2-binary` ke `requirements.txt` jika ingin mengaktifkan Cloud Database (Supabase).")
-    else:
-        st.caption("Kelola dan sesuaikan data stok obat secara langsung atau melalui Stok Opname.")
 
     if "inventory_data_cache" not in st.session_state: st.session_state.inventory_data_cache = {}
+
+    workbook_data = st.session_state.inventory_data_cache
+    if not workbook_data:
+        workbook_data = load_inventory_workbook()
+        st.session_state.inventory_data_cache = workbook_data
+
+    is_db_filled = bool(workbook_data)
 
     if st.session_state.role == "Admin":
         col_up, col_dl = st.columns([7, 3])
@@ -750,13 +753,21 @@ elif menu == "📋 Kelola Stok":
             )
             
         with col_up:
-            uploaded_inventory = st.file_uploader("Upload file Excel/CSV langsung dari perangkat Anda (untuk menimpa Database Master):", type=["xlsx", "xlsm", "csv"], key="upload_inventory_source")
+            uploaded_inventory = None
+            if not is_db_filled:
+                st.info("📥 Database master kosong. Silakan upload file Excel/CSV untuk inisialisasi pertama kali.")
+                uploaded_inventory = st.file_uploader("Upload Master Dataset (Excel/CSV):", type=["xlsx", "xlsm", "csv"], key="upload_inventory_source")
+            else:
+                st.success("🔒 Dataset terkunci dan tersimpan otomatis di web. Anda tidak perlu upload ulang, silakan edit via tabel di bawah.")
+                with st.expander("⚙️ Fitur Reset / Update Keseluruhan Dataset"):
+                    st.warning("⚠️ Mengupload file baru di sini akan menimpa seluruh data sebelumnya secara permanen!")
+                    uploaded_inventory = st.file_uploader("Upload file Excel/CSV pengganti:", type=["xlsx", "xlsm", "csv"], key="upload_inventory_source_reset")
+
             if uploaded_inventory is not None:
                 file_id = f"{uploaded_inventory.name}_{uploaded_inventory.size}"
                 if st.session_state.get("last_uploaded_file") != file_id:
                     try:
                         filename_lower = uploaded_inventory.name.lower()
-                        # Tangani CSV
                         if filename_lower.endswith(".csv"):
                             uploaded_inventory.seek(0)
                             try:
@@ -772,17 +783,13 @@ elif menu == "📋 Kelola Stok":
                                 df[col] = df[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
                             db_write_table(df, "inventory_master")
                         else:
-                            # [PERBAIKAN] Menggunakan openpyxl load_workbook untuk memindai baris header dengan cerdas!
                             wb = load_workbook(io.BytesIO(uploaded_inventory.getvalue()), data_only=True)
                             frames = []
                             for sheet in wb.sheetnames:
                                 ws = wb[sheet]
                                 df_sheet = load_inventory_sheet_dataframe(ws)
-                                
-                                # Lewati sheet yang kosong atau tidak valid
                                 if df_sheet.empty or df_sheet["Nama produk"].isnull().all():
                                     continue
-                                    
                                 df_sheet = prepare_sheet_for_editor(df_sheet)
                                 df_sheet["Worksheet"] = sheet
                                 frames.append(df_sheet)
@@ -802,12 +809,6 @@ elif menu == "📋 Kelola Stok":
                     except Exception as e:
                         st.error(f"Gagal memproses file ke Database: {e}")
 
-    workbook_data = st.session_state.inventory_data_cache
-    if not workbook_data:
-        workbook_data = load_inventory_workbook()
-        st.session_state.inventory_data_cache = workbook_data
-
-    if not workbook_data: st.info("Database kosong. Silakan upload file Excel/CSV pada kotak di atas.")
     AVAILABLE_SHEETS = get_available_sheets()
 
     tab_edit, tab_opname = st.tabs(["✏️ Edit Stok", "📦 Stok Opname"])
@@ -965,6 +966,7 @@ elif menu == "🖨️ Rekap Data":
 
     df_history = load_data()
 
+    # [AUTO-CLEANER] Menghapus data lama dengan keterangan "Kasir Pembelian Obat" secara permanen dari Database
     if df_history is not None and not df_history.empty:
         mask_legacy = df_history["Keterangan"].astype(str).str.contains("Kasir Pembelian Obat", case=False, na=False)
         if mask_legacy.any():
