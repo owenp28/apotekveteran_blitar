@@ -95,6 +95,14 @@ def get_wib_time():
     wib_now = utc_now + timedelta(hours=7)
     return wib_now.replace(tzinfo=None)
 
+def sanitize_excel_value(val):
+    if pd.isna(val) or val is None:
+        return ""
+    val_str = str(val).strip()
+    if val_str.lower() in ["nan", "none", "nat"]:
+        return ""
+    return val_str
+
 # ── KONFIGURASI KOLOM STANDAR ─────────────────────────────────────────────────
 DEFAULT_LINK_ONEDRIVE = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=V5jQMP"
 
@@ -226,7 +234,6 @@ def normalize_inventory_df(df):
         elif nama_kolom.lower() == "keterangan ": renamed[kolom] = "Keterangan"
     if renamed: df = df.rename(columns=renamed)
     
-    # Amankan filter khusus data Master Dataset
     cols_check = [c for c in INVENTORY_COLUMNS if c != "Worksheet"]
     for kolom in cols_check:
         if kolom not in df.columns: df[kolom] = None
@@ -252,7 +259,6 @@ def prepare_sheet_for_editor(df):
         if kolom in df.columns: df[kolom] = df[kolom].astype("string")
     return df
 
-# Pendeteksi Cerdas Baris Judul
 def _find_inventory_header_row(rows):
     known_headers = {"nama produk", "nama obat", "satuan", "tanggal", "nomor faktur", "nomor batch", "pbf", "tanggal kadaluarsa", "stok masuk", "stok keluar", "stok sisa", "harga 1", "harga 2", "keterangan"}
     for index, row in enumerate(rows):
@@ -261,7 +267,6 @@ def _find_inventory_header_row(rows):
         if score >= 3: return index, list(row)
     return 0, list(rows[0]) if rows else []
 
-# Membaca File Excel Langsung Lewat OpenPyxl Agar Header Terdeteksi
 def load_inventory_sheet_dataframe(ws):
     rows = list(ws.iter_rows(values_only=True))
     if not rows: return pd.DataFrame(columns=[c for c in INVENTORY_COLUMNS if c != "Worksheet"])
@@ -270,7 +275,6 @@ def load_inventory_sheet_dataframe(ws):
     data_rows = rows[header_index + 1:]
     if not data_rows: return pd.DataFrame(columns=[c for c in INVENTORY_COLUMNS if c != "Worksheet"])
     
-    # Amankan panjang kolom jika tidak sama
     data_rows = [tuple(row[:len(header)]) for row in data_rows]
     df = pd.DataFrame(data_rows, columns=header)
     return normalize_inventory_df(df)
@@ -297,7 +301,6 @@ def save_inventory_workbook(workbook_data):
         
     if frames:
         combined = pd.concat(frames, ignore_index=True)
-        # Hapus baris yang kosong atau tidak valid namanya
         combined = combined.dropna(subset=["Nama produk"], how="all")
         for col in combined.columns:
             combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
@@ -727,7 +730,7 @@ if menu == "🏠 Dashboard":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# KELOLA STOK (DATABASE & BACKUP) - PERBAIKAN UX LOCK DATASET
+# KELOLA STOK (DATABASE & BACKUP)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
@@ -962,12 +965,11 @@ elif menu == "🖨️ Rekap Data":
 
     df_history = load_data()
 
-    # [AUTO-CLEANER] Menghapus data lama dengan keterangan "Kasir Pembelian Obat" secara permanen dari Database
     if df_history is not None and not df_history.empty:
         mask_legacy = df_history["Keterangan"].astype(str).str.contains("Kasir Pembelian Obat", case=False, na=False)
         if mask_legacy.any():
             df_history = df_history[~mask_legacy]
-            save_data(df_history) # Timpa database untuk bersihkan secara permanen
+            save_data(df_history)
 
     if df_history is None or df_history.empty:
         st.warning("Belum ada data riwayat transaksi (Penjualan, Opname, atau Entry Pembelian). Silakan lakukan transaksi terlebih dahulu.")
@@ -1072,7 +1074,6 @@ elif menu == "🖨️ Rekap Data":
         html_rows += f"<tr><td style='text-align:center;'>{i+1}</td>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>"
     html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.columns)
 
-    # [FORMAT CETAK RESMI] Times New Roman, 12pt, Garis 1pt Black Solid
     html_printable_laporan = f"""
     <!DOCTYPE html>
     <html><head><meta charset='utf-8'><title>Laporan Kartu Stok Obat - Apotek Veteran Blitar</title>
@@ -1853,14 +1854,11 @@ elif menu == "🕒 Sesi Shift":
         try: return f"{float(val):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
         except: return "0,00"
 
-    def render_row_erp(label, val_num=0.0, disabled=True, widget="text", opts=None, val_str="", key_suffix="", masked=False):
+    def render_row_erp(label, val_num=0.0, disabled=True, widget="text", opts=None, val_str="", key_suffix=""):
         c1, c2 = st.columns([3, 7])
         k = f"ts_{key_suffix}_{re.sub(r'[^a-zA-Z0-9]', '_', label)}"
         with c1: st.markdown(f"<div style='text-align: right; padding-top: 8px; font-weight: 600; font-size: 13px; color: #e0e0e0;'>{label}</div>", unsafe_allow_html=True)
         with c2:
-            if masked:
-                st.text_input(label, value="*** (Disembunyikan)", disabled=True, label_visibility="collapsed", key=k)
-                return val_num
             if disabled:
                 if widget == "number":
                     st.text_input(label, value=format_angka_erp(val_num), disabled=True, label_visibility="collapsed", key=k)
@@ -1965,7 +1963,7 @@ elif menu == "🕒 Sesi Shift":
 
                 if st.session_state.step_tutup_shift == 1:
                     st.markdown("### Tutup Shift")
-                    st.info("💡 Langkah 1: Masukkan jumlah total uang tunai yang ada di laci kasir saat ini. Total sistem disembunyikan agar perhitungan fisik akurat.")
+                    st.info("💡 Masukkan total uang tunai aktual yang ada di laci kasir saat ini.")
                     with st.form("form_input_fisik"):
                         saldo_kasir_in = st.number_input("Total Fisik Laci Kasir (Rp)", min_value=0.0, step=1000.0, value=0.0)
                         st.write("")
@@ -1980,28 +1978,20 @@ elif menu == "🕒 Sesi Shift":
                     saldo_kasir_in = st.session_state.input_saldo_kasir
                     selisih_calc = saldo_kasir_in - saldo_akhir_calc
 
-                    blind_mode = False
-                    if st.session_state.role != "Admin":
-                        blind_mode = True
-                        st.info("🔒 Mode Kasir: Nilai ekspektasi sistem disembunyikan (Blind Close). Selisih akan dikalkulasi di latar belakang untuk Admin.")
-                    else:
-                        st.info("💡 Mode Admin: Anda dapat memilih untuk menyembunyikan atau melihat detail sistem saat ini.")
-                        blind_mode = st.checkbox("Sembunyikan Nilai Sistem (Blind Close)", value=False)
-
-                    render_row_erp("Saldo Awal (Modal)", val_num=saldo_awal_context, disabled=True, widget="number", key_suffix="ts_awal", masked=blind_mode)
-                    render_row_erp("Akumulasi Penjualan", val_num=penjualan_sistem, disabled=True, widget="number", key_suffix="ts_jual", masked=blind_mode)
-                    render_row_erp("Ekspektasi Saldo Akhir Sistem", val_num=saldo_akhir_calc, disabled=True, widget="number", key_suffix="ts_akhir", masked=blind_mode)
+                    # Menampilkan seluruh data tanpa menyembunyikannya (Read-Only)
+                    render_row_erp("Saldo Awal (Modal)", val_num=saldo_awal_context, disabled=True, widget="number", key_suffix="ts_awal")
+                    render_row_erp("Akumulasi Penjualan", val_num=penjualan_sistem, disabled=True, widget="number", key_suffix="ts_jual")
+                    render_row_erp("Ekspektasi Saldo Akhir Sistem", val_num=saldo_akhir_calc, disabled=True, widget="number", key_suffix="ts_akhir")
                     
                     st.markdown("<br>", unsafe_allow_html=True)
-                    render_row_erp("Saldo Kasir (Inputan Fisik Anda)", val_num=saldo_kasir_in, disabled=True, widget="number", key_suffix="ts_kasir_lock", masked=False)
+                    render_row_erp("Saldo Kasir (Inputan Fisik Anda)", val_num=saldo_kasir_in, disabled=True, widget="number", key_suffix="ts_kasir_lock")
                     
                     st.markdown("---")
                     
-                    if not blind_mode:
-                        render_row_erp("Selisih (Fisik - Sistem)", val_num=selisih_calc, disabled=True, widget="number", key_suffix="ts_selisih")
-                        if selisih_calc < 0: st.error(f"⚠️ Terdapat selisih Minus: {format_rupiah(selisih_calc)}.")
-                        elif selisih_calc > 0: st.warning(f"⚠️ Terdapat selisih Plus: {format_rupiah(selisih_calc)}.")
-                        else: st.success("✅ Saldo Balance (Sesuai).")
+                    render_row_erp("Selisih (Fisik - Sistem)", val_num=selisih_calc, disabled=True, widget="number", key_suffix="ts_selisih")
+                    if selisih_calc < 0: st.error(f"⚠️ Terdapat selisih Minus: {format_rupiah(selisih_calc)}.")
+                    elif selisih_calc > 0: st.warning(f"⚠️ Terdapat selisih Plus: {format_rupiah(selisih_calc)}.")
+                    else: st.success("✅ Saldo Balance (Sesuai).")
 
                     diserahkan_kepada_opsi = ["Ivonne", "Dian", "Julia"]
                     diserahkan_kepada = render_row_erp("Shift Selanjutnya/Diserahkan Ke", disabled=False, widget="select", opts=diserahkan_kepada_opsi, key_suffix="ts_serah")
