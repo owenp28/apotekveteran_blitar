@@ -25,9 +25,10 @@ except ImportError:
 # Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
 
-# ── SETUP KONEKSI DATABASE & FILE LOKAL ────────────────────────────────────────
+# ── SETUP KONEKSI DATABASE & FILE LOKAL PERMANEN ──────────────────────────────
 SQLITE_DB_PATH = Path(__file__).parent / "apotek_veteran.db"
 UPLOADED_DATASET_PATH = Path(__file__).parent / "dataset_master_terupload.xlsx"
+INFO_FILE_PATH = Path(__file__).parent / "dataset_info.json"
 
 def get_db_engine():
     if HAS_SQLALCHEMY:
@@ -40,7 +41,7 @@ def get_db_engine():
 
 engine = get_db_engine()
 
-# Helper Eksekusi Query Database yang Kompatibel (SQLAlchemy & Native SQLite3)
+# Helper Eksekusi Query Database (SQLAlchemy & Native SQLite3)
 def db_read_table(table_name):
     try:
         if engine is not None:
@@ -281,7 +282,7 @@ def load_inventory_sheet_dataframe(ws):
 def load_inventory_workbook():
     df_all = db_read_table("inventory_master")
     
-    # JIKA DATABASE KOSONG, PERIKSA DAN BACA DARI FILE HASIL UPLOAD TERAKHIR
+    # JIKA DATABASE KOSONG, BACA DARI FILE FISIK HASIL UPLOAD YANG TERKUNCI
     if df_all.empty and UPLOADED_DATASET_PATH.exists():
         try:
             wb = load_workbook(UPLOADED_DATASET_PATH, data_only=True)
@@ -302,7 +303,7 @@ def load_inventory_workbook():
                 db_write_table(combined, "inventory_master")
                 df_all = combined
         except Exception as e:
-            st.error(f"Gagal memuat dataset hasil upload: {e}")
+            st.error(f"Gagal memuat dataset tersimpan: {e}")
 
     if df_all.empty:
         return {}
@@ -621,7 +622,7 @@ if "shift_active" not in st.session_state:
 if "step_tutup_shift" not in st.session_state: st.session_state.step_tutup_shift = 1
 if "input_saldo_kasir" not in st.session_state: st.session_state.input_saldo_kasir = 0.0
 
-# ── Sidebar navigasi ──────────────────────────────────────────────────────────
+# ── SIDEBAR NAVIGASI ──────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/color/96/pharmacy-shop.png", width=80)
 st.sidebar.title("💊 Apotek Veteran Blitar")
 st.sidebar.markdown("---")
@@ -784,25 +785,56 @@ elif menu == "📋 Kelola Stok":
             )
             
         with col_up:
+            file_exists = UPLOADED_DATASET_PATH.exists()
+            file_meta = {}
+            if INFO_FILE_PATH.exists():
+                try:
+                    with open(INFO_FILE_PATH, "r") as f:
+                        file_meta = json.load(f)
+                except Exception:
+                    file_meta = {}
+
             uploaded_inventory = None
-            if not is_db_filled:
+
+            if not file_exists and not is_db_filled:
                 st.info("📥 Database master kosong. Silakan upload file Excel untuk pertama kali.")
                 uploaded_inventory = st.file_uploader("Upload Master Dataset (Excel):", type=["xlsx", "xlsm"], key="upload_inventory_source")
             else:
-                st.success("🔒 Dataset terkunci dan tersimpan otomatis di web. Anda tidak perlu upload ulang, silakan edit via tabel di bawah.")
-                with st.expander("⚙️ Fitur Reset / Update Keseluruhan Dataset"):
-                    st.warning("⚠️ Mengupload file baru di sini akan menimpa seluruh data sebelumnya secara permanen!")
-                    uploaded_inventory = st.file_uploader("Upload file Excel pengganti:", type=["xlsx", "xlsm"], key="upload_inventory_source_reset")
+                nama_file_aktif = file_meta.get("filename", "dataset_master_terupload.xlsx")
+                waktu_upload_aktif = file_meta.get("uploaded_at", "-")
+                
+                st.markdown(
+                    f"""
+                    <div style="background-color: #1f3a5e; border: 1px solid #00b4d8; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px;">
+                        <div style="color: #90e0ef; font-weight: bold; font-size: 14px;">📄 File Dataset Aktif Terkunci:</div>
+                        <div style="color: #ffffff; font-size: 15px; margin-top: 4px;"><b>{nama_file_aktif}</b></div>
+                        <div style="color: #a0a0a0; font-size: 12px;">Waktu Upload: {waktu_upload_aktif}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+                
+                with st.expander("⚙️ Ganti / Upload Ulang File Dataset"):
+                    st.warning("⚠️ Mengupload file baru di sini akan menimpa seluruh dataset sebelumnya secara permanen!")
+                    uploaded_inventory = st.file_uploader("Pilih file Excel pengganti:", type=["xlsx", "xlsm"], key="upload_inventory_source_reset")
 
             if uploaded_inventory is not None:
                 file_id = f"{uploaded_inventory.name}_{uploaded_inventory.size}"
                 if st.session_state.get("last_uploaded_file") != file_id:
                     try:
-                        # 1. Simpan fisik file upload ke storage server lokal
+                        # 1. Simpan fisik file langsung ke disk server
                         with open(UPLOADED_DATASET_PATH, "wb") as f:
                             f.write(uploaded_inventory.getbuffer())
 
-                        # 2. Baca isi file yang tersimpan
+                        # 2. Simpan identitas file ke JSON agar tetap ada saat browser di-refresh
+                        with open(INFO_FILE_PATH, "w") as f:
+                            json.dump({
+                                "filename": uploaded_inventory.name,
+                                "size": uploaded_inventory.size,
+                                "uploaded_at": get_wib_time().strftime("%d %b %Y %H:%M:%S")
+                            }, f)
+
+                        # 3. Parsing data sheet dan simpan ke database
                         wb = load_workbook(UPLOADED_DATASET_PATH, data_only=True)
                         frames = []
                         for sheet in wb.sheetnames:
@@ -823,7 +855,7 @@ elif menu == "📋 Kelola Stok":
                     
                         st.session_state.inventory_data_cache = load_inventory_workbook()
                         st.session_state["last_uploaded_file"] = file_id
-                        st.toast("✅ File berhasil diunggah dan tersimpan permanen di sistem!")
+                        st.toast("✅ File berhasil diunggah dan terkunci abadi!")
                         time.sleep(1)
                         st.rerun()
                     except Exception as e:
@@ -2049,6 +2081,6 @@ elif menu == "🕒 Sesi Shift":
                 st.dataframe(log_df, use_container_width=True, hide_index=True)
                 st.caption("ℹ️ Tips SOP: Laporan ini hanya untuk pengecekan kecocokan uang fisik dan sistem. Pembatalan/Retur harus dilakukan di dalam jam shift yang sama agar laporan tidak terganggu.")
 
-# ── Footer ────────────────────────────────────────────────────────────────────
+# ── FOOTER ────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
 st.sidebar.caption("© Apotek Veteran Blitar")
