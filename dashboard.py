@@ -25,8 +25,9 @@ except ImportError:
 # Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="Apotek Veteran Blitar", layout="wide", page_icon="💊")
 
-# ── SETUP KONEKSI DATABASE (HYBRID: SUPABASE / POSTGRESQL / BUILT-IN SQLITE) ──
+# ── SETUP KONEKSI DATABASE & FILE LOKAL ────────────────────────────────────────
 SQLITE_DB_PATH = Path(__file__).parent / "apotek_veteran.db"
+UPLOADED_DATASET_PATH = Path(__file__).parent / "dataset_master_terupload.xlsx"
 
 def get_db_engine():
     if HAS_SQLALCHEMY:
@@ -104,8 +105,6 @@ def sanitize_excel_value(val):
     return val_str
 
 # ── KONFIGURASI KOLOM STANDAR ─────────────────────────────────────────────────
-DEFAULT_LINK_ONEDRIVE = "https://1drv.ms/x/c/2b91c5c1ac3eaa9f/IQBzkm7nxPNlRI4V4fKaVYERASx-hzJiaBEWDdCFPu79k3w?e=V5jQMP"
-
 INVENTORY_SHEETS = ["PCS", "SACHET", "BOTOL", "TAB", "BOX", "STRIP"]
 INVENTORY_COLUMNS = [
     "Worksheet", "Nama produk", "Satuan", "Tanggal", "Nomor Faktur", "Nomor Batch", 
@@ -281,8 +280,33 @@ def load_inventory_sheet_dataframe(ws):
 
 def load_inventory_workbook():
     df_all = db_read_table("inventory_master")
+    
+    # JIKA DATABASE KOSONG, PERIKSA DAN BACA DARI FILE HASIL UPLOAD TERAKHIR
+    if df_all.empty and UPLOADED_DATASET_PATH.exists():
+        try:
+            wb = load_workbook(UPLOADED_DATASET_PATH, data_only=True)
+            frames = []
+            for sheet in wb.sheetnames:
+                ws = wb[sheet]
+                df_sheet = load_inventory_sheet_dataframe(ws)
+                if df_sheet.empty or df_sheet["Nama produk"].isnull().all():
+                    continue
+                df_sheet = prepare_sheet_for_editor(df_sheet)
+                df_sheet["Worksheet"] = sheet
+                frames.append(df_sheet)
+            if frames:
+                combined = pd.concat(frames, ignore_index=True)
+                combined = combined.dropna(subset=["Nama produk"], how="all")
+                for col in combined.columns:
+                    combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
+                db_write_table(combined, "inventory_master")
+                df_all = combined
+        except Exception as e:
+            st.error(f"Gagal memuat dataset hasil upload: {e}")
+
     if df_all.empty:
         return {}
+        
     workbook_data = {}
     if "Worksheet" not in df_all.columns: df_all["Worksheet"] = "TAB"
     for sheet in df_all["Worksheet"].unique():
@@ -328,7 +352,7 @@ def get_available_sheets():
     if cache: return list(cache.keys())
     return INVENTORY_SHEETS
 
-# ── LOGIKA BACKEND PROSES OPNAME ──
+# ── LOGIKA PROSES OPNAME ──
 def do_opname_processing(edited_opname_df):
     workbook_data = st.session_state.inventory_data_cache
     df_history = load_data()
@@ -570,7 +594,6 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ── INIT SESSION STATE UMUM ──
-if "inventory_source_url" not in st.session_state: st.session_state.inventory_source_url = DEFAULT_LINK_ONEDRIVE
 if "retur_form_data" not in st.session_state: st.session_state.retur_form_data = {}
 if "retur_items" not in st.session_state:
     st.session_state.retur_items = pd.DataFrame(columns=["Nama produk", "Satuan", "Nomor Batch", "Tanggal Kadaluwarsa", "Stok Sisa", "Jumlah Retur", "Harga 1", "Keterangan"])
@@ -730,7 +753,7 @@ if menu == "🏠 Dashboard":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# KELOLA STOK (DATABASE & BACKUP)
+# KELOLA STOK
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📋 Kelola Stok":
     st.title("📋 Kelola Stok")
@@ -763,59 +786,48 @@ elif menu == "📋 Kelola Stok":
         with col_up:
             uploaded_inventory = None
             if not is_db_filled:
-                st.info("📥 Database master kosong. Silakan upload file Excel/CSV untuk inisialisasi pertama kali.")
-                uploaded_inventory = st.file_uploader("Upload Master Dataset (Excel/CSV):", type=["xlsx", "xlsm", "csv"], key="upload_inventory_source")
+                st.info("📥 Database master kosong. Silakan upload file Excel untuk pertama kali.")
+                uploaded_inventory = st.file_uploader("Upload Master Dataset (Excel):", type=["xlsx", "xlsm"], key="upload_inventory_source")
             else:
                 st.success("🔒 Dataset terkunci dan tersimpan otomatis di web. Anda tidak perlu upload ulang, silakan edit via tabel di bawah.")
                 with st.expander("⚙️ Fitur Reset / Update Keseluruhan Dataset"):
                     st.warning("⚠️ Mengupload file baru di sini akan menimpa seluruh data sebelumnya secara permanen!")
-                    uploaded_inventory = st.file_uploader("Upload file Excel/CSV pengganti:", type=["xlsx", "xlsm", "csv"], key="upload_inventory_source_reset")
+                    uploaded_inventory = st.file_uploader("Upload file Excel pengganti:", type=["xlsx", "xlsm"], key="upload_inventory_source_reset")
 
             if uploaded_inventory is not None:
                 file_id = f"{uploaded_inventory.name}_{uploaded_inventory.size}"
                 if st.session_state.get("last_uploaded_file") != file_id:
                     try:
-                        filename_lower = uploaded_inventory.name.lower()
-                        if filename_lower.endswith(".csv"):
-                            uploaded_inventory.seek(0)
-                            try:
-                                df = pd.read_csv(uploaded_inventory, sep=None, engine='python')
-                            except Exception:
-                                uploaded_inventory.seek(0)
-                                df = pd.read_csv(uploaded_inventory, sep=';')
-                                
-                            if "Worksheet" not in df.columns: df["Worksheet"] = "TAB"
+                        # 1. Simpan fisik file upload ke storage server lokal
+                        with open(UPLOADED_DATASET_PATH, "wb") as f:
+                            f.write(uploaded_inventory.getbuffer())
+
+                        # 2. Baca isi file yang tersimpan
+                        wb = load_workbook(UPLOADED_DATASET_PATH, data_only=True)
+                        frames = []
+                        for sheet in wb.sheetnames:
+                            ws = wb[sheet]
+                            df_sheet = load_inventory_sheet_dataframe(ws)
+                            if df_sheet.empty or df_sheet["Nama produk"].isnull().all():
+                                continue
+                            df_sheet = prepare_sheet_for_editor(df_sheet)
+                            df_sheet["Worksheet"] = sheet
+                            frames.append(df_sheet)
                             
-                            df = prepare_sheet_for_editor(df)
-                            for col in df.columns:
-                                df[col] = df[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
-                            db_write_table(df, "inventory_master")
-                        else:
-                            wb = load_workbook(io.BytesIO(uploaded_inventory.getvalue()), data_only=True)
-                            frames = []
-                            for sheet in wb.sheetnames:
-                                ws = wb[sheet]
-                                df_sheet = load_inventory_sheet_dataframe(ws)
-                                if df_sheet.empty or df_sheet["Nama produk"].isnull().all():
-                                    continue
-                                df_sheet = prepare_sheet_for_editor(df_sheet)
-                                df_sheet["Worksheet"] = sheet
-                                frames.append(df_sheet)
-                                
-                            if frames:
-                                combined = pd.concat(frames, ignore_index=True)
-                                combined = combined.dropna(subset=["Nama produk"], how="all")
-                                for col in combined.columns:
-                                    combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
-                                db_write_table(combined, "inventory_master")
-                        
+                        if frames:
+                            combined = pd.concat(frames, ignore_index=True)
+                            combined = combined.dropna(subset=["Nama produk"], how="all")
+                            for col in combined.columns:
+                                combined[col] = combined[col].apply(lambda v: str(v) if isinstance(v, (list, tuple, dict, set)) else v)
+                            db_write_table(combined, "inventory_master")
+                    
                         st.session_state.inventory_data_cache = load_inventory_workbook()
                         st.session_state["last_uploaded_file"] = file_id
-                        st.toast("✅ Data berhasil dimasukkan permanen ke Database!")
+                        st.toast("✅ File berhasil diunggah dan tersimpan permanen di sistem!")
                         time.sleep(1)
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Gagal memproses file ke Database: {e}")
+                        st.error(f"Gagal memproses file upload: {e}")
 
     AVAILABLE_SHEETS = get_available_sheets()
 
@@ -958,7 +970,7 @@ elif menu == "📋 Kelola Stok":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FITUR REKAP DATA (DATABASE + AUTO CLEANER)
+# REKAP DATA
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🖨️ Rekap Data":
     st.title("🖨️ Rekap Data")
@@ -1190,7 +1202,7 @@ elif menu == "🛒 Kasir Utama":
         st.stop()
 
     if "inventory_data_cache" not in st.session_state or not st.session_state.inventory_data_cache:
-        st.warning("Dataset Excel belum tersedia. Silakan upload terlebih dahulu di menu **📋 Kelola Stok**.")
+        st.warning("Dataset belum tersedia. Silakan upload terlebih dahulu di menu **📋 Kelola Stok**.")
         st.stop()
         
     all_items_df = build_inventory_print_dataframe()
@@ -1978,7 +1990,6 @@ elif menu == "🕒 Sesi Shift":
                     saldo_kasir_in = st.session_state.input_saldo_kasir
                     selisih_calc = saldo_kasir_in - saldo_akhir_calc
 
-                    # Menampilkan seluruh data tanpa menyembunyikannya (Read-Only)
                     render_row_erp("Saldo Awal (Modal)", val_num=saldo_awal_context, disabled=True, widget="number", key_suffix="ts_awal")
                     render_row_erp("Akumulasi Penjualan", val_num=penjualan_sistem, disabled=True, widget="number", key_suffix="ts_jual")
                     render_row_erp("Ekspektasi Saldo Akhir Sistem", val_num=saldo_akhir_calc, disabled=True, widget="number", key_suffix="ts_akhir")
