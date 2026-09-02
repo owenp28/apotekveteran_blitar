@@ -86,7 +86,6 @@ st.markdown(
     .stDataFrame td { color: #e0e0e0; font-size: 13px; padding: 8px; }
     .stDataFrame tr:hover { background: #1f3a5e; }
     .filter-label { font-size: 12px; font-weight: bold; color: #a0a0a0; margin-bottom: 4px; display: block; }
-    .lock-badge { background-color: #2b2d42; border: 1px solid #8d99ae; color: #edf2f4; padding: 8px 14px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
     </style>
     """,
     unsafe_allow_html=True
@@ -283,7 +282,7 @@ def load_inventory_sheet_dataframe(ws):
 def load_inventory_workbook():
     df_all = db_read_table("inventory_master")
     
-    # BACA DARI FILE HASIL UPLOAD SECARA MANDIRI
+    # BACA DARI FILE HASIL UPLOAD
     if df_all.empty and UPLOADED_DATASET_PATH.exists():
         try:
             wb = load_workbook(UPLOADED_DATASET_PATH, data_only=True)
@@ -1000,7 +999,7 @@ elif menu == "📋 Kelola Stok":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# REKAP DATA (DILENGKAPI SISTEM LOCK HARI SEBELUMNYA)
+# REKAP DATA
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🖨️ Rekap Data":
     st.title("🖨️ Rekap Data Transaksi & Kartu Stok")
@@ -1014,25 +1013,12 @@ elif menu == "🖨️ Rekap Data":
             save_data(df_history)
 
     if df_history is None or df_history.empty:
-        st.warning("Belum ada data riwayat transaksi. Seluruh transaksi kasir, retur, atau pembelian obat akan terkunci otomatis di sini.")
+        st.warning("Belum ada data riwayat transaksi. Seluruh transaksi kasir, retur, atau pembelian obat akan tersimpan di sini.")
         st.stop()
 
     df_history["Tanggal"] = pd.to_datetime(df_history["Tanggal"], errors="coerce")
     if "Tanggal Kadaluarsa" in df_history.columns:
         df_history["Tanggal Kadaluarsa"] = pd.to_datetime(df_history["Tanggal Kadaluarsa"], errors="coerce")
-
-    # Fitur Status Kunci: Membedakan Data Hari Ini vs Hari Sebelumnya
-    today_date = get_wib_time().date()
-    df_history["Status Kunci"] = df_history["Tanggal"].dt.date.apply(lambda d: "🔓 Hari Ini (Aktif)" if d == today_date else "🔒 Terkunci Permanen (Arsip)")
-
-    st.markdown(
-        """
-        <div class='lock-badge'>
-            <span>🔒 <b>Sistem Proteksi Aktif:</b> Seluruh transaksi dari hari sebelumnya telah <b>dikunci secara permanen</b> (Read-Only). Data tidak akan hilang saat keluar-masuk web maupun di-refresh.</span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
     all_items_df = build_inventory_print_dataframe()
     obat_excel_list = []
@@ -1044,8 +1030,10 @@ elif menu == "🖨️ Rekap Data":
     satuan_list = sorted([str(x).strip() for x in df_history["Satuan"].dropna().unique() if str(x).strip()])
     pilihan_satuan = ["SEMUA SATUAN"] + satuan_list
 
+    today_date = get_wib_time().date()
+
     with st.container():
-        st.markdown("<div class='filter-label'>Pilihan Periode & Status</div>", unsafe_allow_html=True)
+        st.markdown("<div class='filter-label'>Pilihan Periode</div>", unsafe_allow_html=True)
         c1, c2, c3, c4 = st.columns([2.5, 2, 2, 3.5])
         with c1:
             periode_opt = st.selectbox("Pilih Periode", ["Semua Waktu", "Hari Ini Saja", "Berdasarkan Rentang Tanggal", "Berdasarkan Bulan", "Berdasarkan Tahun"], label_visibility="collapsed")
@@ -1103,7 +1091,7 @@ elif menu == "🖨️ Rekap Data":
     preview_df = df_print.copy()
     
     preview_df = preview_df[[
-        "Status Kunci", "Tanggal", "Nomor Faktur", "Nama Obat", "Keterangan", "Stok Masuk", "Stok Keluar", 
+        "Tanggal", "Nomor Faktur", "Nama Obat", "Keterangan", "Stok Masuk", "Stok Keluar", 
         "Stok Akhir", "Satuan", "Nomor Batch", "Tanggal Kadaluarsa", "Petugas"
     ]]
     
@@ -1128,9 +1116,9 @@ elif menu == "🖨️ Rekap Data":
         st.button("🔍 Terapkan Filter", type="primary", use_container_width=True)
         
     html_rows = ""
-    for i, row in enumerate(preview_df.drop(columns=["Status Kunci"]).values):
+    for i, row in enumerate(preview_df.values):
         html_rows += f"<tr><td style='text-align:center;'>{i+1}</td>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>"
-    html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.drop(columns=["Status Kunci"]).columns)
+    html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.columns)
 
     html_printable_laporan = f"""
     <!DOCTYPE html>
@@ -1211,700 +1199,7 @@ elif menu == "🖨️ Rekap Data":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# KASIR UTAMA
-# ══════════════════════════════════════════════════════════════════════════════
-elif menu == "🛒 Kasir Utama":
-    
-    st.title("🛒 Kasir Utama")
-    
-    if not st.session_state.shift_active:
-        st.error("⚠️ Anda belum membuka shift! Buka shift terlebih dahulu agar transaksi kasir dapat direkap.")
-        if st.button("🕒 Menuju Halaman Buka Shift", type="primary"):
-            st.session_state.target_menu = "🕒 Sesi Shift"
-            st.rerun()
-        st.stop()
-
-    start_time_str = st.session_state.active_shift_context.get("start_time")
-    if start_time_str:
-        start_date = start_time_str.split(" ")[0]
-        if start_date != get_wib_time().date().strftime("%Y-%m-%d"):
-            st.error("⚠️ Terdapat shift dari hari sebelumnya yang belum ditutup. Tutup shift hari sebelumnya di menu 'Sesi Shift' terlebih dahulu sebelum memulai transaksi hari ini!")
-            if st.button("Pindah ke Menu Sesi Shift", type="primary"):
-                st.session_state.target_menu = "🕒 Sesi Shift"
-                st.rerun()
-            st.stop()
-
-    active_ctx = st.session_state.active_shift_context
-    valid_users = [active_ctx.get("user_name", "")] + active_ctx.get("joined_users", [])
-    valid_users = [u for u in valid_users if u]
-    
-    current_kasir_name = USERS.get(st.session_state.username, {}).get("name", "Unknown")
-    
-    if current_kasir_name not in valid_users and st.session_state.role != "Admin": 
-        st.warning(f"⚠️ Saudara/i {current_kasir_name}, Anda belum tergabung dalam daftar Shift aktif ini. Masuk ke menu 'Sesi Shift' lalu klik 'Gabung Shift Ini'.")
-        if st.button("Pindah ke Menu Sesi Shift", type="primary"):
-            st.session_state.target_menu = "🕒 Sesi Shift"
-            st.rerun()
-        st.stop()
-
-    if "inventory_data_cache" not in st.session_state or not st.session_state.inventory_data_cache:
-        st.warning("Dataset belum tersedia. Silakan upload terlebih dahulu di menu **📋 Kelola Stok**.")
-        st.stop()
-        
-    all_items_df = build_inventory_print_dataframe()
-    if all_items_df is None or all_items_df.empty:
-        st.warning("Data stok kosong.")
-        st.stop()
-
-    if "cart" not in st.session_state: st.session_state.cart = []
-    if "checkout_mode" not in st.session_state: st.session_state.checkout_mode = False
-    if "bayar_tunai" not in st.session_state: st.session_state.bayar_tunai = 0
-    if "nota_confirmed" not in st.session_state: st.session_state.nota_confirmed = False
-
-    col_input, col_nota = st.columns([1, 1])
-
-    with col_input:
-        st.subheader("🛒 Input Penjualan")
-        
-        pilihan_kasir = valid_users if valid_users else [current_kasir_name]
-        if current_kasir_name in pilihan_kasir:
-            default_kasir_idx = pilihan_kasir.index(current_kasir_name)
-        else:
-            default_kasir_idx = 0
-            
-        kasir_aktif = st.selectbox("👩‍💻 Pilih Kasir yang Bertugas:", pilihan_kasir, index=default_kasir_idx)
-        kasir_nama_nota = kasir_aktif
-        
-        st.caption("Penjualan memotong stok secara real-time dan langsung masuk ke sistem permanen.")
-
-        available_items = all_items_df[all_items_df["Stok Sisa"].fillna(0) > 0].copy()
-        if available_items.empty:
-            st.info("Tidak ada obat dengan stok tersedia (>0).")
-        else:
-            available_items["Label"] = available_items.apply(
-                lambda x: f"{str(x['Nama produk']).strip()} | {str(x['Satuan']).strip() if pd.notna(x['Satuan']) and str(x['Satuan']).strip() != '' else str(x['Worksheet']).strip()} | Stok: {int(x['Stok Sisa'])}",
-                axis=1
-            )
-
-            if not st.session_state.checkout_mode:
-                selected_label = st.selectbox("Pilih Obat (Bisa diketik untuk mencari)", available_items["Label"].unique().tolist(), key="kasir_pilih_obat")
-                selected_row_display = available_items[available_items["Label"] == selected_label].iloc[0]
-                satuan_display = str(selected_row_display["Satuan"]).strip() if pd.notna(selected_row_display["Satuan"]) and str(selected_row_display["Satuan"]).strip() != "" else str(selected_row_display["Worksheet"]).strip()
-
-                with st.form("form_kasir"):
-                    col_su, col_sh = st.columns(2)
-                    with col_su: st.text_input("Satuan Jual", value=satuan_display, disabled=True)
-                    with col_sh: skema_harga = st.selectbox("Skema Harga", ["Harga 1", "Harga 2"])
-
-                    jumlah = st.number_input("Jumlah", min_value=1, value=1)
-                    add_to_cart = st.form_submit_button("➕ Tambah ke Nota")
-
-                    if add_to_cart:
-                        selected_row = available_items[available_items["Label"] == selected_label].iloc[0]
-                        nama_obat = selected_row["Nama produk"]
-                        ws_target = selected_row["Worksheet"]
-                        batch_target = selected_row["Nomor Batch"]
-                        satuan_jual = satuan_display
-                        
-                        harga_per_satuan = float(selected_row["Harga 1"]) if skema_harga == "Harga 1" else float(selected_row["Harga 2"])
-                        if pd.isna(harga_per_satuan): harga_per_satuan = 0.0
-                        
-                        subtotal = harga_per_satuan * jumlah
-                        stok_tersedia = float(selected_row["Stok Sisa"])
-
-                        if jumlah > stok_tersedia:
-                            st.error(f"❌ Stok tidak cukup! Tersedia {stok_tersedia:.0f}, dibutuhkan {jumlah:.0f}.")
-                        else:
-                            st.session_state.cart.append({
-                                "nama": nama_obat, "worksheet": ws_target, "batch": batch_target,
-                                "satuan_jual": satuan_jual, "qty": jumlah, "skema_harga": skema_harga,
-                                "harga_per_satuan": harga_per_satuan, "subtotal": subtotal, "tgl_exp": selected_row["Tanggal Kadaluwarsa"]
-                            })
-                            st.toast(f"✅ {nama_obat} ({jumlah} {satuan_jual}) ditambah ke nota!")
-
-                if st.session_state.cart:
-                    st.markdown("---")
-                    st.markdown("#### 🛒 Rincian Keranjang")
-                    for i, item in enumerate(st.session_state.cart):
-                        c1, c2, c3, c4 = st.columns([4, 2, 2, 2])
-                        c1.write(f"**{item['nama']}**")
-                        c2.write(f"x{item['qty']} {item['satuan_jual']}")
-                        c3.write(format_rupiah(item['subtotal']))
-                        with c4:
-                            col_min, col_del = st.columns(2)
-                            with col_min:
-                                if st.button("➖", key=f"min_{i}", help="Kurangi 1"):
-                                    if st.session_state.cart[i]["qty"] > 1:
-                                        st.session_state.cart[i]["qty"] -= 1
-                                        st.session_state.cart[i]["subtotal"] = st.session_state.cart[i]["harga_per_satuan"] * st.session_state.cart[i]["qty"]
-                                    else: st.session_state.cart.pop(i)
-                                    st.rerun()
-                            with col_del:
-                                if st.button("🗑️", key=f"del_{i}", help="Hapus item"):
-                                    st.session_state.cart.pop(i)
-                                    st.rerun()
-                    st.markdown("")
-                    if st.button("✅ Lanjut ke Pembayaran", type="primary", use_container_width=True):
-                        st.session_state.checkout_mode = True
-                        st.rerun()
-            else:
-                if not st.session_state.nota_confirmed:
-                    st.info(f"🛒 **{len(st.session_state.cart)} item** dalam keranjang. Silakan masukkan nominal bayar.")
-                    bayar_input = st.number_input("Nominal Bayar Uang Fisik (Rp)", min_value=0, step=500, value=st.session_state.bayar_tunai)
-                    st.session_state.bayar_tunai = bayar_input
-
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    col_teliti, col_submit = st.columns(2)
-                    with col_teliti:
-                        if st.button("🔍 Teliti Kembali Keranjang", type="secondary", use_container_width=True):
-                            st.session_state.checkout_mode = False
-                            st.session_state.nota_confirmed = False
-                            st.rerun()
-                    with col_submit:
-                        if st.button("✅ Konfirmasi Pembayaran", type="primary", use_container_width=True):
-                            if st.session_state.bayar_tunai <= 0: st.error("Nominal bayar harus diisi!")
-                            else:
-                                workbook_data = st.session_state.inventory_data_cache
-                                df_history = load_data()
-                                new_history_rows = []
-                                total_belanja_confirm = 0.0
-                                
-                                invoice_no = f"INV-{get_wib_time().strftime('%y%m%d%H%M%S')}"
-
-                                for item in st.session_state.cart:
-                                    ws_target = item["worksheet"]
-                                    if ws_target in workbook_data:
-                                        sheet_df = prepare_sheet_for_editor(workbook_data[ws_target].copy())
-                                        mask = ((sheet_df["Nama produk"].fillna("").astype(str) == str(item["nama"])) & (sheet_df["Nomor Batch"].fillna("").astype(str) == str(item["batch"])))
-                                        if mask.any():
-                                            idx = sheet_df[mask].index[-1]
-                                            sisa_lama = float(sheet_df.loc[idx, "Stok Sisa"]) if pd.notna(sheet_df.loc[idx, "Stok Sisa"]) else 0.0
-                                            keluar_lama = float(sheet_df.loc[idx, "Stok Keluar"]) if pd.notna(sheet_df.loc[idx, "Stok Keluar"]) else 0.0
-                                            sisa_baru = max(sisa_lama - item["qty"], 0)
-                                            keluar_baru = keluar_lama + item["qty"]
-                                            sheet_df.loc[idx, "Stok Sisa"] = sisa_baru
-                                            sheet_df.loc[idx, "Stok Keluar"] = keluar_baru
-                                            workbook_data[ws_target] = sheet_df
-
-                                    total_belanja_confirm += item["subtotal"]
-                                    
-                                    new_history_rows.append({
-                                        "Tanggal": get_wib_time().strftime("%Y-%m-%d %H:%M:%S"),
-                                        "Nomor Faktur": invoice_no,
-                                        "Nama Obat": item["nama"], 
-                                        "Kategori": ws_target, 
-                                        "Satuan": item["satuan_jual"], 
-                                        "Nomor Batch": item["batch"],
-                                        "Stok Masuk": 0, "Stok Keluar": item["qty"], "Stok Akhir": sisa_baru if 'sisa_baru' in locals() else 0,
-                                        "Harga Satuan (Rp)": item["harga_per_satuan"], "Total Nilai (Rp)": item["subtotal"],
-                                        "Tanggal Kadaluarsa": pd.Timestamp(item["tgl_exp"]) if pd.notna(item["tgl_exp"]) else pd.NaT,
-                                        "Keterangan": f"Penjualan dengan No Faktur {invoice_no}",
-                                        "Petugas": kasir_nama_nota
-                                    })
-
-                                if new_history_rows:
-                                    df_history = pd.concat([df_history, pd.DataFrame(new_history_rows)], ignore_index=True)
-                                    save_data(df_history)
-
-                                st.session_state.inventory_data_cache = workbook_data
-                                save_inventory_workbook(workbook_data)
-
-                                if st.session_state.shift_active:
-                                    st.session_state.active_shift_context["accumulated_sales_expected"] += total_belanja_confirm
-                                    save_active_shift({"shift_active": True, **st.session_state.active_shift_context})
-
-                                st.session_state.nota_confirmed = True
-                                st.rerun()
-                else:
-                    st.success("✅ Pembayaran sudah dikonfirmasi dan stok sudah diperbarui. Silakan cetak/unduh struk di panel kanan.")
-                    
-                    col_trx1, col_trx2 = st.columns([1, 1])
-                    with col_trx1:
-                        if st.button("🆕 Transaksi Baru", type="primary", use_container_width=True):
-                            st.session_state.cart = []
-                            st.session_state.checkout_mode = False
-                            st.session_state.bayar_tunai = 0
-                            st.session_state.nota_confirmed = False
-                            st.rerun()
-                    with col_trx2:
-                        if st.button("🛑 Tutup Shift", type="secondary", use_container_width=True):
-                            st.session_state.cart = []
-                            st.session_state.checkout_mode = False
-                            st.session_state.bayar_tunai = 0
-                            st.session_state.nota_confirmed = False
-                            st.session_state.target_menu = "🕒 Sesi Shift"
-                            st.rerun()
-
-    with col_nota:
-        st.subheader("📄 Preview Nota")
-
-        if st.session_state.cart:
-            total_belanja = sum(item["subtotal"] for item in st.session_state.cart)
-            bayar_tunai = st.session_state.bayar_tunai if st.session_state.nota_confirmed else 0
-            kembali = bayar_tunai - total_belanja
-            tgl_today = get_wib_time().strftime("%d/%m/%Y")
-            
-            kasir_mapping = {"Ivonne": "A1", "Dian": "K1", "Julia": "K2"}
-            nama_raw = kasir_nama_nota if 'kasir_nama_nota' in locals() else st.session_state.active_shift_context.get("user_name", "")
-            kasir_nama_nota_html = kasir_mapping.get(nama_raw, nama_raw)
-
-            def format_angka(val):
-                try: return f"{int(val):,}".replace(",", ".")
-                except: return str(val)
-
-            items_html = ""
-            for item in st.session_state.cart:
-                items_html += f"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'><span style='flex: 2; text-align: left;'>{item['qty']} {item['nama']}</span><span style='flex: 1; text-align: center;'>{format_angka(item['harga_per_satuan'])}</span><span style='flex: 1; text-align: right;'>{format_angka(item['subtotal'])}</span></div>"
-
-            nota_html = f"""
-<!DOCTYPE html><html><head><style>body {{ margin: 0; padding: 5px; background-color: transparent; }} * {{ box-sizing: border-box; }}</style></head>
-<body><div style="font-family: 'Courier New', Courier, monospace; font-size: 11px; border: 1px solid #e0e0e0; padding: 10px; border-radius: 6px; max-width: 280px; margin: 0 auto; background-color: #f8f9fa; color: #333; box-shadow: 0px 2px 6px rgba(0,0,0,0.08);">
-    <div style="text-align: center; border-bottom: 1px dashed #666; padding-bottom: 8px; margin-bottom: 8px; line-height: 1.3;">
-        <b style="font-size: 13px; color: #222;">APOTEK VETERAN SEHAT BLITAR</b><br>Jl. Veteran no 64B Blitar Kota<br>(Sebelah Gang Srigading)<br>Blitar 66111<br><b>081331808585</b><br>Harga Sudah Termasuk PPN</div>
-    <div style="margin-bottom: 8px; font-size: 10px; color: #555; text-align: left; word-break: break-word;">{tgl_today} <span id="clock_kasir_realtime"></span> {kasir_nama_nota_html}</div>
-    <div style="border-bottom: 1px dashed #666; margin-bottom: 8px;"></div>
-    <div style="font-size: 11px; word-break: break-word;">{items_html}</div>
-    <div style="border-top: 1px dashed #666; margin-top: 8px; padding-top: 8px; font-size: 11px;">
-        <div style='display: flex; justify-content: space-between; margin-bottom: 3px;'><b style="font-size: 12px; color: #222;">Total</b> <b style="font-size: 12px; color: #e94560;">{format_angka(total_belanja)}</b></div>
-        <div style='display: flex; justify-content: space-between; margin-bottom: 3px; color: #444;'>Bayar <span>{format_angka(bayar_tunai)}</span></div>
-        <div style='display: flex; justify-content: space-between; color: #444;'>Kembali <span>{format_angka(max(0, kembali))}</span></div>
-    </div>
-    <div style="text-align: center; margin-top: 12px; font-size: 9.5px; color: #777; line-height: 1.3;">- Terimakasih Semoga Lekas Sembuh -</div>
-</div>
-<script>
-function updateClock() {{
-    var d = new Date(); 
-    var h = String(d.getHours()).padStart(2, '0'); var m = String(d.getMinutes()).padStart(2, '0'); var s = String(d.getSeconds()).padStart(2, '0');
-    var el = document.getElementById('clock_kasir_realtime'); if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
-}} setInterval(updateClock, 1000); updateClock();
-</script></body></html>
-"""
-            components.html(nota_html, height=450, scrolling=True)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            html_printable_nota = f"""
-<!DOCTYPE html>
-<html>
-<head>
-<title>Cetak Struk Nota - Apotek Veteran Blitar</title>
-<style>
-    @page {{ size: 80mm auto; margin: 0mm; }}
-    * {{ box-sizing: border-box; }}
-    body {{ font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.3; margin: 0; padding: 4mm; color: #000; background: #fff; }}
-    .print-container {{ width: 100%; max-width: 72mm; margin: 0 auto; }}
-    .text-center {{ text-align: center; }}
-    .header-title {{ font-size: 13px; font-weight: bold; }}
-    .border-dash {{ border-bottom: 1px dashed #000; margin: 6px 0; }}
-    .flex-between {{ display: flex; justify-content: space-between; margin-bottom: 2px; }}
-    .info-meta {{ font-size: 10px; word-break: break-word; }}
-    .items-wrapper {{ font-size: 11px; word-break: break-word; }}
-    .footer-text {{ font-size: 9.5px; line-height: 1.3; }}
-    .btn-container {{ text-align: center; margin-top: 15px; }}
-    @media print {{ body {{ padding: 2mm; }} .btn-container {{ display: none !important; }} }}
-</style>
-</head>
-<body>
-<div class="print-container">
-    <div class="text-center">
-        <span class="header-title">APOTEK VETERAN SEHAT BLITAR</span><br>
-        Jl. Veteran no 64B Blitar Kota<br>(Sebelah Gang Srigading)<br>081331808585<br>Harga Sudah Termasuk PPN<br>
-    </div>
-    <div class="border-dash"></div>
-    <div class="info-meta">{tgl_today} <span id="clock_print_realtime"></span> {kasir_nama_nota_html}</div>
-    <div class="border-dash"></div>
-    <div class="items-wrapper">{items_html}</div>
-    <div class="border-dash"></div>
-    <div class="flex-between"><b>Total</b> <b>{format_rupiah(total_belanja)}</b></div>
-    <div class="flex-between">Bayar <span>{format_rupiah(bayar_tunai)}</span></div>
-    <div class="flex-between">Kembali <span>{format_rupiah(max(0, kembali))}</span></div>
-    <div class="border-dash"></div>
-    <div class="text-center footer-text">- Terimakasih Semoga Lekas Sembuh -</div>
-</div>
-<script>
-function updatePrintClock() {{
-    var d = new Date(); var h = String(d.getHours()).padStart(2, '0'); var m = String(d.getMinutes()).padStart(2, '0'); var s = String(d.getSeconds()).padStart(2, '0');
-    var el = document.getElementById('clock_print_realtime'); if (el) {{ el.innerHTML = h + ":" + m + ":" + s; }}
-}} setInterval(updatePrintClock, 1000); updatePrintClock();
-</script></body></html>
-"""
-            
-            b64_html = base64.b64encode(html_printable_nota.encode("utf-8")).decode("utf-8")
-            custom_print_button = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <style>
-                body {{ margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: transparent; }}
-                .btn {{ display: flex; align-items: center; justify-content: center; width: 100%; height: 40px; background-color: #ff4b4b; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.3s; }}
-                .btn:hover {{ background-color: #ff3333; }}
-            </style>
-            </head>
-            <body>
-                <button class="btn" onclick="printReceipt()">🖨️ Cetak & Print Nota</button>
-                <script>
-                function printReceipt() {{
-                    const b64 = "{b64_html}";
-                    const binStr = atob(b64);
-                    const len = binStr.length;
-                    const bytes = new Uint8Array(len);
-                    for (let i = 0; i < len; i++) {{ bytes[i] = binStr.charCodeAt(i); }}
-                    const htmlContent = new TextDecoder('utf-8').decode(bytes);
-                    const printWin = window.open('', '_blank', 'width=400,height=600');
-                    printWin.document.open(); printWin.document.write(htmlContent); printWin.document.close();
-                    setTimeout(function() {{ printWin.focus(); printWin.print(); }}, 500);
-                }}
-                </script>
-            </body>
-            </html>
-            """
-            components.html(custom_print_button, height=45)
-
-            if not st.session_state.nota_confirmed:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("🗑️ Batalkan & Kosongkan", type="secondary", use_container_width=True):
-                    st.session_state.cart = []; st.session_state.checkout_mode = False; st.session_state.bayar_tunai = 0; st.session_state.nota_confirmed = False; st.rerun()
-        else:
-            st.info("Keranjang masih kosong. Tambahkan obat dari form di sebelah kiri.")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# RETUR & ENTRY PEMBELIAN (LOCKED HISTORY)
-# ══════════════════════════════════════════════════════════════════════════════
-elif menu == "📦 Retur & Entry Pembelian":
-    st.title("📦 Retur & Entry Pembelian")
-    st.caption("Kelola pengembalian obat dan pencatatan restok (pembelian) secara langsung ke sistem.")
-
-    def get_dataset_options(df_current=None):
-        df_inv = build_inventory_print_dataframe()
-        prods, sats, batches = [], [], []
-        if df_inv is not None and not df_inv.empty:
-            prods = [str(x).strip() for x in df_inv["Nama produk"].dropna().unique() if str(x).strip()]
-            sats = [str(x).strip() for x in df_inv["Satuan"].dropna().unique() if str(x).strip()]
-            batches = [str(x).strip() for x in df_inv["Nomor Batch"].dropna().unique() if str(x).strip()]
-        if df_current is not None and not df_current.empty:
-            if "Nama produk" in df_current.columns: prods += [str(x).strip() for x in df_current["Nama produk"].dropna().unique() if str(x).strip()]
-            if "Satuan" in df_current.columns: sats += [str(x).strip() for x in df_current["Satuan"].dropna().unique() if str(x).strip()]
-            if "Nomor Batch" in df_current.columns: batches += [str(x).strip() for x in df_current["Nomor Batch"].dropna().unique() if str(x).strip()]
-        return sorted(list(set(prods))), sorted(list(set(sats))), sorted(list(set(batches)))
-
-    tab_retur, tab_entri = st.tabs(["🏥 Retur Pembelian", "🛍️ Entry Pembelian"])
-
-    with tab_retur:
-        st.markdown("<div class='app-header'><div class='app-title'>🏥 Retur Pembelian Obat</div><div class='app-subtitle'>Pilih produk dari worksheet yang sudah diupload, lalu buat retur sesuai stok real-time.</div></div>", unsafe_allow_html=True)
-
-        if "inventory_data_cache" not in st.session_state or not st.session_state.inventory_data_cache:
-            st.warning("Dataset belum tersedia. Silakan upload dataset terlebih dahulu di menu **📋 Kelola Stok**.")
-            st.stop()
-
-        workbook_data = st.session_state.inventory_data_cache
-        AVAILABLE_SHEETS = get_available_sheets()
-        sheet_name = st.selectbox("Pilih Worksheet", AVAILABLE_SHEETS, index=0, key="retur_selected_sheet")
-        if sheet_name not in workbook_data: st.stop()
-
-        sheet_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy()).sort_values(["Nama produk", "Nomor Batch"], na_position="last").reset_index(drop=True)
-        col_meta_a, col_meta_b, col_meta_c = st.columns(3)
-        with col_meta_a: st.metric("Worksheet Aktif", sheet_name)
-        with col_meta_b: st.metric("Jumlah Baris", len(sheet_df))
-        with col_meta_c: st.metric("Total Stok Sisa", int(sheet_df["Stok Sisa"].fillna(0).sum()))
-
-        st.markdown("---")
-        search_text = st.text_input("🔍 Cari Data Retur (Nama Produk, Batch, dll)", placeholder="Ketik kata kunci pencarian...", key="retur_search_input")
-        if search_text.strip():
-            mask = sheet_df.astype(str).apply(lambda col: col.str.contains(search_text.strip(), case=False, na=False)).any(axis=1)
-            filtered_df = sheet_df[mask].copy()
-        else: filtered_df = sheet_df.copy()
-
-        if filtered_df.empty: st.stop()
-
-        st.subheader("📦 Pilih Produk untuk Retur")
-        preview_df = filtered_df[["Nama produk", "Nomor Batch", "Satuan", "Tanggal Kadaluwarsa", "Stok Sisa", "Harga 1", "Keterangan"]].copy()
-        preview_df["Tanggal Kadaluwarsa"] = preview_df["Tanggal Kadaluwarsa"].apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
-        st.dataframe(preview_df, use_container_width=True, hide_index=True, height=260)
-
-        product_options = filtered_df["Nama produk"].fillna("").astype(str).drop_duplicates().tolist()
-        selected_product = st.selectbox("Pilih Produk", product_options, key="retur_product_select")
-        
-        if selected_product:
-            product_rows = filtered_df[filtered_df["Nama produk"].fillna("").astype(str).str.lower() == str(selected_product).lower()].copy()
-            if not product_rows.empty:
-                selected_batch = st.selectbox("Pilih Nomor Batch", product_rows["Nomor Batch"].fillna("-").astype(str).drop_duplicates().tolist(), key="retur_batch_select")
-                match_batch = product_rows[product_rows["Nomor Batch"].fillna("-").astype(str) == str(selected_batch)]
-                if not match_batch.empty: selected_row = match_batch.iloc[0]
-                else: selected_row = product_rows.iloc[0]
-
-                with st.form("form_retur_entry"):
-                    qty_retur = st.number_input("Jumlah Retur (unit)", min_value=0.0, step=1.0, value=0.0)
-                    ket_val = sanitize_excel_value(selected_row.get("Keterangan", ""))
-                    keterangan_retur = st.text_area("Keterangan Retur", value=str(ket_val) if ket_val else "", height=90)
-                    if st.form_submit_button("➕ Tambahkan ke Daftar Retur", type="primary"):
-                        if qty_retur <= 0: st.warning("Jumlah retur harus lebih dari 0.")
-                        else:
-                            exp_date = parse_excel_date(selected_row.get("Tanggal Kadaluwarsa"))
-                            if pd.isna(exp_date): exp_date = get_wib_time().date()
-                            else: exp_date = exp_date.date()
-
-                            new_item = {
-                                "Nama produk": selected_row.get("Nama produk", ""), "Satuan": selected_row.get("Satuan", ""), "Nomor Batch": selected_batch,
-                                "Tanggal Kadaluwarsa": exp_date, "Stok Sisa": float(selected_row.get("Stok Sisa", 0)), "Jumlah Retur": float(qty_retur),
-                                "Harga 1": float(selected_row.get("Harga 1", 0)), "Keterangan": keterangan_retur
-                            }
-                            st.session_state.retur_items = pd.concat([st.session_state.retur_items, pd.DataFrame([new_item])], ignore_index=True)
-                            st.toast(f"✅ Produk **{selected_product}** berhasil ditambahkan ke daftar retur.")
-                            time.sleep(1)
-                            st.rerun()
-
-        st.markdown("---")
-        st.subheader("🧾 Daftar Item Retur")
-        all_items_df = build_inventory_print_dataframe()
-
-        if st.session_state.retur_items.empty:
-            st.info("Belum ada item retur.")
-            edited_df = st.session_state.retur_items
-        else:
-            opsi_produk_r, opsi_satuan_r, opsi_batch_r = get_dataset_options(st.session_state.retur_items)
-            edited_df = st.data_editor(st.session_state.retur_items.copy(), use_container_width=True, num_rows="dynamic", hide_index=True,
-                column_config={"Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_r, width="large"), "Tanggal Kadaluwarsa": st.column_config.DateColumn("Tanggal Kadaluwarsa", format="YYYY-MM-DD")}, key="data_editor_retur")
-            
-            for i, row in edited_df.iterrows():
-                if pd.isna(row.get("Tanggal Kadaluwarsa")): edited_df.at[i, "Tanggal Kadaluwarsa"] = None
-                elif isinstance(row["Tanggal Kadaluwarsa"], pd.Timestamp): edited_df.at[i, "Tanggal Kadaluwarsa"] = row["Tanggal Kadaluwarsa"].date()
-
-            changed_retur = False
-            for i, row in edited_df.iterrows():
-                new_nama = str(row["Nama produk"]).strip() if pd.notna(row["Nama produk"]) else ""
-                old_nama = str(st.session_state.retur_items.loc[i, "Nama produk"]).strip() if i in st.session_state.retur_items.index else ""
-                if new_nama and new_nama.lower() not in ["none", "nan"] and new_nama != old_nama:
-                    match = all_items_df[all_items_df["Nama produk"].astype(str).str.strip() == new_nama]
-                    if not match.empty:
-                        prod = match.iloc[0]
-                        edited_df.at[i, "Satuan"] = str(prod["Satuan"]) if pd.notna(prod["Satuan"]) else ""
-                        edited_df.at[i, "Nomor Batch"] = str(prod["Nomor Batch"]) if pd.notna(prod["Nomor Batch"]) else ""
-                        t_exp = parse_excel_date(prod["Tanggal Kadaluwarsa"])
-                        if pd.notna(t_exp): edited_df.at[i, "Tanggal Kadaluwarsa"] = t_exp.date()
-                        edited_df.at[i, "Stok Sisa"] = float(prod["Stok Sisa"]) if pd.notna(prod["Stok Sisa"]) else 0.0
-                        edited_df.at[i, "Harga 1"] = float(prod["Harga 1"]) if pd.notna(prod["Harga 1"]) else 0.0
-                        changed_retur = True
-
-            if changed_retur: st.session_state.retur_items = edited_df; st.rerun()
-            else: st.session_state.retur_items = edited_df
-
-        total_retur = float((edited_df["Jumlah Retur"].fillna(0) * edited_df["Harga 1"].fillna(0)).sum()) if not edited_df.empty else 0.0
-
-        col_save, col_reset = st.columns([1, 1])
-        with col_save:
-            if st.button("💾 Simpan Retur ke Database", type="primary", use_container_width=True):
-                if edited_df.empty or edited_df["Jumlah Retur"].fillna(0).sum() <= 0: st.warning("Daftar retur masih kosong atau belum ada jumlah retur yang valid.")
-                else:
-                    df_history = load_data()
-                    new_history_rows = []
-                    active_df = prepare_sheet_for_editor(workbook_data[sheet_name].copy())
-                    current_petugas = USERS.get(st.session_state.username, {}).get("name", "Sistem")
-                    
-                    for _, item in edited_df.iterrows():
-                        qty_retur_item = float(item["Jumlah Retur"]) if pd.notna(item["Jumlah Retur"]) else 0.0
-                        if qty_retur_item <= 0: continue
-                        nama_item = str(item["Nama produk"]).strip() if pd.notna(item["Nama produk"]) else ""
-                        batch_item = str(item["Nomor Batch"]).strip() if pd.notna(item["Nomor Batch"]) else ""
-                        
-                        mask = ((active_df["Nama produk"].fillna("").astype(str).str.lower() == nama_item.lower()) & (active_df["Nomor Batch"].fillna("").astype(str).str.lower() == batch_item.lower()))
-                        if not mask.any(): continue
-                            
-                        idx = active_df[mask].index[-1]
-                        stok_sisa_lama = float(active_df.loc[idx, "Stok Sisa"] if pd.notna(active_df.loc[idx, "Stok Sisa"]) else 0)
-                        stok_baru = max(stok_sisa_lama - qty_retur_item, 0)
-                        active_df.loc[idx, "Stok Sisa"] = stok_baru
-                        active_df.loc[idx, "Stok Keluar"] = float(active_df.loc[idx, "Stok Keluar"] if pd.notna(active_df.loc[idx, "Stok Keluar"]) else 0) + qty_retur_item
-                        active_df.loc[idx, "Keterangan"] = str(item["Keterangan"]) if pd.notna(item["Keterangan"]) else active_df.loc[idx, "Keterangan"]
-
-                        harga_1_item = float(item["Harga 1"]) if pd.notna(item["Harga 1"]) else 0.0
-                        t_exp_s = parse_excel_date(item["Tanggal Kadaluwarsa"])
-                        
-                        new_history_rows.append({
-                            "Tanggal": get_wib_time().strftime("%Y-%m-%d %H:%M:%S"), 
-                            "Nomor Faktur": "RETUR", 
-                            "Nama Obat": nama_item, 
-                            "Kategori": sheet_name, 
-                            "Satuan": str(item["Satuan"]) if pd.notna(item["Satuan"]) else "", 
-                            "Nomor Batch": batch_item,
-                            "Stok Masuk": 0.0, "Stok Keluar": qty_retur_item, "Stok Akhir": stok_baru, 
-                            "Harga Satuan (Rp)": harga_1_item,
-                            "Total Nilai (Rp)": qty_retur_item * harga_1_item, 
-                            "Tanggal Kadaluarsa": t_exp_s if pd.notna(t_exp_s) else pd.NaT,
-                            "Keterangan": f"Retur Pembelian Obat",
-                            "Petugas": current_petugas
-                        })
-
-                    workbook_data[sheet_name] = active_df
-                    st.session_state.inventory_data_cache = workbook_data
-                    save_inventory_workbook(workbook_data)
-
-                    if new_history_rows:
-                        df_history = pd.concat([df_history, pd.DataFrame(new_history_rows)], ignore_index=True)
-                        save_data(df_history)
-
-                    history_row = pd.DataFrame([{"Nomor Faktur": str(selected_batch) if 'selected_batch' in locals() else "-", "Tanggal Retur": pd.Timestamp(get_wib_time().date()), "Jumlah Item": int(len(edited_df[edited_df["Jumlah Retur"].fillna(0) > 0])), "Total Nilai Retur": total_retur, "Tanggal Disimpan": get_wib_time()}])
-                    st.session_state.retur_history = pd.concat([st.session_state.retur_history, history_row], ignore_index=True)
-                    save_retur_history(st.session_state.retur_history)
-
-                    st.toast("✅ Retur berhasil disimpan!")
-                    time.sleep(1)
-                    st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns)
-                    st.rerun()
-        with col_reset:
-            if st.button("🔄 Reset Daftar Retur", type="secondary", use_container_width=True):
-                st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns); st.rerun()
-
-        st.markdown("---")
-        st.subheader("📜 Riwayat Retur (Permanen)")
-        if st.session_state.retur_history.empty: st.info("Belum ada riwayat retur.")
-        else:
-            history_display = st.session_state.retur_history.copy()
-            history_display["Tanggal Retur"] = pd.to_datetime(history_display["Tanggal Retur"]).apply(lambda x: x.strftime("%d-%m-%Y") if pd.notna(x) else "")
-            history_display["Tanggal Disimpan"] = pd.to_datetime(history_display["Tanggal Disimpan"]).apply(lambda x: x.strftime("%d-%m-%Y %H:%M:%S") if pd.notna(x) else "")
-            history_display["Total Nilai Retur"] = pd.to_numeric(history_display["Total Nilai Retur"], errors="coerce").fillna(0).apply(lambda x: f"Rp {x:,.2f}".replace(",", "."))
-            st.dataframe(history_display, use_container_width=True, hide_index=True)
-
-    with tab_entri:
-        st.markdown("<div class='app-header'><div class='app-title'>🛍️ Entry Pembelian Obat</div><div class='app-subtitle'>Catat restok secara ringkas, dan simpan langsung ke Database.</div></div>", unsafe_allow_html=True)
-        if "inventory_data_cache" not in st.session_state or not st.session_state.inventory_data_cache: st.stop()
-            
-        st.caption("Pencarian obat dilakukan dari seluruh worksheet. Entry pembelian ini akan langsung menambah riwayat pada Database.")
-        no_faktur = st.text_input("No. Faktur Pembelian", key="no_faktur_pembelian")
-        pbf_default = st.text_input("PBF (Distributor) Default", key="pbf_pembelian")
-        
-        all_items_df = build_inventory_print_dataframe()
-        cari_obat_input = st.text_input("🔍 Pencarian Produk (Semua Data: Nama, Batch, Faktur, dll)", placeholder="Ketik kata kunci pencarian...", key="cari_obat_pembelian_input")
-        
-        if cari_obat_input.strip() and all_items_df is not None and not all_items_df.empty:
-            mask = all_items_df.astype(str).apply(lambda col: col.str.contains(cari_obat_input.strip(), case=False, na=False)).any(axis=1)
-            hasil = all_items_df[mask]
-            
-            if not hasil.empty:
-                st.success(f"Ditemukan {len(hasil)} entri. Pilih salah satu baris di bawah, lalu klik Tambahkan:")
-                tabel_cari_df = hasil[["Worksheet", "Nama produk", "Satuan", "Harga 1", "Harga 2", "Stok Sisa"]].drop_duplicates(subset=["Worksheet", "Nama produk"]).reset_index(drop=True)
-                event_beli = st.dataframe(tabel_cari_df, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row", key="table_hasil_pencarian_pembelian")
-                
-                if event_beli.selection.rows:
-                    idx = event_beli.selection.rows[0]
-                    if idx < len(tabel_cari_df):
-                        selected_row = tabel_cari_df.iloc[idx]
-                        if st.button(f"➕ Tambahkan '{selected_row['Nama produk']}' ke Tabel Entry", key="tambah_ke_pembelian"):
-                            new_row = {
-                                "No.": len(st.session_state.df_beli) + 1, "Worksheet": selected_row["Worksheet"], "Nama produk": selected_row["Nama produk"],
-                                "Satuan": selected_row["Satuan"], "Nomor Batch": "", "Tanggal Kadaluwarsa": (get_wib_time() + timedelta(days=365)).date(),
-                                "Stok Masuk": 0.0, "Harga 1": float(selected_row["Harga 1"]) if pd.notna(selected_row["Harga 1"]) else 0.0,
-                                "Harga 2": float(selected_row["Harga 2"]) if pd.notna(selected_row["Harga 2"]) else 0.0, "Keterangan": ""
-                            }
-                            df_existing = st.session_state.df_beli
-                            if len(df_existing) == 1 and not str(df_existing.iloc[0]["Nama produk"]).strip(): st.session_state.df_beli = pd.DataFrame([new_row])
-                            else: st.session_state.df_beli = pd.concat([df_existing, pd.DataFrame([new_row])], ignore_index=True)
-                            st.toast(f"✅ {selected_row['Nama produk']} ditambahkan ke tabel entry!")
-                            time.sleep(0.5)
-                            st.rerun()
-
-        st.markdown("---")
-        st.subheader("📦 Rincian Item Entry")
-        if "df_beli" not in st.session_state:
-            st.session_state.df_beli = pd.DataFrame([{"No.": 1, "Worksheet": "TAB", "Nama produk": "", "Satuan": "TAB", "Nomor Batch": "", "Tanggal Kadaluwarsa": get_wib_time().date(), "Stok Masuk": 0.0, "Harga 1": 0.0, "Harga 2": 0.0, "Keterangan": ""}])
-            
-        opsi_produk_e, _, _ = get_dataset_options(st.session_state.df_beli)
-        AVAILABLE_SHEETS = get_available_sheets()
-
-        edited_df = st.data_editor(
-            st.session_state.df_beli.copy(), use_container_width=True, num_rows="dynamic", hide_index=True,
-            column_config={
-                "Worksheet": st.column_config.SelectboxColumn("Worksheet Tujuan", options=AVAILABLE_SHEETS, width="small"),
-                "Nama produk": st.column_config.SelectboxColumn("Nama Produk", options=opsi_produk_e, width="large"),
-                "Tanggal Kadaluwarsa": st.column_config.DateColumn("Exp Date", format="YYYY-MM-DD")
-            }, key="df_beli_editor"
-        )
-        
-        for i, row in edited_df.iterrows():
-            if pd.isna(row.get("Tanggal Kadaluwarsa")): edited_df.at[i, "Tanggal Kadaluwarsa"] = None
-            elif isinstance(row["Tanggal Kadaluwarsa"], pd.Timestamp): edited_df.at[i, "Tanggal Kadaluwarsa"] = row["Tanggal Kadaluwarsa"].date()
-
-        changed_beli = False
-        for i, row in edited_df.iterrows():
-            new_nama = str(row["Nama produk"]).strip() if pd.notna(row.get("Nama produk")) else ""
-            old_nama = str(st.session_state.df_beli.loc[i, "Nama produk"]).strip() if i in st.session_state.df_beli.index else ""
-            if new_nama and new_nama.lower() not in ["none", "nan"] and new_nama != old_nama:
-                match = all_items_df[all_items_df["Nama produk"].astype(str).str.strip() == new_nama]
-                if not match.empty:
-                    prod = match.iloc[0]
-                    edited_df.at[i, "Worksheet"] = prod["Worksheet"]
-                    edited_df.at[i, "Satuan"] = str(prod["Satuan"]) if pd.notna(prod["Satuan"]) else ""
-                    t_exp = parse_excel_date(prod["Tanggal Kadaluwarsa"])
-                    if pd.notna(t_exp): edited_df.at[i, "Tanggal Kadaluwarsa"] = t_exp.date()
-                    edited_df.at[i, "Harga 1"] = float(prod["Harga 1"]) if pd.notna(prod["Harga 1"]) else 0.0
-                    edited_df.at[i, "Harga 2"] = float(prod["Harga 2"]) if pd.notna(prod["Harga 2"]) else 0.0
-                    changed_beli = True
-
-        if changed_beli: st.session_state.df_beli = edited_df; st.rerun()
-        else: st.session_state.df_beli = edited_df
-        
-        col_simpan_beli, col_reset_beli = st.columns([1, 1])
-        with col_simpan_beli:
-            if st.button("💾 Simpan Entry ke Database", type="primary", use_container_width=True):
-                has_valid_item = any(pd.notna(r["Nama produk"]) and str(r["Nama produk"]).strip() != "" and str(r["Nama produk"]).strip().lower() != "none" for _, r in edited_df.iterrows())
-                if edited_df.empty or not has_valid_item: st.warning("Tabel entry kosong atau nama produk belum diisi secara valid.")
-                else:
-                    workbook_data = st.session_state.inventory_data_cache
-                    jumlah_disimpan = 0
-                    df_history = load_data()
-                    new_history_rows = []
-                    current_petugas = USERS.get(st.session_state.username, {}).get("name", "Sistem")
-                    
-                    for _, row in edited_df.iterrows():
-                        nama = str(row["Nama produk"]).strip() if pd.notna(row["Nama produk"]) else ""
-                        stok_masuk = float(row["Stok Masuk"]) if pd.notna(row["Stok Masuk"]) else 0.0
-                        ws_target = str(row["Worksheet"]) if pd.notna(row["Worksheet"]) else ""
-                        
-                        if not nama or nama.lower() in ["none", "nan"] or stok_masuk <= 0 or ws_target not in workbook_data: continue
-                            
-                        sheet_df = prepare_sheet_for_editor(workbook_data[ws_target].copy())
-                        harga1_beli = float(row["Harga 1"]) if pd.notna(row["Harga 1"]) else 0.0
-                        
-                        t_exp_e = parse_excel_date(row["Tanggal Kadaluwarsa"])
-                        tgl_exp = t_exp_e if pd.notna(t_exp_e) else pd.Timestamp(get_wib_time().date() + timedelta(days=365))
-
-                        new_buy = {
-                            "Nama produk": nama, "Satuan": str(row["Satuan"]) if pd.notna(row["Satuan"]) else "",
-                            "Tanggal": pd.Timestamp(get_wib_time().date()), "Nomor Faktur": no_faktur, "Nomor Batch": str(row["Nomor Batch"]) if pd.notna(row["Nomor Batch"]) else "",
-                            "PBF": pbf_default, "Tanggal Kadaluwarsa": tgl_exp, "Stok Masuk": stok_masuk, "Stok Keluar": 0.0, "Stok Sisa": stok_masuk,
-                            "Harga 1": harga1_beli, "Harga 2": float(row["Harga 2"]) if pd.notna(row["Harga 2"]) else 0.0, "Keterangan": str(row["Keterangan"]) if pd.notna(row["Keterangan"]) else ""
-                        }
-                        
-                        sheet_df = pd.concat([sheet_df, pd.DataFrame([new_buy])], ignore_index=True)
-                        workbook_data[ws_target] = sheet_df
-                        jumlah_disimpan += 1
-                        
-                        new_history_rows.append({
-                            "Tanggal": get_wib_time().strftime("%Y-%m-%d %H:%M:%S"), 
-                            "Nomor Faktur": no_faktur,
-                            "Nama Obat": nama, "Kategori": ws_target, "Satuan": new_buy["Satuan"], "Nomor Batch": str(row["Nomor Batch"]) if pd.notna(row["Nomor Batch"]) else "",
-                            "Stok Masuk": stok_masuk, "Stok Keluar": 0.0, "Stok Akhir": stok_masuk, 
-                            "Harga Satuan (Rp)": harga1_beli, "Total Nilai (Rp)": stok_masuk * harga1_beli,
-                            "Tanggal Kadaluarsa": tgl_exp, "Keterangan": f"Pembelian/Stok Masuk Obat",
-                            "Petugas": current_petugas
-                        })
-                        
-                    if jumlah_disimpan > 0:
-                        st.session_state.inventory_data_cache = workbook_data
-                        save_inventory_workbook(workbook_data)
-                        if new_history_rows: save_data(pd.concat([df_history, pd.DataFrame(new_history_rows)], ignore_index=True))
-                        st.session_state.df_beli = pd.DataFrame([{"No.": 1, "Worksheet": "TAB", "Nama produk": "", "Satuan": "", "Nomor Batch": "", "Tanggal Kadaluwarsa": get_wib_time().date(), "Stok Masuk": 0.0, "Harga 1": 0.0, "Harga 2": 0.0, "Keterangan": ""}])
-                        st.toast(f"✅ {jumlah_disimpan} entri berhasil disimpan langsung ke Database!")
-                        time.sleep(1)
-                        st.rerun()
-                    else: st.warning("Tidak ada item valid untuk disimpan.")
-
-        with col_reset_beli:
-            if st.button("🗑️ Reset Tabel Entry", type="secondary", use_container_width=True):
-                st.session_state.df_beli = pd.DataFrame([{"No.": 1, "Worksheet": "TAB", "Nama produk": "", "Satuan": "", "Nomor Batch": "", "Tanggal Kadaluwarsa": get_wib_time().date(), "Stok Masuk": 0.0, "Harga 1": 0.0, "Harga 2": 0.0, "Keterangan": ""}])
-                st.rerun()
-
-# ══════════════════════════════════════════════════════════════════════════════
-# SESI SHIFT (LOCKED LOG HARIAN)
+# SESI SHIFT
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🕒 Sesi Shift":
 
@@ -1933,7 +1228,7 @@ elif menu == "🕒 Sesi Shift":
 
     if st.session_state.get("step_tutup_shift") == 3 and "last_shift_data" in st.session_state:
         st.markdown("<h2 style='text-align: center; margin-bottom: 10px; color: #e0e0e0;'>Laporan Tutup Shift</h2>", unsafe_allow_html=True)
-        st.success("✅ Shift berhasil ditutup. Laporan ini telah terkunci permanen di sistem.")
+        st.success("✅ Shift berhasil ditutup. Laporan ini telah tersimpan permanen di sistem.")
         
         df_report = st.session_state.last_shift_data.copy()
         df_preview = df_report.copy()
@@ -1957,7 +1252,7 @@ elif menu == "🕒 Sesi Shift":
             st.rerun()
 
     else:
-        tab_aktif, tab_riwayat = st.tabs(["🕒 Sesi Shift Saat Ini", "📜 Riwayat & Laporan Shift (Terkunci)"])
+        tab_aktif, tab_riwayat = st.tabs(["🕒 Sesi Shift Saat Ini", "📜 Riwayat & Laporan Shift"])
 
         with tab_aktif:
             if not st.session_state.shift_active:
@@ -2087,13 +1382,13 @@ elif menu == "🕒 Sesi Shift":
                             st.rerun()
 
         with tab_riwayat:
-            st.markdown("### Laporan Riwayat Shift (Terkunci)")
+            st.markdown("### Laporan Riwayat Shift")
             log_df = load_shift_log()
             if log_df.empty:
                 st.info("Belum ada riwayat shift yang tersimpan.")
             else:
                 st.dataframe(log_df, use_container_width=True, hide_index=True)
-                st.caption("ℹ️ Seluruh catatan shift masa lalu terkunci dalam database permanen untuk audit owner/admin.")
+                st.caption("ℹ️ Tips SOP: Laporan ini hanya untuk pengecekan kecocokan uang fisik dan sistem.")
 
 # ── FOOTER ────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
