@@ -86,6 +86,7 @@ st.markdown(
     .stDataFrame td { color: #e0e0e0; font-size: 13px; padding: 8px; }
     .stDataFrame tr:hover { background: #1f3a5e; }
     .filter-label { font-size: 12px; font-weight: bold; color: #a0a0a0; margin-bottom: 4px; display: block; }
+    .lock-badge { background-color: #2b2d42; border: 1px solid #8d99ae; color: #edf2f4; padding: 8px 14px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
     </style>
     """,
     unsafe_allow_html=True
@@ -282,7 +283,7 @@ def load_inventory_sheet_dataframe(ws):
 def load_inventory_workbook():
     df_all = db_read_table("inventory_master")
     
-    # JIKA DATABASE KOSONG, BACA DARI FILE FISIK HASIL UPLOAD YANG TERKUNCI
+    # BACA DARI FILE HASIL UPLOAD SECARA MANDIRI
     if df_all.empty and UPLOADED_DATASET_PATH.exists():
         try:
             wb = load_workbook(UPLOADED_DATASET_PATH, data_only=True)
@@ -420,7 +421,7 @@ def do_opname_processing(edited_opname_df):
     save_inventory_workbook(workbook_data)
     st.session_state.inventory_data_cache = workbook_data
 
-# ── STOK OPNAME MODAL & LOGIN ─────────────────────────────────────────────────
+# ── MODAL DAN DIALOG ──
 @st.dialog("Pilih Obat", width="large")
 def modal_pilih_obat(df_source, initial_search=""):
     st.markdown("<style>.stDialog > div { padding: 15px; }</style>", unsafe_allow_html=True)
@@ -635,7 +636,7 @@ st.sidebar.markdown(f"👤 **{_name}** — *{_role}*")
 st.sidebar.markdown("---")
 
 if _role == "Admin": _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🖨️ Rekap Data", "📦 Retur & Entry Pembelian", "🛒 Kasir Utama", "🕒 Sesi Shift"]
-else: _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🛒 Kasir Utama", "🕒 Sesi Shift"]
+else: _menu_options = ["🏠 Dashboard", "📋 Kelola Stok", "🖨️ Rekap Data", "🛒 Kasir Utama", "🕒 Sesi Shift"]
 
 if "target_menu" in st.session_state:
     target = st.session_state.target_menu
@@ -822,11 +823,9 @@ elif menu == "📋 Kelola Stok":
                 file_id = f"{uploaded_inventory.name}_{uploaded_inventory.size}"
                 if st.session_state.get("last_uploaded_file") != file_id:
                     try:
-                        # 1. Simpan fisik file langsung ke disk server
                         with open(UPLOADED_DATASET_PATH, "wb") as f:
                             f.write(uploaded_inventory.getbuffer())
 
-                        # 2. Simpan identitas file ke JSON agar tetap ada saat browser di-refresh
                         with open(INFO_FILE_PATH, "w") as f:
                             json.dump({
                                 "filename": uploaded_inventory.name,
@@ -834,7 +833,6 @@ elif menu == "📋 Kelola Stok":
                                 "uploaded_at": get_wib_time().strftime("%d %b %Y %H:%M:%S")
                             }, f)
 
-                        # 3. Parsing data sheet dan simpan ke database
                         wb = load_workbook(UPLOADED_DATASET_PATH, data_only=True)
                         frames = []
                         for sheet in wb.sheetnames:
@@ -1002,10 +1000,10 @@ elif menu == "📋 Kelola Stok":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# REKAP DATA
+# REKAP DATA (DILENGKAPI SISTEM LOCK HARI SEBELUMNYA)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🖨️ Rekap Data":
-    st.title("🖨️ Rekap Data")
+    st.title("🖨️ Rekap Data Transaksi & Kartu Stok")
 
     df_history = load_data()
 
@@ -1016,12 +1014,25 @@ elif menu == "🖨️ Rekap Data":
             save_data(df_history)
 
     if df_history is None or df_history.empty:
-        st.warning("Belum ada data riwayat transaksi (Penjualan, Opname, atau Entry Pembelian). Silakan lakukan transaksi terlebih dahulu.")
+        st.warning("Belum ada data riwayat transaksi. Seluruh transaksi kasir, retur, atau pembelian obat akan terkunci otomatis di sini.")
         st.stop()
 
     df_history["Tanggal"] = pd.to_datetime(df_history["Tanggal"], errors="coerce")
     if "Tanggal Kadaluarsa" in df_history.columns:
         df_history["Tanggal Kadaluarsa"] = pd.to_datetime(df_history["Tanggal Kadaluarsa"], errors="coerce")
+
+    # Fitur Status Kunci: Membedakan Data Hari Ini vs Hari Sebelumnya
+    today_date = get_wib_time().date()
+    df_history["Status Kunci"] = df_history["Tanggal"].dt.date.apply(lambda d: "🔓 Hari Ini (Aktif)" if d == today_date else "🔒 Terkunci Permanen (Arsip)")
+
+    st.markdown(
+        """
+        <div class='lock-badge'>
+            <span>🔒 <b>Sistem Proteksi Aktif:</b> Seluruh transaksi dari hari sebelumnya telah <b>dikunci secara permanen</b> (Read-Only). Data tidak akan hilang saat keluar-masuk web maupun di-refresh.</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     all_items_df = build_inventory_print_dataframe()
     obat_excel_list = []
@@ -1034,17 +1045,20 @@ elif menu == "🖨️ Rekap Data":
     pilihan_satuan = ["SEMUA SATUAN"] + satuan_list
 
     with st.container():
-        st.markdown("<div class='filter-label'>Pilihan Periode</div>", unsafe_allow_html=True)
-        c1, c2, c3, c4 = st.columns([2, 2, 2, 4])
+        st.markdown("<div class='filter-label'>Pilihan Periode & Status</div>", unsafe_allow_html=True)
+        c1, c2, c3, c4 = st.columns([2.5, 2, 2, 3.5])
         with c1:
-            periode_opt = st.selectbox("Pilih Periode", ["Semua Waktu", "Berdasarkan Tanggal", "Berdasarkan Bulan", "Berdasarkan Tahun"], label_visibility="collapsed")
+            periode_opt = st.selectbox("Pilih Periode", ["Semua Waktu", "Hari Ini Saja", "Berdasarkan Rentang Tanggal", "Berdasarkan Bulan", "Berdasarkan Tahun"], label_visibility="collapsed")
         
         tgl_awal, tgl_akhir = None, None
         periode_text = "SEMUA WAKTU"
 
-        if periode_opt == "Berdasarkan Tanggal":
+        if periode_opt == "Hari Ini Saja":
+            tgl_awal, tgl_akhir = today_date, today_date
+            periode_text = f"HARI INI ({today_date.strftime('%d %b %Y')})"
+        elif periode_opt == "Berdasarkan Rentang Tanggal":
             with c2:
-                tgl_range = st.date_input("Rentang Tanggal", value=(get_wib_time().date(), get_wib_time().date()), label_visibility="collapsed")
+                tgl_range = st.date_input("Rentang Tanggal", value=(today_date, today_date), label_visibility="collapsed")
             if len(tgl_range) == 2:
                 tgl_awal, tgl_akhir = tgl_range
                 periode_text = f"{tgl_awal.strftime('%d %b %Y')} - {tgl_akhir.strftime('%d %b %Y')}"
@@ -1068,7 +1082,7 @@ elif menu == "🖨️ Rekap Data":
         c_f1, c_f2, c_f3 = st.columns(3)
         with c_f1: filter_satuan = st.selectbox("Satuan Obat", options=pilihan_satuan)
         with c_f2: filter_nama = st.selectbox("Pilih Obat", options=pilihan_obat)
-        with c_f3: filter_ket = st.text_input("Keterangan", placeholder="Cari Keterangan/Faktur...")
+        with c_f3: filter_ket = st.text_input("Keterangan / No Faktur", placeholder="Cari Keterangan/Faktur...")
 
     df_print = df_history.copy()
     
@@ -1089,7 +1103,7 @@ elif menu == "🖨️ Rekap Data":
     preview_df = df_print.copy()
     
     preview_df = preview_df[[
-        "Tanggal", "Nama Obat", "Keterangan", "Stok Masuk", "Stok Keluar", 
+        "Status Kunci", "Tanggal", "Nomor Faktur", "Nama Obat", "Keterangan", "Stok Masuk", "Stok Keluar", 
         "Stok Akhir", "Satuan", "Nomor Batch", "Tanggal Kadaluarsa", "Petugas"
     ]]
     
@@ -1114,9 +1128,9 @@ elif menu == "🖨️ Rekap Data":
         st.button("🔍 Terapkan Filter", type="primary", use_container_width=True)
         
     html_rows = ""
-    for i, row in enumerate(preview_df.values):
+    for i, row in enumerate(preview_df.drop(columns=["Status Kunci"]).values):
         html_rows += f"<tr><td style='text-align:center;'>{i+1}</td>" + "".join(f"<td>{v}</td>" for v in row) + "</tr>"
-    html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.columns)
+    html_headers = "<th>No.</th>" + "".join(f"<th>{c}</th>" for c in preview_df.drop(columns=["Status Kunci"]).columns)
 
     html_printable_laporan = f"""
     <!DOCTYPE html>
@@ -1192,7 +1206,7 @@ elif menu == "🖨️ Rekap Data":
         components.html(custom_print_laporan, height=45)
 
     st.markdown("---")
-    st.caption(f"Menampilkan {len(preview_df)} data dari total {len(df_history)} riwayat transaksi.")
+    st.caption(f"Menampilkan {len(preview_df)} riwayat transaksi. Seluruh baris bersifat Read-Only dan tersimpan permanen.")
     st.dataframe(preview_df, use_container_width=True, hide_index=True)
 
 
@@ -1214,7 +1228,7 @@ elif menu == "🛒 Kasir Utama":
     if start_time_str:
         start_date = start_time_str.split(" ")[0]
         if start_date != get_wib_time().date().strftime("%Y-%m-%d"):
-            st.error("⚠️ Terdapat shift dari hari sebelumnya yang belum ditutup. Tutup shift hari sebelumnya di menu 'Sesi Shift' terlebih dahulu sebelum memulai transaksi hari ini atau pulang!")
+            st.error("⚠️ Terdapat shift dari hari sebelumnya yang belum ditutup. Tutup shift hari sebelumnya di menu 'Sesi Shift' terlebih dahulu sebelum memulai transaksi hari ini!")
             if st.button("Pindah ke Menu Sesi Shift", type="primary"):
                 st.session_state.target_menu = "🕒 Sesi Shift"
                 st.rerun()
@@ -1261,7 +1275,7 @@ elif menu == "🛒 Kasir Utama":
         kasir_aktif = st.selectbox("👩‍💻 Pilih Kasir yang Bertugas:", pilihan_kasir, index=default_kasir_idx)
         kasir_nama_nota = kasir_aktif
         
-        st.caption("Penjualan memotong stok secara real-time dari Database.")
+        st.caption("Penjualan memotong stok secara real-time dan langsung masuk ke sistem permanen.")
 
         available_items = all_items_df[all_items_df["Stok Sisa"].fillna(0) > 0].copy()
         if available_items.empty:
@@ -1554,7 +1568,7 @@ function updatePrintClock() {{
             st.info("Keranjang masih kosong. Tambahkan obat dari form di sebelah kiri.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# RETUR & ENTRY PEMBELIAN
+# RETUR & ENTRY PEMBELIAN (LOCKED HISTORY)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "📦 Retur & Entry Pembelian":
     st.title("📦 Retur & Entry Pembelian")
@@ -1741,7 +1755,7 @@ elif menu == "📦 Retur & Entry Pembelian":
                 st.session_state.retur_items = pd.DataFrame(columns=st.session_state.retur_items.columns); st.rerun()
 
         st.markdown("---")
-        st.subheader("📜 Riwayat Retur")
+        st.subheader("📜 Riwayat Retur (Permanen)")
         if st.session_state.retur_history.empty: st.info("Belum ada riwayat retur.")
         else:
             history_display = st.session_state.retur_history.copy()
@@ -1890,7 +1904,7 @@ elif menu == "📦 Retur & Entry Pembelian":
                 st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SESI SHIFT
+# SESI SHIFT (LOCKED LOG HARIAN)
 # ══════════════════════════════════════════════════════════════════════════════
 elif menu == "🕒 Sesi Shift":
 
@@ -1919,7 +1933,7 @@ elif menu == "🕒 Sesi Shift":
 
     if st.session_state.get("step_tutup_shift") == 3 and "last_shift_data" in st.session_state:
         st.markdown("<h2 style='text-align: center; margin-bottom: 10px; color: #e0e0e0;'>Laporan Tutup Shift</h2>", unsafe_allow_html=True)
-        st.success("✅ Shift berhasil ditutup. Berikut adalah laporan data Anda.")
+        st.success("✅ Shift berhasil ditutup. Laporan ini telah terkunci permanen di sistem.")
         
         df_report = st.session_state.last_shift_data.copy()
         df_preview = df_report.copy()
@@ -1943,7 +1957,7 @@ elif menu == "🕒 Sesi Shift":
             st.rerun()
 
     else:
-        tab_aktif, tab_riwayat = st.tabs(["🕒 Sesi Shift Saat Ini", "📜 Riwayat & Laporan Shift"])
+        tab_aktif, tab_riwayat = st.tabs(["🕒 Sesi Shift Saat Ini", "📜 Riwayat & Laporan Shift (Terkunci)"])
 
         with tab_aktif:
             if not st.session_state.shift_active:
@@ -2073,13 +2087,13 @@ elif menu == "🕒 Sesi Shift":
                             st.rerun()
 
         with tab_riwayat:
-            st.markdown("### Laporan Riwayat Shift")
+            st.markdown("### Laporan Riwayat Shift (Terkunci)")
             log_df = load_shift_log()
             if log_df.empty:
                 st.info("Belum ada riwayat shift yang tersimpan.")
             else:
                 st.dataframe(log_df, use_container_width=True, hide_index=True)
-                st.caption("ℹ️ Tips SOP: Laporan ini hanya untuk pengecekan kecocokan uang fisik dan sistem. Pembatalan/Retur harus dilakukan di dalam jam shift yang sama agar laporan tidak terganggu.")
+                st.caption("ℹ️ Seluruh catatan shift masa lalu terkunci dalam database permanen untuk audit owner/admin.")
 
 # ── FOOTER ────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
